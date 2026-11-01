@@ -36,8 +36,7 @@ export function stripTiles(strip: StripSummary): TileView[] {
   return STRIP_ORDER.map((status) => {
     const tile = tileFor(strip, status)
     if (status === 'paid') {
-      const month = strip.paid_month_label ?? 'month'
-      return { ...tile, count: strip.paid_month_count, cents: strip.paid_month_cents, label: `Paid · ${month}` }
+      return { ...tile, count: strip.paid_month_count, cents: strip.paid_month_cents, label: `Paid · ${strip.paid_month_label}` }
     }
     return { ...tile, label: STATUS_LABEL[status] }
   })
@@ -68,5 +67,5 @@ export type NavBadgeKey = 'inbox' | 'payments' | 'eligibility' | 'activity'
 export function navBadge(strip: StripSummary | undefined, key: NavBadgeKey): number | null {
   if (!strip) return null
   if (key === 'inbox') return strip.inbox_open
-  return strip.nav_badges?.[key] ?? null
+  return strip.nav_badges[key]
 }

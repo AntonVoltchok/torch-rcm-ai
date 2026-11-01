@@ -29,6 +29,8 @@ describe('strip selectors', () => {
     expect(flaggedTotal(strip)).toBe(9)
     expect(navBadge(strip, 'inbox')).toBe(12)
     expect(navBadge(strip, 'eligibility')).toBe(3)
+    expect(navBadge(strip, 'payments')).toBe(3)
+    expect(navBadge(strip, 'activity')).toBe(41)
     expect(navBadge(undefined, 'inbox')).toBeNull()
   })
 })

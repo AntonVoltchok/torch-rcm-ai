@@ -490,7 +490,7 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     rarc: 'N10',
     decoded: 'Not deemed medically necessary after consultant review',
     root_cause: 'payer',
-    deadline: { kind: 'appeal', due_on: '2027-04-26', basis: 'ERISA: 180 days from the 10/28 EOB' },
+    deadline: { kind: 'appeal', due_on: '2027-04-27', basis: 'Guardian ERISA: 180 days from the 10/29 835' },
     item: { agent: 'appeals', tier: 3, title: '#4796 · L. Ito · Guardian · CO-50 · N10 formal appeal', recommendation: 'Formal appeal (level 1 of 2) with the 10/09 perio chart and FMX. Dr. Lee signs; the patient must authorize (self-funded ERISA plan).', summary: 'Consultant review denied D4341 UR + UL as not medically necessary. The chart shows ≥ 5 mm pockets in UR.', action: 'formal_appeal', rule_id: 'rule_t3_formal_appeal', required_role: 'dentist' },
   },
   {
@@ -498,9 +498,9 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     carc: 'CO-16',
     rarc: 'M127',
     decoded: 'Records requested: send the chart and radiographs',
-    root_cause: 'ours', // the mocks' call: our claim went out with the wrong chart, so the records rule may not auto-run it
-    deadline: { kind: 'timely_filing', due_on: '2027-04-07', basis: 'Guardian: 180 days from DOS 10/09' },
-    item: { agent: 'followup', tier: 1, title: '#4797 · A. Castillo · Guardian · records request', recommendation: 'Send the 10/09 perio chart and FMX via NEA and reference the claim number.', summary: 'Guardian’s 835 asks for records (M127): our claim went out with the wrong chart. Root cause: ours, so the records rule does not run it without review.', action: 'records_request', rule_id: 'rule_t1_records_request' },
+    root_cause: 'ours', // the Claims agent sent the FMX where Guardian's rule names the perio chart, so the records rule may not run it
+    deadline: { kind: 'none', due_on: null, basis: 'records request · no payer deadline' },
+    item: { agent: 'followup', tier: 1, title: '#4797 · A. Castillo · Guardian · records request', recommendation: 'Send the 10/09 perio chart and FMX via NEA and reference the claim number.', summary: 'Guardian’s 835 asks for records (M127). Our Claims agent sent the FMX where Guardian’s rule names the perio chart, so root cause is ours and the records request is held for Dana.', action: 'records_request', rule_id: 'rule_t1_records_request' },
   },
   {
     number: 4800,
@@ -509,7 +509,7 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     decoded: 'Care may be covered by another payer (coordination of benefits)',
     root_cause: 'payer',
     deadline: { kind: 'timely_filing', due_on: '2027-10-13', basis: 'MetLife: 12 months from DOS 10/13 · new primary claim' },
-    item: { agent: 'followup', tier: 2, title: '#4800 · S. Moreno · Aetna · COB (CO-22)', recommendation: 'Change the coverage order in the PMS (MetLife primary since the 09/01 job change) and send a new primary claim to MetLife.', summary: 'Aetna says another plan is primary. Changing the PMS coverage order is tier 2 and no signed rule covers it → Dana.', action: 'cob_order_change', rule_id: null },
+    item: { agent: 'followup', tier: 2, title: '#4800 · S. Moreno · Aetna · COB (CO-22)', recommendation: 'Change the coverage order in the PMS so the MetLife plan on file (listed secondary) is primary, then send a new primary claim to MetLife.', summary: 'Aetna says another plan is primary. Changing the PMS coverage order is tier 2 and no signed rule covers it → Dana.', action: 'cob_order_change', rule_id: null },
   },
   {
     number: 3561,
@@ -517,26 +517,10 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     rarc: null,
     decoded: 'The time limit for filing has expired',
     root_cause: 'payer',
-    deadline: { kind: 'appeal', due_on: '2027-04-26', basis: 'MetLife: 180 days from the 10/28 EOB' },
+    deadline: { kind: 'appeal', due_on: '2027-04-27', basis: 'MetLife: 180 days from the 10/29 835' },
     item: { agent: 'appeals', tier: 3, title: '#3561 · G. Morris · MetLife · timely filing (CO-29)', recommendation: 'Timely-filing appeal with MetLife’s own 11/04/2025 277CA as proof of receipt. If upheld: non-contractual write-off, the patient cannot be billed.', summary: 'MetLife has no record of the 11/2025 submission; our 277CA from 11/04/2025 shows they received it.', action: 'formal_appeal', rule_id: 'rule_t3_formal_appeal', required_role: 'owner' },
   },
 ]
-
-/**
- * Lindgren: built at checkout 10:51 (after the 10:40 snapshot) and held — the note is signed by Dr. Lee but the
- * line lists Dr. Morgan as rendering. With the four denials and one held ERA line it takes the Inbox 10 → 16.
- */
-export const LINDGREN = {
-  number: 4868,
-  patient: 'C. Lindgren',
-  payer: 'metlife' as const,
-  procs: 'D2740 #3',
-  billed_cents: 109000,
-  built_at: at(TODAY, '10:51'),
-  title: '#4868 · C. Lindgren · MetLife · rendering provider mismatch (held)',
-  recommendation: 'Fix the rendering provider in the PMS (the note is signed by Dr. Lee; the line lists Dr. Morgan) — it leaves in the next file.',
-  summary: 'Held at checkout 10:51: the claim would go out under the wrong rendering provider.',
-}
 
 export const VIEWS: SavedView[] = [
   { id: 'view_pending_30', name: 'Pending 31–60 d', search_params: { status: ['pending'], age: '31_60', sort: '-age' }, owner_user_id: 'usr_dana', builtin: false },

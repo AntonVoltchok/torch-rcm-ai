@@ -54,7 +54,7 @@ export function ClaimsPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Claims"
-        sub={s ? `${count(openTotals(s).count)} open · ${money(arTotals(s).cents)} in A/R · ${count(s.paid_month_count)} paid in ${s.paid_month_label ?? 'the month'}` : undefined}
+        sub={s ? `${count(openTotals(s).count)} open · ${money(arTotals(s).cents)} in A/R · ${count(s.paid_month_count)} paid in ${s.paid_month_label}` : undefined}
       />
       <SavedViews search={search} strip={s} />
       <ClaimsFilters />

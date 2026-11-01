@@ -30,7 +30,7 @@ function invariants(db: MockDb) {
   const claims = db.claims({ limit: 10_000 }).items
   for (const s of CLAIM_STATUSES) {
     const group = claims.filter((c) => c.status === s)
-    expect(strip.tiles.find((t) => t.status === s)).toMatchObject({ count: group.length, cents: group.reduce((a, c) => a + c.billed_cents, 0) })
+    expect(strip.tiles.find((t) => t.status === s)).toMatchObject({ count: group.length, cents: s === 'paid' ? strip.paid_month_cents : group.reduce((a, c) => a + c.billed_cents, 0) })
   }
   expect(strip.inbox_open).toBe(db.inbox({}).items.length)
   expect(strip.ar_cents).toBe(strip.tiles.filter((t) => !['ready', 'paid'].includes(t.status)).reduce((a, t) => a + t.cents, 0))
@@ -165,7 +165,7 @@ describe('mock static screens at Wed 10:40', () => {
 })
 
 describe('mock demo step 8: skip to Thu 07:10', () => {
-  it('plays the overnight: Owens group leaves 11:15 (stays denied, in flight), four denials, six paid, Inbox 16, Denied 9', () => {
+  it('plays the overnight: Owens group leaves 11:15 (stays denied, in flight), four denials, six paid, Inbox 17, Denied 9', () => {
     const { db, drain } = throughStep3b()
     expect(db.strip().inbox_open).toBe(10)
     const { advance_id } = db.advanceClock(THURSDAY_0710, 'usr_morgan')
@@ -183,7 +183,22 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     const strip = db.strip()
     expect(strip.tiles.find((t) => t.status === 'denied')?.count).toBe(9)
     expect(strip.paid_month_count).toBe(124)
-    expect(strip.inbox_open).toBe(16)
+    expect(strip.paid_month_cents).toBe(6_474_646)
+    expect(strip.paid_month_label).toBe('Oct')
+    expect(strip.tiles.map((t) => `${t.status} ${t.count}`)).toEqual(['ready 3', 'sent 1', 'rejected 1', 'accepted 8', 'pending 71', 'denied 9', 'partial 5', 'paid 124', 'appealed 3'])
+    expect(strip.nav_badges).toEqual({ payments: 7, eligibility: 3, activity: 41 })
+    expect(strip.inbox_open).toBe(17)
+    // 10 after step 3b + the four overnight denials + the three status-check proposals; no built or held-ERA items
+    expect(
+      db
+        .inbox({})
+        .items.map((i) => i.id)
+        .filter((id) => !id.startsWith('inb_elig_'))
+        .sort(),
+    ).toEqual(['inb_3561', 'inb_4611', 'inb_4690', 'inb_4705', 'inb_4733', 'inb_4744', 'inb_4748', 'inb_4760', 'inb_4764', 'inb_4772', 'inb_4796', 'inb_4797', 'inb_4800', 'inb_4851'])
+    expect(db.inbox({}).items.find((i) => i.id === 'inb_4690')).toMatchObject({ agent: 'followup', tier: 1, proposed_action: { action: 'status_check' }, rule_id: 'rule_t1_status_check' })
+    expect(db.inbox({}).items.find((i) => i.id === 'inb_4800')).toMatchObject({ tier: 2, rule_id: null })
+    expect(db.inbox({}).items.find((i) => i.id === 'inb_4797')).toMatchObject({ tier: 1, root_cause: 'ours' })
     for (const id of ['clm_4821', 'clm_4836', 'clm_4840']) {
       const c = db.claim(id)
       expect(c.status).toBe('denied')
@@ -202,7 +217,10 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     db.advanceClock(THURSDAY_0710, 'usr_morgan')
     drain()
     const followup = db.activity({ agent: 'followup' }).rows
-    expect(followup.some((r) => r.at.startsWith('2026-10-29') && r.evidence_kinds.includes('ivr_transcript'))).toBe(true)
+    // the Status check rule is Ask: the morning's checks are proposals for Dana, not IVR calls
+    const checks = followup.filter((r) => r.at.startsWith('2026-10-29T07:00') && r.action.includes('status-check'))
+    expect(checks.map((r) => r.subject.slice(0, 5)).sort()).toEqual(['#4690', '#4760', '#4764'])
+    expect(checks.every((r) => r.awaiting_you && r.outcome === 'Awaiting you')).toBe(true)
     expect(followup.some((r) => r.action.includes('DD-1027-88412') && r.evidence_kinds.includes('rep_call'))).toBe(true)
     expect(db.activity({ day: '2026-10-29' }).rows.every((r) => r.at.startsWith('2026-10-29'))).toBe(true)
   })

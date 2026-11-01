@@ -32,7 +32,15 @@ export interface MockClaim extends Omit<ClaimDetail, 'open_inbox_items' | 'needs
   queued_file?: { at: string; kind: 'original' | 'resubmit' | 'corrected' } | null
   /** An open hold (API `Hold`): the claim is on Today's claims under "Held". */
   hold?: Hold | null
+  /**
+   * What the payer paid on an 835 this simulation delivered (demo step 8). The Paid tile counts it; the 118 seeded
+   * paid claims have none and are priced at billed, which is how the fixture reaches the spec's $61,300.
+   */
+  remit_paid_cents?: number | null
 }
+
+/** Cents the Paid tile counts for a claim: the payer's payment when an 835 gave one, else the seed's fixture price. */
+export const paidTileCents = (c: Pick<MockClaim, 'billed_cents' | 'remit_paid_cents'>): number => c.remit_paid_cents ?? c.billed_cents
 
 // ── tiny deterministic PRNG ──────────────────────────────────────────────────
 function mulberry32(seed: number) {
@@ -190,6 +198,16 @@ const PINS: Pin[] = [
   { number: 4801, patient: 'C. Ruiz', payer: 'metlife', status: 'appealed', ageDays: 58, billed: 960, procs: 'D4341 LL, LR', reason: 'reconsideration' },
   { number: 4688, patient: 'H. Lund', payer: 'cigna', status: 'appealed', ageDays: 71, billed: 320, procs: 'D2391 #20' },
   { number: 4702, patient: 'T. Varga', payer: 'guardian', status: 'appealed', ageDays: 44, billed: 640, procs: 'D3310 #9' },
+]
+
+/**
+ * Demo step 8's morning status checks (#4690, #4764 Delta; #4760 Cigna): the first generated pending claims take these
+ * identities, so the generated stream (and every dollar total) is unchanged. Day 30 and day 45 of the check cadence.
+ */
+export const STATUS_CHECK_CLAIMS: Pick<Pin, 'number' | 'payer' | 'ageDays'>[] = [
+  { number: 4690, payer: 'delta_ny', ageDays: 45 },
+  { number: 4764, payer: 'delta_ny', ageDays: 30 },
+  { number: 4760, payer: 'cigna', ageDays: 30 },
 ]
 
 /** Targets per status at Wed 10:40 (dollars). */
@@ -397,6 +415,7 @@ export function buildClaims(): MockClaim[] {
     const remaining = t.count - pins.length
     const dollars = t.dollars - pins.reduce((a, p) => a + p.billed, 0)
     const gen = generated(status, remaining, dollars, rand, next)
+    if (status === 'pending') gen.splice(0, STATUS_CHECK_CLAIMS.length, ...STATUS_CHECK_CLAIMS.map((s, i) => ({ ...(gen[i] as Pin), ...s })))
     next += remaining + 7
     all.push(...gen)
   }

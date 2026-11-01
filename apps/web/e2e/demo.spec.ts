@@ -190,7 +190,7 @@ test('demo steps 1–10 @demo', async ({ page }) => {
     await expect(badge).toHaveText(String(morganInbox + 1))
   })
 
-  await test.step('8 · ⏭ Skip to Thu 7:10 AM: async progress, then Inbox 16 (Dana) and Denied 9', async () => {
+  await test.step('8 · ⏭ Skip to Thu 7:10 AM: async progress, then Inbox 17 (Dana), the strip, the nav badges', async () => {
     const clock = page.getByTestId('clock-control')
     await clock.getByRole('button', { name: /Skip to Thu 7:10 AM/ }).click()
     await expect(clock.getByRole('button', { name: /Skip to/ })).toBeDisabled()
@@ -199,8 +199,14 @@ test('demo steps 1–10 @demo', async ({ page }) => {
     await expect(clock).toContainText('Thu Oct 29 · 7:10 AM')
     await switchUser(page, 'usr_dana')
     await nav(page, /Inbox/).click()
-    await expect(badge).toHaveText('16')
-    await expect(strip.getByRole('link', { name: 'Denied 9', exact: true })).toBeVisible()
+    await expect(badge).toHaveText('17') // 10 after step 3b + 4 overnight denials + 3 status-check proposals
+    for (const label of ['Ready 3', 'Sent 1', 'Rejected 1', 'Accepted 8', 'Pending 71', 'Denied 9', 'Partial 5', 'Appealed 3', 'Paid · Oct 124']) {
+      await expect(strip.getByRole('link', { name: label, exact: true })).toBeVisible()
+    }
+    await expect(strip.getByRole('link', { name: 'Paid · Oct 124' })).toContainText('$64,746')
+    await expect(page.getByTestId('badge-payments')).toHaveText('7')
+    await expect(page.getByTestId('badge-eligibility')).toHaveText('3')
+    await expect(page.getByTestId('badge-activity')).toHaveText('41')
   })
 
   await test.step('9 · Activity → Follow-up rows with evidence; Observe-mode preview styles them “would have run”', async () => {

@@ -48,7 +48,7 @@ import type {
 } from '@/api/schema'
 import { CLAIM_STATUSES } from '@/api/schema'
 import type { ClaimsApiParams } from '@/features/claims/search'
-import { at, buildClaims, FROZEN_NOW, type MockClaim } from './fixtures/claims'
+import { at, buildClaims, FROZEN_NOW, paidTileCents, STATUS_CHECK_CLAIMS, type MockClaim } from './fixtures/claims'
 import { buildInbox, EVIDENCE, GROUP_META } from './fixtures/inbox'
 import { buildProposals, buildRuleChanges, buildRules, ITEM_RULE, PRACTICE_CAP_CENTS, TIER_TEXT } from './fixtures/settings'
 import {
@@ -56,7 +56,6 @@ import {
   buildWeek,
   CASH,
   ELIGIBILITY,
-  LINDGREN,
   NEXT_ACTION_LABEL,
   NEXT_ACTION_ORDER,
   OVERNIGHT_DENIALS,
@@ -89,6 +88,12 @@ const USER_ROLE: Record<UserId, Role> = { usr_dana: 'billing', usr_morgan: 'owne
 const isOwner = (u: UserId) => u === 'usr_morgan'
 const USERS_BY_ID: Record<string, UserId> = { usr_dana: 'usr_dana', usr_morgan: 'usr_morgan', usr_lee: 'usr_lee', usr_tasha: 'usr_tasha' }
 const nameOf = (id: string | null | undefined): string | null => (id && id in USER_NAME ? USER_NAME[id as UserId] : (id ?? null))
+/** Remittances awaiting review in the seed (the API's `nav_badges.payments` before the clock moves). */
+const SEED_REMITS_TO_REVIEW = 3
+/** Wednesday's sends whose payer 277CA is still due at Thu 07:10 (the corrected Haddad claim re-entered Vyne last). */
+const PAYER_ACK_AFTER_0710 = new Set([4854])
+/** What the six overnight 835s paid, in the order they are picked (oldest pending first); they sum to $3,446.46. */
+const OVERNIGHT_PAID_CENTS = [58_125, 44_437, 86_624, 30_006, 65_678, 59_776]
 const AR: readonly ClaimStatus[] = ['sent', 'rejected', 'accepted', 'pending', 'denied', 'appealed', 'partial']
 const FILE_TIMES = Array.from({ length: 22 }, (_, i) => {
   const m = 7 * 60 + 45 + i * 30 // per-payer files every 30 min, 7:45 AM – 6:15 PM
@@ -142,6 +147,8 @@ interface State {
   practiceCapCents: number
   /** Demo step 8 has been applied (the overnight between Wed 10:40 and Thu 07:10). */
   overnight: boolean
+  /** 835s delivered since the seed that no posting run has touched (Payments' nav badge counts them). */
+  remitsToReview: number
   paused: { by: string; at: string } | null
   advance: AdvanceSnapshot | null
   advancePhase: number
@@ -184,6 +191,7 @@ function initialState(): State {
     ruleChanges: buildRuleChanges(),
     practiceCapCents: PRACTICE_CAP_CENTS,
     overnight: false,
+    remitsToReview: 0,
     paused: null,
     advance: null,
     advancePhase: 0,
@@ -263,7 +271,7 @@ export class MockDb {
       return {
         status,
         count: group.length,
-        cents: group.reduce((a, c) => a + c.billed_cents, 0),
+        cents: group.reduce((a, c) => a + (status === 'paid' ? paidTileCents(c) : c.billed_cents), 0),
         flagged: group.filter((c) => this.needsAction(c.id)).length,
         cents_basis: status === 'paid' ? ('paid' as const) : ('billed' as const),
         label: status === 'paid' ? 'Paid · Oct' : status[0]?.toUpperCase() + status.slice(1),
@@ -280,7 +288,7 @@ export class MockDb {
       inbox_open: inbox.length,
       inbox_open_cents: inbox.reduce((a, i) => a + i.cents, 0),
       paid_month_count: paidOct.length,
-      paid_month_cents: sum(paidOct),
+      paid_month_cents: paidOct.reduce((a, c) => a + paidTileCents(c), 0),
       open_count: open.length,
       open_cents: sum(open),
       ar_count: ar.length,
@@ -290,7 +298,7 @@ export class MockDb {
       as_of: this.s.now,
       paid_month_label: 'Oct',
       nav_badges: {
-        payments: 2,
+        payments: SEED_REMITS_TO_REVIEW + this.s.remitsToReview,
         eligibility: inbox.filter((i) => i.kind === 'eligibility_flag').length,
         activity: this.decisions().filter((r) => r.ran).length,
       },
@@ -764,61 +772,29 @@ export class MockDb {
       out.push(this.event('file_departed', `#${c.number} left in the ${hhmm} ${payer} file`, { claim_id: c.id }))
       out.push(this.event('clearinghouse_ack', `#${c.number} Vyne 277CA A1`, { claim_id: c.id, code: 'A1' }))
     }
-    // Lindgren checks out at 10:51 and is held (rendering provider mismatch).
-    if (!this.s.claims.some((c) => c.number === LINDGREN.number)) {
-      const owens = this.s.claims.find((c) => c.number === 4859)
-      if (owens) {
-        const id = `clm_${LINDGREN.number}`
-        const claim: MockClaim = {
-          ...owens,
-          id,
-          number: LINDGREN.number,
-          visit_id: `vis_${LINDGREN.number}`,
-          patient_id: 'pat_lindgren_c',
-          patient: { id: 'pat_lindgren_c', name: LINDGREN.patient, dob: null },
-          patient_name: LINDGREN.patient,
-          coverage_id: `cov_${LINDGREN.number}`,
-          payer_key: LINDGREN.payer,
-          status: 'ready',
-          built_at: LINDGREN.built_at,
-          sent_at: null,
-          file_time: null,
-          icn: null,
-          ack_stage: 'none',
-          acks: [],
-          billed_cents: LINDGREN.billed_cents,
-          procedures_label: LINDGREN.procs,
-          lines: [{ id: `${id}_l1`, claim_id: id, cdt: 'D2740', description: 'Crown, porcelain/ceramic', tooth: '3', surface: null, fee_cents: LINDGREN.billed_cents, allowed_cents: null, paid_cents: null, adj: [], patient_adj: [], patient_cents: null }],
-          attachments: [],
-          provider_name: 'Dr. Morgan',
-          reason_text: 'held',
-          agent_chip: { agent: 'claims', label: 'held · rendering provider' },
-          last_activity: { at: LINDGREN.built_at, label: 'held at checkout' },
-          timeline: [{ id: `${id}_t1`, at: LINDGREN.built_at, lane: 'agent', agent: 'claims', tier: 1, title: 'Built at checkout · held: note signed by Dr. Lee, line lists Dr. Morgan as rendering', evidence: [] }],
-          hold: { id: `hld_${LINDGREN.number}`, subject: 'claim', subject_id: id, reason: 'rendering_mismatch', detail: 'Note signed by Dr. Lee; line lists Dr. Morgan as rendering', held_since: LINDGREN.built_at, clears_when: 'Rendering provider fixed in the PMS', owner_user_id: 'usr_dana', timely_due: '2027-10-28', cleared_at: null },
-          queued_file: null,
-          in_flight: null,
-          denial: null,
-          deadline: { kind: 'timely_filing', due_on: '2027-10-28', basis: 'MetLife: 12 months from DOS 10/28' },
-        }
-        this.s.claims = [...this.s.claims, claim]
-        this.addItem({ id: `inb_${LINDGREN.number}`, kind: 'approve_action', claim, agent: 'claims', tier: 1, title: LINDGREN.title, recommendation: LINDGREN.recommendation, summary: LINDGREN.summary, action: 'fix_demographics_resend', ruleId: 'rule_t1_fix_demographics', rootCause: 'ours', created: LINDGREN.built_at })
-        out.push(this.event('run.claims', `#${LINDGREN.number} held at checkout · rendering provider mismatch → Inbox`, { claim_id: id }))
-      }
-    }
     return out
   }
 
-  /** Overnight: payer 277CAs for Wednesday's sends, then the 835s (four denials, six paid, one held line). */
+  /**
+   * Overnight: yesterday's accepted claims go "in process" at 05:00, Wednesday's sends get their payer 277CA, then the
+   * 835s land (four denials, six paid). Nothing posts them: the posting agent has no run on `era.arrived` yet, so the
+   * remittances wait in Payments, and no ERA line is held.
+   */
   private phaseOvernight(): EventFired[] {
     const out: EventFired[] = []
-    for (const c of this.s.claims.filter((x) => x.status === 'sent' && x.sent_at && Date.parse(x.sent_at) < Date.parse(at('2026-10-28', '10:30')))) {
+    for (const c of this.s.claims.filter((x) => x.status === 'accepted')) {
+      c.status = 'pending'
+      c.timeline = [...c.timeline, { id: this.id('tl'), at: at('2026-10-29', '05:00'), lane: 'payer', title: `${PAYER_REF[c.payer_key].short_name} 277: in process`, evidence: [] }]
+      out.push(this.event('payer_in_process', `#${c.number} in process at ${PAYER_REF[c.payer_key].short_name}`, { claim_id: c.id }))
+    }
+    for (const c of this.s.claims.filter((x) => x.status === 'sent' && !PAYER_ACK_AFTER_0710.has(x.number))) {
       c.icn = c.icn ?? `26302-${String(100000 + c.number * 13).slice(-6)}`
       this.ack(c, 'payer_277ca_a1', 'A1', `${PAYER_REF[c.payer_key].short_name} accepted · ICN ${c.icn}`, at('2026-10-29', '05:12'))
       c.status = 'accepted'
       out.push(this.event('payer_ack', `#${c.number} ${PAYER_REF[c.payer_key].short_name} 277CA A1 · ICN ${c.icn}`, { claim_id: c.id }))
     }
     for (const payer of ['guardian', 'metlife', 'aetna', 'delta_ny'] as const) {
+      this.s.remitsToReview += 1
       out.push(this.event('era_arrived', `${PAYER_REF[payer].short_name} 835 received`, { payer }))
     }
     for (const d of OVERNIGHT_DENIALS) {
@@ -828,50 +804,42 @@ export class MockDb {
       c.denial = { carc: d.carc, rarc: d.rarc, decoded: d.decoded, root_cause: d.root_cause }
       c.deadline = d.deadline
       c.reason_text = `${d.carc}${d.rarc ? ` · ${d.rarc}` : ''}`
-      c.agent_chip = { agent: d.item.agent, label: d.item.tier === 3 ? 'appeal drafted · person signs' : 'fix proposed' }
+      c.agent_chip = { agent: d.item.agent, label: d.item.tier === 3 ? 'appeal drafted · person signs' : d.root_cause === 'ours' ? 'held · root cause ours' : 'fix proposed' }
       this.pushTimelineAt(c, at('2026-10-29', '05:40'), { lane: 'payer', title: `Denied ${c.reason_text} · ${d.decoded}` })
       this.addItem({ id: `inb_${d.number}`, kind: d.item.tier === 3 ? 'review_draft' : 'approve_action', claim: c, agent: d.item.agent, tier: d.item.tier, title: d.item.title, recommendation: d.item.recommendation, summary: d.item.summary, action: d.item.action, ruleId: d.item.rule_id, rootCause: d.root_cause, created: at('2026-10-29', '06:05'), requiredRole: d.item.required_role ?? null })
       out.push(this.event('claim_denied', `#${c.number} ${c.patient_name} denied ${c.reason_text}`, { claim_id: c.id, carc: d.carc, rarc: d.rarc }))
     }
-    // Six paid on contract; the first one's line is held (alternate benefit) for Dana.
-    const pinned = new Set([4705, 4512, 4744, 4709, 4731, 4796, 4797, 4800, 3561])
+    // Six paid on contract.
+    const pinned = new Set([4705, 4512, 4744, 4709, 4731, 4796, 4797, 4800, 3561, ...STATUS_CHECK_CLAIMS.map((k) => k.number)])
     const paid = this.s.claims
-      .filter((c) => (c.status === 'pending' || c.status === 'accepted') && !pinned.has(c.number) && !c.in_flight && ['delta_ny', 'metlife', 'aetna', 'guardian'].includes(c.payer_key))
+      .filter((c) => c.status === 'pending' && !pinned.has(c.number) && !c.in_flight && ['delta_ny', 'metlife', 'aetna', 'guardian'].includes(c.payer_key))
       .sort((a, b) => (b.age_days ?? 0) - (a.age_days ?? 0) || a.number - b.number)
-      .slice(0, 6)
-    for (const c of paid) {
+      .slice(0, OVERNIGHT_PAID_CENTS.length)
+    for (const [i, c] of paid.entries()) {
       c.status = 'paid'
       c.allowed_cents = Math.round(c.billed_cents * 0.8)
-      c.paid_cents = Math.round(c.billed_cents * 0.62)
+      c.paid_cents = OVERNIGHT_PAID_CENTS[i] ?? Math.round(c.billed_cents * 0.76)
+      c.remit_paid_cents = c.paid_cents
       c.paid_at = at('2026-10-29', '05:40')
       c.agent_chip = null
       this.pushTimelineAt(c, at('2026-10-29', '05:40'), { lane: 'payer', title: `835 paid on contract · ${PAYER_REF[c.payer_key].short_name}` })
       out.push(this.event('claim_paid', `#${c.number} paid`, { claim_id: c.id }))
     }
-    const held = paid[0]
-    if (held) {
-      this.addItem({ id: `inb_${held.number}`, kind: 'variance', claim: held, agent: 'posting', tier: 2, title: `#${held.number} · ${held.patient_name} · ${PAYER_REF[held.payer_key].short_name} ERA line held`, recommendation: 'The line paid at the alternate-benefit rate; transfer the difference to the patient (the signed estimate covers it).', summary: 'Overnight 835: one line does not match tracked benefits, so it was held instead of posted.', action: 'patient_transfer', ruleId: 'rule_t2_post_era', rootCause: 'payer', created: at('2026-10-29', '06:00'), cents: Math.round(held.billed_cents * 0.1) })
-    }
-    for (const [i, payer] of (['guardian', 'metlife', 'aetna', 'delta_ny'] as const).entries()) {
-      this.s.week = [
-        ...this.s.week,
-        weekRow({ run_id: this.id('run'), at: at('2026-10-29', `05:${String(40 + i * 7).padStart(2, '0')}`), agent: 'posting', action_kind: 'post_era_line', action: `Matched the ${PAYER_REF[payer].short_name} 835 to contract; balanced lines posted.`, subject: `rem_${payer}_1029`, outcome: 'Posted', rule_id: 'rule_t2_post_era', tier: 2, evidence_kinds: ['era_line'] }),
-      ]
-      out.push(this.event('run.posting', `Posting · ${PAYER_REF[payer].short_name} 835 posted`))
-    }
     return out
   }
 
-  /** Thu 07:00: the morning's status checks (portal → IVR) fire on claims that reached day 30. */
+  /**
+   * Thu 07:00: day-30 status checks come due on #4690, #4764 (Delta) and #4760 (Cigna). The Status check rule is Ask, so
+   * Follow-up proposes each one for Dana instead of calling the payer.
+   */
   private phaseMorning(): EventFired[] {
     const out: EventFired[] = []
-    const due = this.s.claims.filter((c) => c.status === 'accepted' && (c.age_days ?? 0) >= 6).slice(0, 2)
-    for (const c of due) {
-      this.s.week = [
-        ...this.s.week,
-        weekRow({ run_id: this.id('run'), at: at('2026-10-29', '07:00'), agent: 'followup', action_kind: 'status_check', action: `IVR status check: in process at ${PAYER_REF[c.payer_key].short_name}.`, subject: `#${c.number} · ${c.patient_name}`, claim_id: c.id, outcome: 'No change', tier: 1, evidence_kinds: ['ivr_transcript'] }),
-      ]
-      out.push(this.event('run.followup', `#${c.number} status check · in process`, { claim_id: c.id }))
+    for (const k of STATUS_CHECK_CLAIMS) {
+      const c = this.s.claims.find((x) => x.number === k.number)
+      if (!c) continue
+      const payer = PAYER_REF[c.payer_key].short_name
+      this.addItem({ id: `inb_${c.number}`, kind: 'approve_action', claim: c, agent: 'followup', tier: 1, title: `#${c.number} · ${c.patient_name} · ${payer} · status check due`, recommendation: `Check #${c.number} with ${payer} (portal, then IVR). The Status check rule is Ask, so nothing contacts the payer until you approve.`, summary: `Day ${c.age_days ?? 30} with no 835: the status-check cadence came due at 07:00.`, action: 'status_check', ruleId: 'rule_t1_status_check', rootCause: 'unknown', created: at('2026-10-29', '07:00') })
+      out.push(this.event('run.followup', `#${c.number} status check due · proposed → Inbox`, { claim_id: c.id }))
     }
     return out
   }

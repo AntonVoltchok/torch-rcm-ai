@@ -165,8 +165,8 @@ export const StripSummary = z.object({
   flagged_count: z.number().int(),
   flagged_cents: Cents,
   as_of: IsoDateTime,
-  paid_month_label: z.string().nullish(), // assumed, e.g. "Oct" (not in the API; the UI falls back to "month")
-  nav_badges: z.record(z.string(), z.number().int()).nullish(), // assumed: {payments, eligibility, activity}
+  paid_month_label: z.string(), // e.g. "Oct"
+  nav_badges: z.object({ payments: z.number().int(), eligibility: z.number().int(), activity: z.number().int() }), // sidebar badges, computed with the strip
 })
 export type StripSummary = z.infer<typeof StripSummary>
 

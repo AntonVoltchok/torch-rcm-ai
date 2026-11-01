@@ -36,8 +36,10 @@ describe('denials worklist selectors', () => {
   })
 
   it('types deadlines and counts days on the server clock', () => {
-    expect(deadlineLabel(by(4796), '2026-10-29')).toEqual({ text: 'appeal · 179 d', days: 179 })
-    expect(deadlineLabel(by(4797), '2026-10-29').text).toBe('timely · 160 d')
+    expect(deadlineLabel(by(4796), '2026-10-29')).toEqual({ text: 'appeal · 180 d', days: 180 })
+    expect(deadlineLabel(by(3561), '2026-10-29')).toEqual({ text: 'appeal · 180 d', days: 180 })
+    expect(deadlineLabel(by(4800), '2026-10-29').text).toBe('timely · 349 d')
+    expect(deadlineLabel(by(4797), '2026-10-29')).toEqual({ text: 'records request · no payer deadline', days: null })
   })
 
   it('builds the payer × reason matrix from the rows, leaving plan limits out', () => {
