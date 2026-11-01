@@ -54,6 +54,8 @@ class PlanBenefits(Value):
     deductible_cents: int
     deductible_met_cents: int
     used_cents: int
+    #: When the PMS tracked the deductible as met (from the EOB that met it); None = not tracked.
+    deductible_met_on: date | None = None
     pct_preventive: int  # whole percent: 100, 80, 50
     pct_basic: int
     pct_major: int

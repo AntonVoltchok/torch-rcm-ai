@@ -83,11 +83,11 @@ def advance(
 def eval_cmd() -> None:
     """Replay the canonical scenario through the agents' eval harness (torch.agents.eval), when present."""
     try:
-        from torch.agents.eval.__main__ import main as agents_eval  # type: ignore[import-not-found]
+        from torch.agents.eval.__main__ import main as agents_eval
     except ImportError:
         typer.echo("torch.agents.eval is not installed in this build; nothing to evaluate (exit 0).")
         return
-    sys.exit(agents_eval())
+    sys.exit(agents_eval([]))
 
 
 def _agents_commands() -> None:

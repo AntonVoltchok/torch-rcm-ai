@@ -17,11 +17,11 @@ __all__ = ["record_cassettes_command", "register", "run_eval_command"]
 
 def run_eval_command(echo: Any = print) -> int:
     try:
-        from torch.agents.eval import run_eval  # type: ignore[attr-defined]
+        from torch.agents.eval import run_eval
     except ImportError:
         echo("eval not available")
         return 0
-    return int(run_eval() or 0)
+    return int(run_eval(echo=echo) or 0)
 
 
 def record_cassettes_command(scenario: str | None = None, agent: str | None = None, echo: Any = print) -> int:

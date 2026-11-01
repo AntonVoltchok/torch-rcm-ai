@@ -5,6 +5,7 @@
   "reviewed_by": "usr_dana",
   "reviewed_on": "2026-11-01",
   "situation_description": "payer asks for missing-tooth history",
+  "envelope": ["records_request", "payer_rep_call"],
   "reads": [
     {"tool": "claim_get_history", "args": {"claim_id": "clm_4744", "include": ["correspondence"]}},
     {"tool": "pms_get_visit", "args": {"visit_id": "vis_0302_hale"}}

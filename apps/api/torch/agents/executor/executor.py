@@ -353,7 +353,11 @@ class Executor:
             subject = Subject(kind="remittance", id=run.remittance_id)
         else:
             subject = Subject(kind="patient", id=run.patient_id or "")
-        trigger = "approval" if run.trigger is RunTrigger.APPROVAL else ("manual" if run.trigger is RunTrigger.MANUAL else "era")
+        trigger = {
+            RunTrigger.APPROVAL: "approval",
+            RunTrigger.MANUAL: "manual",
+            RunTrigger.SCHEDULE: "claim.status_check_due",
+        }.get(run.trigger, "era")
         return build_case(self.rt.dom, run_id=run.id, agent=run.agent.value, subject=subject, now=self.rt.clock.now(), trigger_kind=trigger)  # type: ignore[arg-type]
 
     def _planner(self, case: CaseFile, run: Run, state: dict[str, Any], advance_id: str | None) -> Any:
@@ -696,7 +700,7 @@ class Executor:
                     continue
                 ref = res.reference
                 if ref is None and rstep.output_key and isinstance(res.data.get(rstep.output_key), str):
-                    ref = str(res.data[rstep.output_key])  # e.g. nea.upload answers {nea_number}, no reference
+                    ref = str(res.data[rstep.output_key])  # ops whose answer names the value (e.g. file_time) but no reference
                 if rstep.output_key:
                     out[rstep.output_key] = ref
                 evs = [

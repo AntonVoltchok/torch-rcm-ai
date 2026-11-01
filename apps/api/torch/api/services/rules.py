@@ -6,6 +6,8 @@ from typing import Any
 
 from torch.api.errors import conflict, forbidden, not_found, unprocessable
 from torch.api.schemas import (
+    PracticeSettingsIn,
+    PracticeSettingsOut,
     PreviewOut,
     ProposalList,
     ProposalOut,
@@ -18,7 +20,7 @@ from torch.api.schemas import (
     WeekDecisions,
 )
 from torch.api.services.context import Ctx
-from torch.domain.entities import InboxItem, Rule, RuleChange, RuleProposal, Run
+from torch.domain.entities import InboxItem, Practice, Rule, RuleChange, RuleProposal, Run
 from torch.domain.enums import (
     InboxItemKind,
     InboxItemState,
@@ -186,6 +188,36 @@ def patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn) -> RulePatchOut:
         )
     rule, rc = apply_rule_change(ctx, rule, change, sign=rule.tier is Tier.TWO)
     return RulePatchOut(rule=rule, change=rc, meta=ctx.meta())
+
+
+#: The practice-wide tier-2 cap must stay within what one person can reasonably review ($0 … $25,000).
+PRACTICE_CAP_MAX_CENTS = 2_500_000
+
+
+def patch_practice(ctx: Ctx, body: PracticeSettingsIn) -> PracticeSettingsOut:
+    """PATCH /settings/practice: the owner sets the tier-2 practice cap (tier 1 is exempt; policy reads it)."""
+    ctx.require_role(Role.OWNER, code="owner_only", message="Only the owner can change the practice cap.")
+    cap = body.practice_cap_cents
+    if cap < 0 or cap > PRACTICE_CAP_MAX_CENTS:
+        raise unprocessable(
+            "invalid_cap",
+            f"The practice cap must be between $0 and ${PRACTICE_CAP_MAX_CENTS // 100:,}.",
+            practice_cap_cents=cap,
+        )
+    practice = ctx.rt.store.all(Practice)[0]
+    before = practice.practice_cap_cents
+    if cap != before:
+        practice.practice_cap_cents = cap
+        ctx.rt.store.update(practice)
+        ctx.audit(
+            "practice_cap_changed",
+            "practice",
+            practice.id,
+            f"Practice cap ${before / 100:,.0f} → ${cap / 100:,.0f}",
+            before=before,
+            after=cap,
+        )
+    return PracticeSettingsOut(practice_cap_cents=cap, meta=ctx.meta())
 
 
 def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:

@@ -2308,6 +2308,77 @@
         }
       }
     },
+    "/api/v1/settings/practice": {
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Set the practice-wide tier-2 cap (owner only: 403 owner_only, 422 invalid_cap)",
+        "operationId": "patch_settings_practice",
+        "parameters": [
+          {
+            "name": "X-Torch-User",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeSettingsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeSettingsOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/proposals": {
       "get": {
         "tags": [
@@ -7110,6 +7181,31 @@
         "title": "MoneyMath",
         "type": "object"
       },
+      "NavBadges": {
+        "additionalProperties": false,
+        "description": "Sidebar badges, computed with the strip so no screen counts on its own.",
+        "properties": {
+          "payments": {
+            "title": "Payments",
+            "type": "integer"
+          },
+          "eligibility": {
+            "title": "Eligibility",
+            "type": "integer"
+          },
+          "activity": {
+            "title": "Activity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "payments",
+          "eligibility",
+          "activity"
+        ],
+        "title": "NavBadges",
+        "type": "object"
+      },
       "NextAction": {
         "description": "Denials worklist groups (02-api `GET /denials`).",
         "enum": [
@@ -7386,6 +7482,38 @@
         ],
         "title": "PolicyVerdict",
         "type": "string"
+      },
+      "PracticeSettingsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "practice_cap_cents": {
+            "title": "Practice Cap Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "practice_cap_cents"
+        ],
+        "title": "PracticeSettingsIn",
+        "type": "object"
+      },
+      "PracticeSettingsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "practice_cap_cents": {
+            "title": "Practice Cap Cents",
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "practice_cap_cents",
+          "meta"
+        ],
+        "title": "PracticeSettingsOut",
+        "type": "object"
       },
       "PreviewOut": {
         "additionalProperties": false,
@@ -8964,6 +9092,13 @@
             "format": "date-time",
             "title": "As Of",
             "type": "string"
+          },
+          "paid_month_label": {
+            "title": "Paid Month Label",
+            "type": "string"
+          },
+          "nav_badges": {
+            "$ref": "#/components/schemas/NavBadges"
           }
         },
         "required": [
@@ -8978,7 +9113,9 @@
           "ar_cents",
           "flagged_count",
           "flagged_cents",
-          "as_of"
+          "as_of",
+          "paid_month_label",
+          "nav_badges"
         ],
         "title": "Strip",
         "type": "object"

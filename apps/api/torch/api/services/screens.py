@@ -240,11 +240,15 @@ def benefits(ctx: Ctx, appointment_id: str) -> BenefitsPanel:
     item = next((i for i in snap.open_items if i.appointment_id == appt.id), None)
     freqs = []
     history = _last_done(snap, appt.patient_id)
-    for proc in appt.planned_procedures:
-        rule, months = FREQUENCY_RULES.get(proc.cdt, ("no limit", 0))
-        last = history.get(proc.cdt)
+    planned = list(dict.fromkeys(p.cdt for p in appt.planned_procedures))
+    # planned codes first, then frequency-limited codes the PMS history shows (the card's "last done" rows)
+    codes = planned + sorted(c for c in history if c in FREQUENCY_RULES and c not in planned)
+    for cdt in codes:
+        rule, months = FREQUENCY_RULES.get(cdt, ("no limit", 0))
+        last = history.get(cdt)
         ok_from = _add_months(last, months) if last and months else None
-        freqs.append(FrequencyRow(cdt=proc.cdt, rule=rule, last_done=last, ok_from=ok_from))
+        ok_from = ok_from if ok_from and ok_from > snap.today else None
+        freqs.append(FrequencyRow(cdt=cdt, rule=rule, last_done=last, ok_from=ok_from))
     return BenefitsPanel(
         appointment_id=appt.id,
         patient=patient_ref(snap.patients[appt.patient_id]),

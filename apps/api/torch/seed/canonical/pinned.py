@@ -630,8 +630,19 @@ class PinnedBuilder:
         castillo.lines[0].surface, castillo.lines[1].surface = "LR", "LL"
         self.sent(castillo, dt(date(2026, 10, 9), "11:45"), dt(date(2026, 10, 12), "06:49"), "GD2610120944")
         self.payer_claim(castillo, date(2026, 10, 12), date(2026, 10, 29), outcome="CO-16:M127")
-        b.image(self.pc("castillo_a")[0], "fmx", None, dt(date(2026, 10, 9), "11:10"), "D0210")
+        fmx = b.image(self.pc("castillo_a")[0], "fmx", None, dt(date(2026, 10, 9), "11:10"), "D0210")
         b.image(self.pc("castillo_a")[0], "perio_chart", None, dt(date(2026, 10, 9), "11:20"), None)
+        # Root cause ours: the Claims agent sent the FMX where Guardian's rule names the perio chart, so the
+        # overnight CO-16·M127 records request is held for Dana (decisions log: `ours` never auto-runs).
+        b.attach(
+            castillo,
+            AttachmentKind.FMX,
+            dt(date(2026, 10, 9), "11:40"),
+            nea="26-4469307",
+            source=AttachmentSource.AGENT,
+            image_id=fmx.id,
+            note="wrong chart: Guardian requires the perio chart for D4341/D4342",
+        )
 
         morris = self.make(
             3561, "morris_g", date(2025, 10, 30), [("D2740", "3"), ("D2950", "3")], S.PENDING, at="10:00"
@@ -685,6 +696,14 @@ class PinnedBuilder:
             at="09:30",
             note="Extraction #14, non-restorable fracture. Patient informed of replacement options.",
         )
+        # PMS history behind tomorrow's frequency rows (Eligibility › benefits: last done / OK from).
+        chen_j, _ = self.pc("chen_j")
+        b.visit(chen_j, date(2024, 3, 12), PRV_LEE, [("D4341", None)], at="09:00", note="SRP UR.")
+        b.visit(chen_j, date(2025, 11, 3), PRV_MORGAN, [("D0274", None)], at="09:00", note="4BWX.")
+        b.visit(chen_j, date(2026, 4, 14), PRV_MORGAN, [("D1110", None)], at="09:00", note="Prophy.")
+        kim_s, _ = self.pc("kim_s")
+        b.visit(kim_s, date(2025, 11, 3), PRV_MORGAN, [("D0274", None)], at="10:00", note="4BWX.")
+        b.visit(kim_s, date(2026, 5, 2), PRV_MORGAN, [("D1110", None)], at="10:00", note="Prophy.")
         nak = self.make(4709, "nakamura_r", date(2026, 9, 4), [("D2950", "3"), ("D2740", "3")], S.PENDING, at="13:00")
         self.sent(nak, dt(date(2026, 9, 4), "13:45"), dt(date(2026, 9, 8), "06:44"), "CG2609080381")
         nak.reason_text = "in review with consultant"

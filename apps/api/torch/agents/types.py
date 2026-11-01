@@ -294,6 +294,8 @@ class CaseFile(Frozen):
     rendering_dentist_id: str | None = None
     self_funded: bool = False
     paper_eob: bool = False
+    #: Remittance cases: why a line is a variance (code facts, e.g. "deductible applied though met 05/12").
+    variance_reasons: tuple[str, ...] = ()
     cents: int = 0  # the subject's amount (claim billed, remittance total): policy caps compare against it
 
     def evidence_of(self, *kinds: EvidenceKind) -> list[Evidence]:

@@ -545,16 +545,22 @@ A failed run always writes its audit line and creates at most one `run_failed` i
 
 ```text
 apps/api/torch/agents/
-  config.py  types.py  policy.py  guardrails.py  router.py  executor.py  runstore.py  events.py
-  scheduler.py  learning.py (pure)  db.py (single writer)
+  config.py  types.py  policy.py  guardrails.py  case.py  runtime.py (RunStore, EventBus, AgentRuntime)
+  handlers.py (scheduler job handlers: run.start, triage, era.arrived, claim.status_check_due)  learning.py (pure)
+  executor/executor.py
   catalog/   actions.py (ActionSpec: tier, params model, recipe, reverses_in)  situations.py (classify, required_evidence)  recipes.py
   definitions/  eligibility.py claims.py followup.py appeals.py posting.py
   prompts/   <agent>.md
   planner/   base.py live.py scripted.py recorded.py  scripts/<agent>.py  recorded/<claim_id>.plan.json  templates/<agent>/*.j2
   llm/       client.py (retries, budget)  profiles.py (static table §3.1)  transport.py (Http, Cassette)  pricing.py + pricing.toml
   tools/     registry.py  reads.py  adapters.py
-  eval/__main__.py
+  eval/      harness.py (run_scenario, compare, invariants, reconciled numbers)  __main__.py (`python -m torch.agents.eval`)
 ```
+
+The scheduler is not part of `torch.agents`: it lives in `apps/api/torch/scheduler/` (queue, leases, runner, cadence,
+world handlers) and `torch.agents.handlers.register(registry)` adds the agent job kinds to its registry. Routing of a
+denial to its owning agent (`era.arrived` → Follow-up or Appeals) uses `torch.domain.routing.route_denial`, the same
+function the Denials worklist uses.
 
 ```python
 Verdict = Literal["observe", "propose", "execute", "refuse", "park"]

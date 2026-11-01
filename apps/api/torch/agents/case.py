@@ -110,7 +110,8 @@ def _remittance_case(
     balanced = all(
         line.billed == line.paid + sum(a.cents for a in line.adj) + line.patient_cents for line in remit.lines
     )
-    situation = "era:balanced" if balanced else "era:variance"
+    reasons = tuple(_benefit_variances(dom, remit))
+    situation = "era:balanced" if balanced and not reasons else "era:variance"
     claim_ids = sorted({line.claim_id for line in remit.lines if line.claim_id})
     return CaseFile(
         run_id=run_id,
@@ -125,8 +126,31 @@ def _remittance_case(
         related_ids=(remit.id, *claim_ids),
         trigger_kind=trigger_kind,
         paper_eob=remit.kind.value == "paper_eob",
+        variance_reasons=reasons,
         cents=remit.amount_cents,
     )
+
+
+def _benefit_variances(dom: StoreDomain, remit: object) -> list[str]:
+    """Lines that balance arithmetically but disagree with tracked benefits: a PR-1 (deductible) applied to a
+    claim whose coverage the PMS tracks as having met its deductible before the date of service. Structured
+    fields only (`PlanBenefits.deductible_met_cents` / `deductible_met_on`), never the EOB's text."""
+    out: list[str] = []
+    for line in getattr(remit, "lines", ()):
+        pr1 = sum(a.cents for a in line.patient_adj if a.group.value == "PR" and a.code == "1")
+        if not pr1 or not line.claim_id:
+            continue
+        claim = dom.claim_entity(line.claim_id)
+        cov = dom.coverage_entity(claim.coverage_id)
+        plan = cov.plan if cov is not None else None
+        if plan is None or plan.deductible_met_on is None:
+            continue
+        if plan.deductible_met_cents >= plan.deductible_cents and plan.deductible_met_on < claim.dos:
+            out.append(
+                f"#{claim.number} {line.cdt}: deductible applied though met {plan.deductible_met_on:%m/%d}"
+                f" (PR-1 ${pr1 / 100:,.2f})"
+            )
+    return out
 
 
 def _expected_values(

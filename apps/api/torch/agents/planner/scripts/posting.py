@@ -26,6 +26,12 @@ def variance(case: CaseFile) -> ScriptedPlan:
     remittance_id = case.subject.id
 
     def decide(c: CaseFile, ev: EvidenceSet) -> Decided:
+        if c.variance_reasons:
+            return Decided(
+                [],
+                "A line balances but disagrees with tracked benefits: " + "; ".join(c.variance_reasons) + ".",
+                "Hold for reprocessing: " + "; ".join(c.variance_reasons) + ". Torch never writes it off.",
+            )
         return Decided(
             [],
             "A line does not balance against the claim.",

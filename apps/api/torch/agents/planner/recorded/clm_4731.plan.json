@@ -5,6 +5,7 @@
   "reviewed_by": "usr_dana",
   "reviewed_on": "2026-11-01",
   "situation_description": "adjudicated per the portal but no 835 on file",
+  "envelope": ["request_835"],
   "reads": [
     {"tool": "claim_get_history", "args": {"claim_id": "clm_4731", "include": ["correspondence", "remits"]}}
   ],

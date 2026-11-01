@@ -7,7 +7,7 @@ Package: `apps/api/torch/world/`. Every simulated system exposes a Python interf
 ## Clock and scheduler
 
 - `Clock` is injectable; `advance(delta)` emits a `Tick` and the scheduler runs due jobs in order: file departures → clearinghouse acks → payer acks → payer adjudication (835 generation) → status-check schedules → hold aging → statement/true-up windows.
-- Business hours matter: files leave at payer `file_times`; payer acks arrive next business morning 06:00–08:00; 835s arrive on payer-specific weekdays (Delta Tue/Thu, Cigna Mon/Wed/Fri, etc.).
+- Business hours matter: files leave at payer `file_times`; payer acks arrive next business morning 06:00–08:00; 835s arrive on payer-specific weekdays (Delta Mon/Thu, Cigna Mon/Wed/Fri, etc.).
 
 ## PMS (`PmsAdapter`)
 
@@ -23,10 +23,10 @@ Each payer has: payer_id, timely filing, appeal windows and levels, file_times, 
 
 | Payer | Signature behaviors |
 |---|---|
-| **Delta Dental of NY** (payer 11198, PPO) | Requires PA (periapical) on D27xx crowns; frequency: crowns 1/60 mo per tooth using *payer* tooth history (which may differ from the PMS → CO-119); D4341 requires perio chart + narrative; pays 50% major, 80% basic, 100% preventive after $50 deductible; annual max $1,500 typical; 835 Tue/Thu; latency 12–20 bd |
+| **Delta Dental of NY** (payer 11198, PPO) | Requires PA (periapical) on D27xx crowns; frequency: crowns 1/60 mo per tooth using *payer* tooth history (which may differ from the PMS → CO-119); D4341 requires perio chart + narrative; pays 50% major, 80% basic, 100% preventive after $50 deductible; annual max $1,500 typical; 835 Mon/Thu (04-seed pins Delta ERAs on Mon 10/26 and Mon 11/09); latency 12–20 bd |
 | **MetLife** (PPO) | Subscriber id is 9 digits (A7:164 if not); prompt-pay reprocessing requests honored; secondary COB pays 50% after deductible on primary's allowed; latency 15–30 bd |
-| **Cigna** (PPO) | Posting quirk: occasionally applies PR-1 deductible though met (the Foster case) → variance, not write-off; alternate benefit: D2392 → D2140 amalgam rate; latency 10–18 bd |
-| **Aetna** (ASO / self-funded) | Alternate benefit downgrades on posterior composites (patient may be billed the difference; must be on the estimate); ERISA appeal rules (180 d, 2 levels, patient authorization for provider appeals); latency 14–25 bd |
+| **Cigna** (PPO) | Posting quirk: occasionally applies PR-1 deductible though met (the Foster case) → variance, not write-off; alternate benefit: D2392 → D2150 (two-surface amalgam) rate, adjusted as `PR-186`; latency 10–18 bd |
+| **Aetna** (ASO / self-funded) | Alternate benefit downgrades on posterior composites (D2391 → D2140, D2392–D2394 → D2150, CARC `PR-186`; patient may be billed the difference; must be on the estimate); ERISA appeal rules (180 d, 2 levels, patient authorization for provider appeals); latency 14–25 bd |
 | **Guardian** (TPA, self-funded) | SRP criteria: ≥4 teeth per quadrant with ≥4 mm pockets (CO-50·N10 if chart doesn't show it); paper checks sometimes (needs deposit); sends 835 only on request for small EFTs; latency 20–35 bd |
 | **NY Medicaid** | Cannot be balance-billed; non-covered only with dated written consent; 60-day appeal window |
 

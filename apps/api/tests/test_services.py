@@ -312,3 +312,52 @@ def test_unknown_user_is_401(rt: Runtime) -> None:
     with pytest.raises(ApiError) as exc:
         Ctx.for_user(rt, "usr_mallory")
     assert code(exc) == (401, "unknown_user")
+
+
+# ── integration: practice cap, nav badges, typed overnight deadlines, frequency history ───────────────────
+
+
+def test_practice_cap_patch_is_owner_only(rt: Runtime) -> None:
+    from torch.api.schemas import PracticeSettingsIn
+
+    with pytest.raises(ApiError) as exc:
+        rules_svc.patch_practice(ctx(rt), PracticeSettingsIn(practice_cap_cents=150_000))
+    assert code(exc) == (403, "owner_only")
+    with pytest.raises(ApiError) as exc:
+        rules_svc.patch_practice(ctx(rt, "usr_morgan"), PracticeSettingsIn(practice_cap_cents=-1))
+    assert code(exc) == (422, "invalid_cap")
+    out = rules_svc.patch_practice(ctx(rt, "usr_morgan"), PracticeSettingsIn(practice_cap_cents=150_000))
+    assert out.practice_cap_cents == 150_000 and out.meta.counts.inbox_open == 12
+    assert rules_svc.list_rules(ctx(rt, "usr_morgan")).practice_cap_cents == 150_000
+
+
+def test_strip_nav_badges_are_server_counts(rt: Runtime) -> None:
+    s = screens.summary_strip(ctx(rt), None)
+    assert s.paid_month_label == "Oct"
+    assert (s.nav_badges.payments, s.nav_badges.eligibility, s.nav_badges.activity) == (3, 3, 41)
+
+
+def test_overnight_denials_carry_typed_deadlines(rt: Runtime) -> None:
+    from torch.domain.entities import Claim
+
+    asyncio.run(rt.scheduler.run_due(THURSDAY_0710))
+    got = {
+        c.number: (c.deadline.kind.value, c.deadline.due_on and c.deadline.due_on.isoformat(), c.deadline.basis)
+        for c in rt.store.all(Claim)
+        if c.number in (4796, 4797, 3561, 4800)
+    }
+    assert got[4796] == ("appeal", "2027-04-27", "Guardian: 180 days from the 10/29 ERA · ERISA (29 CFR 2560.503-1)")
+    assert got[3561] == ("appeal", "2027-04-27", "MetLife: timely-filing appeal 180 days from the 10/29 ERA")
+    assert got[4800] == ("timely_filing", "2027-10-13", "MetLife: file as primary within 365 days of the 10/13 DOS")
+    assert got[4797] == ("none", None, "records request · no appeal clock")
+    rows = {r.claim.number: r for g in screens.denials(ctx(rt)).groups for r in g.rows}
+    assert rows[4796].deadline.kind.value == "appeal" and rows[4796].erisa
+
+
+def test_chen_frequency_rows_show_pms_history(rt: Runtime) -> None:
+    panel = screens.benefits(ctx(rt), "apt_1029_chen_j")
+    iso = lambda d: d and d.isoformat()  # noqa: E731
+    rows = {f.cdt: (iso(f.last_done), iso(f.ok_from)) for f in panel.frequencies}
+    assert rows["D4341"] == ("2024-03-12", None)
+    assert rows["D0274"] == ("2025-11-03", "2026-11-03")
+    assert rows["D1110"] == ("2026-04-14", None)

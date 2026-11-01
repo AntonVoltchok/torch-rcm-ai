@@ -68,6 +68,14 @@ class StripTile(Schema):
     label: str
 
 
+class NavBadges(Schema):
+    """Sidebar badges, computed with the strip so no screen counts on its own."""
+
+    payments: int  # remittances a person must look at (held for review or unmatched)
+    eligibility: int  # open eligibility flags the viewer sees
+    activity: int  # this week's decisions that ran without review
+
+
 class Strip(Schema):
     """GET /summary/strip and `meta.counts` on every mutation."""
 
@@ -83,6 +91,8 @@ class Strip(Schema):
     flagged_count: int
     flagged_cents: int
     as_of: datetime
+    paid_month_label: str  # "Oct": the month the Paid tile counts
+    nav_badges: NavBadges
 
 
 class Meta(Schema):
@@ -517,6 +527,15 @@ class RulePatchIn(Schema):
     mode: RuleMode | None = None
     max_cents: int | None = Field(default=None, ge=0)
     confidence_floor: float | None = Field(default=None, ge=0, le=1)
+
+
+class PracticeSettingsIn(Schema):
+    practice_cap_cents: int
+
+
+class PracticeSettingsOut(Schema):
+    practice_cap_cents: int
+    meta: Meta
 
 
 class RulePatchOut(Schema):

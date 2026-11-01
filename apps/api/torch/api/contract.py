@@ -265,6 +265,15 @@ ROUTES: tuple[Route, ...] = (
         ),
         errors=(404,),
     ),
+    Route(
+        "PATCH",
+        "/settings/practice",
+        "settings",
+        "Set the practice-wide tier-2 cap (owner only: 403 owner_only, 422 invalid_cap)",
+        S.PracticeSettingsOut,
+        body=S.PracticeSettingsIn,
+        errors=(403, 422),
+    ),
     Route("GET", "/proposals", "settings", "Rule proposals", S.ProposalList),
     Route(
         "POST",

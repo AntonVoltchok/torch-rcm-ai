@@ -11,10 +11,10 @@ from agent_world import World, case_for, plan_case, policy_ctx_for, world  # noq
 
 from torch.agents.catalog.actions import ACTIONS
 from torch.agents.guardrails import guard_draft
-from torch.agents.planner.scripted import ScriptedPlanner
+from torch.agents.planner.scripted import RecordedPlanPlanner, ScriptedPlanner
 from torch.agents.planner.templates import TEMPLATE_DIR, render, structured_facts
 from torch.agents.policy import decide
-from torch.agents.types import UNKNOWN, CoverageView
+from torch.agents.types import UNKNOWN
 
 # claim, agent, situation key, action, tier, evidence kinds that must be cited
 PINNED = [
@@ -85,23 +85,21 @@ def test_brooks_prompt_pay(world: World) -> None:  # noqa: F811
 
 def test_moreno_cob_single_coverage_needs_a_person(world: World) -> None:  # noqa: F811
     case = case_for(world, "clm_4800", "followup")
-    assert case.classifier_situation == "denied:CO-22:cob_order"
+    assert case.classifier_situation == "denied:CO-22:cob_order" and case.claim is not None
+    only = tuple(c for c in case.coverages if c.id == case.claim.coverage_id)
+    case = case.model_copy(update={"coverages": only})  # the branch where no other plan is on file
     plan, _ = plan_case(world, case)
     assert plan.actions == () and plan.no_action_reason and "card" in plan.no_action_reason
 
 
-def test_moreno_cob_with_other_coverage_is_tier2_no_rule(world: World) -> None:  # noqa: F811
+def test_moreno_cob_seeded_other_coverage_is_tier2_no_rule(world: World) -> None:  # noqa: F811
+    """The seeded branch: the PMS lists MetLife as secondary; Aetna's CO-22 says it is primary."""
     case = case_for(world, "clm_4800", "followup")
-    assert case.patient is not None
-    other = CoverageView(
-        id="cov_moreno_other", patient_id=case.patient.id, payer_key="cigna", order="secondary",
-        subscriber_id="X", group_no="G",
-    )  # fmt: skip
-    case = case.model_copy(update={"coverages": (*case.coverages, other)})
+    assert {c.id: c.order for c in case.coverages} == {"cov_moreno_s_1": "primary", "cov_moreno_s_2": "secondary"}
     plan, evidence = plan_case(world, case)
     a = plan.actions[0]
     assert a.action == "cob_order_change" and ACTIONS[a.action].tier == 2
-    assert a.params["new_primary_coverage_id"] == "cov_moreno_other"
+    assert a.params["new_primary_coverage_id"] == "cov_moreno_s_2"
     d = decide(policy_ctx_for(case, evidence), a)
     assert (d.verdict, d.policy_row, d.reason) == ("propose", 6, "no rule")
 
@@ -115,14 +113,13 @@ def test_patient_responsibility_denials_need_a_person(world: World, claim_id: st
     assert plan.actions == () and plan.no_action_reason and plan.no_action_reason.startswith("Needs a person")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="gap: case._remittance_case classifies by arithmetic balance only, so Foster's PR-1 'deductible applied "
-    "though met 05/12' line balances and posts; 04-seed expects a `variance` held for reprocessing",
-)
 def test_foster_remittance_is_a_variance(world: World) -> None:  # noqa: F811
     case = case_for(world, "rem_cigna_1028", "posting", kind="remittance")
     assert case.classifier_situation == "era:variance"
+    assert case.variance_reasons == ("#4772 D2392: deductible applied though met 05/12 (PR-1 $32.00)",)
+    plan, _ = plan_case(world, case)
+    assert plan.actions == () and plan.no_action_reason
+    assert "deductible applied though met 05/12" in plan.no_action_reason
 
 
 def test_paper_eob_posting_is_proposed(world: World) -> None:  # noqa: F811
@@ -135,11 +132,8 @@ def test_paper_eob_posting_is_proposed(world: World) -> None:  # noqa: F811
 
 # ---------------------------------------------------------------- the three seeded unknowns (07 §2.1)
 
-ENVELOPES = {
-    "clm_4744": {"records_request", "payer_rep_call"},
-    "clm_4709": {"send_claim_agent_text", "records_request", "payer_rep_call"},
-    "clm_4731": {"request_835"},
-}
+#: the reviewed range each recorded plan declares (`envelope` in planner/recorded/<claim>.plan.json)
+ENVELOPES = {c: set(RecordedPlanPlanner.load(c)["envelope"]) for c in ("clm_4744", "clm_4709", "clm_4731")}
 
 
 @pytest.mark.parametrize("claim_id", sorted(ENVELOPES))

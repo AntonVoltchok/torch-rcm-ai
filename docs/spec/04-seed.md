@@ -31,7 +31,7 @@ Practice size: ~600 active patients, 2 locations, providers Dr. Morgan, Dr. Lee,
 - `clm_4733` J. Webb · Delta · D2740 #30 · **CO-119** frequency (Delta's tooth history has a 2022 crown on #30 that was really #31; real prior #30 crown seated 2019-08-14, replaced for fracture) → reconsideration: claim inquiry with Delta's own 03/2022 EOB (tier 1)
 - `clm_4611` R. Diaz · Delta · D2740 · **PR-119** annual max met → bill patient allowed $1,012, write off $228 (closes in Payments)
 - `clm_4705` T. Brooks · MetLife · pending 64 d → NY prompt-pay reprocessing request
-- `clm_4748` · Aetna · D2392 → alternate benefit D2140 (−$38) · billed $255
+- `clm_4748` · Aetna · D2392 → alternate benefit D2150 (`PR-186`, −$38) · billed $255
 - `clm_4790` M. Duarte · Cigna · D2392 alternate benefit — not appealable; bill patient difference
 - `clm_4772` Foster · Cigna · line underpaid $32: **PR-1 deductible applied though met 05/12** → variance held for reprocessing, NOT write-off; patient owes $27.20, $32 disputed, refund $6.40 owed
 - `clm_4776` W. Abara · D4341 UR · Cigna secondary to MetLife (MetLife 50% after $50 deductible = $82.80; OA-23; Cigna paid $131.20; patient $0)
@@ -47,7 +47,7 @@ Practice size: ~600 active patients, 2 locations, providers Dr. Morgan, Dr. Lee,
 - Appealed: Ruiz $960 · Lund $320 · Varga $640 = $1,920
 - Today's claims (10/28): Owens #4859 (second visit 10:00, Ready for 10:45 file), Ortega (SRP: LR sent, UR not billable — no depths charted; never nudge documentation), Brennan (D2392 sent as-is, alt benefit expected, pt est $71.60), Russo (D0274 sent, will deny PR-frequency, acknowledgment on file 03/11), Akers (secondary held for Delta 835; timely from primary EOB), Iqbal (subscriber id fix after Vyne A7:164), Lindgren (rendering-provider mismatch, held 10:51), Novak #4855 (Delta D3320 #13 $915), Reyes #4858 (checkout 10:40, molar crown, Guardian alt-benefit possible), Romano, Kowalski, Torres (NY Medicaid, D9941 non-covered consent 10/14)
 
-**Eligibility (tomorrow Thu 10/29)**: J. Chen 9:00 · annual max $1,500 used $1,320 remaining $180 · planned D4341×2 $410 + D2392 #30 $240 = $650 → insurance $180 / patient $470 → flag to front desk; frequency rows with last-done dates. Other rows: W. Ito, E. Ford, N. Park (third "human look"), C. Webb, M. Alvarez, R. Patel (verified).
+**Eligibility (tomorrow Thu 10/29)**: J. Chen 9:00 · annual max $1,500 used $1,320 remaining $180 · planned D4341×2 $410 + D2392 #30 $240 = $650 → insurance $180 / patient $470 → flag to front desk; frequency rows with last-done dates from the PMS history (D4341 03/12/2024, D0274 11/03/2025 → OK from 11/03/2026, D1110 04/14/2026; S. Kim: D0274 11/03/2025, D1110 05/02/2026). *Fees:* the practice fee schedule is D4341 **$240** and D2392 **$255** (#4748 bills $255; Abara's MetLife allowed $215.60 must stay ≤ the fee); J. Chen's planned amounts come from her 2025 treatment plan ($205 / $240) — a stale treatment-plan fee, kept on purpose because that is how a PMS behaves, and the estimate uses the plan's amounts. Other rows: W. Ito, E. Ford, N. Park (third "human look"), C. Webb, M. Alvarez, R. Patel (verified).
 
 **Remittances**: Cigna ERA 12 lines on 7 claims, billed $1,755.00; allowed $1,158; CO-45 $597; PR-1 $32; PR-2 $88.40; 11 auto-posted ($846.00), Foster held ($108.80); Guardian paper check #208841 $640 needs review, not yet deposited; Guardian $212 EFT (trace GRD…) 835 requested 10/27; Aetna ERA auto-posted 6 of 6 (#4748 as an inbox balance). Bank: expected $13,165.20 · 6 of 7 matched ($12,525.20) · unapplied $212.
 

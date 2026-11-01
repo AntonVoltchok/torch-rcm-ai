@@ -10,6 +10,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import cache
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -40,9 +41,38 @@ def _load_agents() -> bool:
     """torch.agents registers its job handlers on import; the API runs without it (world-only)."""
     try:
         import torch.agents  # noqa: F401
+        from torch.agents.handlers import register
+        from torch.scheduler.registry import registry
     except ImportError:
         return False
+    register(registry)  # run.start, triage, era.arrived
     return True
+
+
+def _wire_agent_runtime(rt: Runtime) -> None:
+    """Attach the shared AgentRuntime: model client per TORCH_AGENT_MODE, then resume checkpointed runs."""
+    from torch.agents.config import AgentConfig
+    from torch.agents.runtime import AgentRuntime
+
+    cfg = AgentConfig()
+    agent_rt = AgentRuntime.shared(rt.store, rt.clock, rt.world, cfg)
+    if cfg.agent_mode == "live":
+        from torch.agents.llm.cassette import CANONICAL_DIR, CassetteClient, RecordingClient
+        from torch.agents.llm.client import LlmClient
+
+        def sink(rec: Any) -> None:
+            rt.store.insert(rec.to_entity())
+
+        client: Any
+        if cfg.cassette_mode == "replay":
+            client = CassetteClient(CANONICAL_DIR / "canonical", sink=sink, clock=rt.clock.now)
+        else:
+            client = LlmClient(cfg, sink=sink, clock=rt.clock.now)
+            if cfg.cassette_mode == "record":
+                client = RecordingClient(client, CANONICAL_DIR / "live", recorded_at=rt.clock.now().isoformat())
+        agent_rt.llm_client = client
+    resumed = agent_rt.recover()
+    log.info("agents.wired", mode=rt.settings.agent_mode, resumed_runs=resumed)
 
 
 def create_app(
@@ -58,6 +88,8 @@ def create_app(
         app.state.runtime = rt
         agents = _load_agents()
         rt.scheduler.queue.recover()
+        if agents:
+            _wire_agent_runtime(rt)
         stop = asyncio.Event()
         worker = None
         if start_worker if start_worker is not None else settings.worker:

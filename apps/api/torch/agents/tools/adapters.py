@@ -545,7 +545,8 @@ class SimWorld:
             return rec("pms", "pms.get_image", get_image, mutation=False)
         if op == "nea.upload":
             assert cid is not None
-            return w.nea.upload(cid, _s(args, "image_id"), _s(args, "kind"), key=key, run_id=run_id)
+            resp = w.nea.upload(cid, _s(args, "image_id"), _s(args, "kind"), key=key, run_id=run_id)
+            return {**resp, "reference": resp.get("nea_number")}
         if op == "nea.upload_packet":
             assert cid is not None
             resp = w.nea.upload(cid, _s(args, "packet_ref"), _s(args, "kind"), key=key, run_id=run_id)
@@ -857,6 +858,9 @@ class StoreDomain:
 
     def claim_entity(self, claim_id: str) -> Claim:
         return self.store.require(Claim, claim_id)
+
+    def coverage_entity(self, coverage_id: str) -> Coverage | None:
+        return self.store.get(Coverage, coverage_id)
 
     def claim_view(self, claim_id: str) -> ClaimView:
         c = self.claim_entity(claim_id)

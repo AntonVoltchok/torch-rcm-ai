@@ -8,9 +8,18 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Literal
 
-from torch.api.schemas import ClaimList, ClaimRow, ClaimSummary, PatientRef, PayerRef, Strip, StripTile
-from torch.domain.entities import Claim, InboxItem, Patient
-from torch.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, Role
+from torch.api.schemas import (
+    ClaimList,
+    ClaimRow,
+    ClaimSummary,
+    NavBadges,
+    PatientRef,
+    PayerRef,
+    Strip,
+    StripTile,
+)
+from torch.domain.entities import Claim, InboxItem, Patient, Remittance
+from torch.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, RemitStatus, Role
 from torch.readmodels.snapshot import Snapshot
 
 S = ClaimStatus
@@ -167,6 +176,18 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
         flagged_count=flagged_total,
         flagged_cents=flagged_cents,
         as_of=snap.now,
+        paid_month_label=f"{snap.today:%b}",
+        nav_badges=nav_badges(snap, inbox),
+    )
+
+
+def nav_badges(snap: Snapshot, inbox: list[InboxItem]) -> NavBadges:
+    from torch.readmodels.activity import ran_without_review, this_week
+
+    return NavBadges(
+        payments=sum(1 for r in snap.of(Remittance) if r.status is not RemitStatus.AUTO_POSTED),
+        eligibility=sum(1 for i in inbox if i.kind is InboxItemKind.ELIGIBILITY_FLAG),
+        activity=sum(1 for r in this_week(snap) if ran_without_review(r)),
     )
 
 

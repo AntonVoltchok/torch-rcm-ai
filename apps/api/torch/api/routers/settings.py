@@ -4,6 +4,8 @@ from fastapi import APIRouter
 
 from torch.api.deps import CtxDep
 from torch.api.schemas import (
+    PracticeSettingsIn,
+    PracticeSettingsOut,
     PreviewOut,
     ProposalList,
     ProposalOut,
@@ -36,6 +38,11 @@ def patch_rule(ctx: CtxDep, rule_id: str, body: RulePatchIn) -> RulePatchOut:
 @router.get("/settings/preview", response_model=PreviewOut)
 def preview(ctx: CtxDep, rule_id: str, mode: RuleMode | None = None, max_cents: int | None = None) -> PreviewOut:
     return svc.preview(ctx, rule_id, mode, max_cents)
+
+
+@router.patch("/settings/practice", response_model=PracticeSettingsOut)
+def patch_practice(ctx: CtxDep, body: PracticeSettingsIn) -> PracticeSettingsOut:
+    return svc.patch_practice(ctx, body)
 
 
 @router.get("/proposals", response_model=ProposalList)

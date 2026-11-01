@@ -341,7 +341,7 @@ NAMED: tuple[Named, ...] = (
         "U48324418",
         "3337851",
         "Cigna DPPO",
-        plan=(("alternate_benefit", False),),
+        plan=(("alternate_benefit", False), ("deductible_met_on", date(2026, 5, 12))),
     ),
     Named(
         "duarte_m",
@@ -777,6 +777,19 @@ def add_named_patients(b: Builder, verified_at: datetime) -> dict[str, tuple[Pat
         plan_name="Guardian DentalGuard Preferred (spouse)",
         order=CoverageOrder.SECONDARY,
         self_funded=True,
+        verified_at=verified_at,
+    )
+    # Moreno: the PMS lists her new employer's MetLife plan as secondary; Aetna's 10/29 CO-22 says MetLife is
+    # primary, so the COB script proposes `cob_order_change` (tier 2, no rule → Dana).
+    moreno, _ = out["moreno_s"]
+    b.coverage(
+        moreno,
+        PayerKey.METLIFE,
+        schedule="metlife_pdp",
+        subscriber_id="MET880417263",
+        group_no="5520193",
+        plan_name="MetLife PDP Plus (employer, eff. 09/01)",
+        order=CoverageOrder.SECONDARY,
         verified_at=verified_at,
     )
     return out

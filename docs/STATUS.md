@@ -117,3 +117,25 @@ _Updated by whoever ends a session. Newest first._
 - Re-record the canonical cassettes with a key (`torch cassette record`), then switch them to `hash_mode: full`. The appeal cassette assumes the draft run has ≥ 2 evidence items (E1, E2).
 - Live `submit_result` turn not used: `result()` is the code-built text. No mid-conversation resume (`pin_matches()` exists; on a mismatch, re-plan).
 - Wire `AgentRuntime.llm_client` (`LlmClient(cfg, sink=…, clock=…)` or `CassetteClient(Path("cassettes/canonical"), …)` per `TORCH_CASSETTE_MODE`), and persist `LlmCallRecord.to_entity()` from the sink.
+
+### integration
+
+**Done**
+- Eval harness `apps/api/torch/agents/eval/` (`harness.py`, `__init__.py` → `run_eval`, `__main__.py` → `main`; `torch eval` and `torch.agents.cli.run_eval_command` call it): seeds canonical, approves the Delta group, triages #4744/#4709/#4731, runs to Thu 07:10, in deterministic and live (`CassetteClient` over `cassettes/canonical`) modes; compares per-run action / step names / evidence kinds / item kind / status; property-checks the unknowns against the `envelope` now declared in `planner/recorded/*.plan.json` (never executed, no world mutation, one open item); asserts the 01 invariants (seed and Thu) and 04-seed reconciled numbers; prints a table, exit 1 on any mismatch. `tests/agents/test_eval.py`. Runs in ~4 s; its end state is Inbox 19 because it triages all three unknowns (the demo triages only #4744 → 17).
+- Foster variance: `PlanBenefits.deductible_met_on` + `case._benefit_variances` → `era:variance` "deductible applied though met 05/12"; xfail removed.
+- Moreno COB: second coverage seeded (MetLife, secondary) → `cob_order_change` tier 2 "no rule → Dana". Castillo: agent-sent FMX on file → root cause `ours` → held for Dana.
+- `era.arrived` routes by `route_denial` (Ito/Morris → Appeals); `claim.status_check_due` handler; executor maps trigger `schedule` → `claim.status_check_due`.
+- API: `PATCH /settings/practice` (owner, 403 `owner_only`, 422 `invalid_cap`, audit); `Strip.paid_month_label` + `nav_badges {payments, eligibility, activity}`; typed overnight deadlines (`routing.denial_deadline` from the world's 835 handler); J. Chen / S. Kim PMS history visits → `frequencies[].last_done/ok_from` (history codes with a frequency rule are listed too). `GET /settings/preview` already counted 53/54 incl. approved items: Delta rule → 41 · held ours 3 · total 54 after 3b (confirmed, no change).
+- `adapters._act("nea.upload")` returns `reference`. `openapi.snapshot.json` regenerated from the contract table (48 paths, 147 schemas).
+- Specs: 02 (strip badges, preview, PATCH practice), 03 (Delta 835 Mon/Thu, D2392 → D2150 PR-186), 04 (fees D4341 $240 / D2392 $255, Chen stale-plan note, history dates, #4748 D2150), 05 (Settings: owner + billing), 06 (step 6 Delta rule wording; step 8 = **17** with composition and deadlines), 07 §10 (layout, scheduler in `torch/scheduler/`). ADR-0002.
+- Tests: 365 passed, 2 skipped, 0 xfailed (was 356 / 2 / 1 xfail).
+
+**Demo numbers after step 3, 3b and the Thu 07:10 advance (deterministic):** Inbox 17 (approve_action 10, review_draft 3, eligibility_flag 3, variance 1) · strip Ready 3 · Sent 1 · Rejected 1 · Accepted 8 · Pending 71 · Denied 9 · Appealed 3 · Partial 5 · Paid Oct 124 · nav badges payments 7 / eligibility 3 / activity 41.
+
+**First run with packages must verify**
+- `make gen-api` (web `schema.ts`: `nav_badges`, `paid_month_label` become required; `PracticeSettings*`, `PlanBenefits.deductible_met_on`), `make lint` (ruff/mypy were not runnable here), FastAPI contract tests (route table vs app incl. `PATCH /settings/practice`), `make eval` via typer.
+- Web mock step 8 still composes 16 from Lindgren + a held ERA line; re-align to the API's 17 (ADR-0002) and the e2e expectation.
+- Live mode against the real API: Castillo/Moreno have no cassette and replay as `scripted_fallback` (same shape); re-record cassettes with a key.
+
+**Still open**
+- No handlers for `visit.checked_out` (claim building), `eligibility.sweep`, posting on `era.arrived`, `claim.rejected`, `hold.escalate`, `prompt_pay.due`; overnight 835s stay `needs_review`.

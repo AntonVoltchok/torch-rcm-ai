@@ -44,6 +44,7 @@ from torch.domain.enums import (
     Tier,
 )
 from torch.domain.transitions import Cause, apply_transition
+from torch.domain.routing import denial_deadline
 from torch.domain.values import Denial
 from torch.world.calendar import (
     FILE_TIMES,
@@ -539,6 +540,16 @@ class PayerSim:
             claim.reason_text = (
                 f"{result.denial_carc} · {result.denial_rarc}" if result.denial_rarc else result.denial_carc
             )
+            claim.deadline = denial_deadline(
+                result.denial_carc,
+                result.denial_rarc,
+                payer_short=self.profile.short_name,
+                eob_on=now.date(),
+                appeal_window_days=self.profile.appeal_window_days,
+                self_funded=cov.self_funded,
+                dos=claim.dos,
+                refile=self._other_plan(claim),
+            )
         else:
             claim.denial = None
             claim.reason_text = None
@@ -563,6 +574,14 @@ class PayerSim:
             )
             for i, o in enumerate(result.lines, 1)
         ]
+
+    def _other_plan(self, claim: Claim) -> tuple[str, int] | None:
+        """The patient's other coverage (a COB denial says it is primary): its payer and timely-filing days."""
+        others = [c for c in self.store.find(Coverage, {"patient_id": claim.patient_id}) if c.id != claim.coverage_id]
+        if not others:
+            return None
+        prof = PROFILES[others[0].payer_key]
+        return prof.short_name, prof.timely_filing_days
 
     def _icn(self, claim: Claim, received: date) -> str:
         if self.key is PayerKey.DELTA_NY:

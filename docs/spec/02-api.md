@@ -26,7 +26,7 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 - `GET /claims/{id}` → claim + lines + attachments + acks + readiness + timeline (merged Runs/RunSteps/AuditEvents/AckEvents/human actions, newest last) + `open_inbox_items[]`.
 - `GET /claims/{id}/timeline?cursor` (same as above, paged).
 - `POST /claims/{id}:void` (tier 3; owner) · `POST /claims/{id}:corrected {changes}` (tier 2).
-- `GET /summary/strip` → `[{status, count, cents, flagged}]` + `{inbox_open, paid_month_cents, paid_month_count}`.
+- `GET /summary/strip` → `[{status, count, cents, flagged}]` + `{inbox_open, paid_month_cents, paid_month_count, paid_month_label}` + `nav_badges {payments, eligibility, activity}` (remittances not auto-posted · open eligibility flags the viewer sees · this week's decisions that ran without review). Sidebar badges read only these.
 - `GET /views` / `POST /views {name, search_params}` → saved views (server).
 
 ## Today's claims (ledger)
@@ -51,7 +51,8 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 
 - `GET /rules` → tiers with rows, `base_rate`, `ran_without_review_7d`, change log pointer.
 - `PATCH /rules/{id} {mode | max_cents | confidence_floor}` → `409 owner_signoff_required` creates an `owner_signoff` InboxItem for Dr. Morgan instead; tier 3 → `403 human_only`.
-- `GET /rules/changes` · `GET /settings/preview?rule_id&mode&max_cents` → `{would_run, total, held_by_root_cause}`.
+- `GET /rules/changes` · `GET /settings/preview?rule_id&mode&max_cents` → `{would_run, total, baseline_would_run, held_by_root_cause}` over this week's decisions (seeded triage runs, including those whose items Dana since approved; approval runs are not counted twice). `would_run` is net of the root-cause guard: the UI shows `baseline_would_run → would_run + Σheld` and "N held (root cause: ours) · net `would_run`".
+- `PATCH /settings/practice {practice_cap_cents}` → `{practice_cap_cents, meta}`: the practice-wide tier-2 cap (tier 1 is exempt); owner only (`403 owner_only`), `422 invalid_cap` outside $0–$25,000; writes an audit event.
 - `GET /proposals` · `POST /proposals/{id}:accept|dismiss` (`422 root_cause_guard`).
 
 ## Static-screen reads

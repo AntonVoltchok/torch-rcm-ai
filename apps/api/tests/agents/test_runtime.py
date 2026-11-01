@@ -44,8 +44,9 @@ def run_start_jobs(rt: Runtime, run_id: str) -> list[Job]:
 
 
 def test_approve_run_start_steps_done_through_the_scheduler(rt: Runtime, world_only_registry: Registry) -> None:
-    assert set(register(world_only_registry, CFG)) == {K.RUN_START, K.TRIAGE, K.ERA_ARRIVED}
-    assert register(world_only_registry, CFG) == [K.RUN_START, K.TRIAGE, K.ERA_ARRIVED]  # idempotent
+    kinds = [K.RUN_START, K.TRIAGE, K.ERA_ARRIVED, K.STATUS_CHECK_DUE]
+    assert set(register(world_only_registry, CFG)) == set(kinds)
+    assert register(world_only_registry, CFG) == kinds  # idempotent
     run = approve_4821(rt)
     drain(rt)
     done = rt.store.require(Run, run.id)

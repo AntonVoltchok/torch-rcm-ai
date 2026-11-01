@@ -19,12 +19,16 @@ from typing import Any
 
 from torch.agents.config import AgentConfig
 from torch.agents.runtime import AgentRuntime
-from torch.domain.entities import Claim, Remittance, Run
+from torch.domain.entities import Claim, InboxItem, Remittance, Run
+from torch.domain.enums import ClaimStatus, InboxItemState
+from torch.domain.enums import PayerKey as DomainPayerKey
+from torch.domain.enums import RootCause as DomainRootCause
 from torch.domain.enums import RunTrigger
+from torch.domain.routing import route_denial
 from torch.scheduler import kinds as K
 from torch.scheduler.registry import JobContext, JobOutcome, Registry, registry
 
-__all__ = ["era_arrived", "register", "run_start", "triage"]
+__all__ = ["era_arrived", "register", "run_start", "status_check_due", "triage"]
 
 _CONFIG: list[AgentConfig | None] = [None]  # set by register(cfg=…); default AgentConfig.from_env()
 
@@ -93,14 +97,48 @@ def era_arrived(ctx: JobContext) -> JobOutcome:
     for claim in ctx.store.get_many(Claim, claim_ids).values():
         if claim.denial is None:
             continue
+        agent = owner_agent(claim)
+        if agent is None:
+            continue  # patient-responsibility / write-off lines close in Payments, not in a triage run
         ctx.enqueue(
             K.TRIAGE,
             ctx.now,
-            {"claim_id": claim.id, "agent": "followup", "remittance_id": remit.id, "trigger": "rule"},
+            {"claim_id": claim.id, "agent": agent, "remittance_id": remit.id, "trigger": "rule"},
             f"triage:{claim.id}:era:{remit.id}",
         )
-        out.add("triage_enqueued", f"Follow-up will look at #{claim.number} ({claim.denial.carc})", claim_id=claim.id)
+        summary = f"{agent.capitalize()} will look at #{claim.number} ({claim.denial.carc})"
+        out.add("triage_enqueued", summary, claim_id=claim.id)
     return out
+
+
+def status_check_due(ctx: JobContext) -> JobOutcome:
+    """Day-30/45/… status check on a pending claim → a Follow-up triage run (trigger `schedule`). Claims that
+    moved on (adjudicated, denied — the 835 path owns those) or that already wait on a person are skipped."""
+    out = JobOutcome()
+    claim = ctx.store.get(Claim, str(ctx.job.payload["claim_id"]))
+    if claim is None or claim.status is not ClaimStatus.PENDING:
+        return out
+    if ctx.store.find(InboxItem, {"claim_id": claim.id, "state": InboxItemState.OPEN}):
+        return out
+    ctx.enqueue(
+        K.TRIAGE,
+        ctx.now,
+        {"claim_id": claim.id, "agent": "followup", "trigger": RunTrigger.SCHEDULE.value},
+        f"triage:{claim.id}:{ctx.job.idempotency_key}",
+    )
+    out.add("triage_enqueued", f"Follow-up status check on #{claim.number}", claim_id=claim.id)
+    return out
+
+
+def owner_agent(claim: Claim) -> str | None:
+    """The agent that owns a denial — the same router the Denials worklist uses (torch.domain.routing), so an
+    overnight CO-50 goes to Appeals, not to a Follow-up run that cannot classify it."""
+    assert claim.denial is not None
+    d = claim.denial
+    route = route_denial(
+        d.carc, d.rarc, root_cause=DomainRootCause.UNKNOWN, payer=DomainPayerKey(claim.payer_key), self_funded=False
+    )
+    return route.agent.value if route.agent.value in ("followup", "appeals", "claims") else None
 
 
 def register(reg: Registry = registry, cfg: AgentConfig | None = None, *, replace: bool = False) -> list[str]:
@@ -109,11 +147,19 @@ def register(reg: Registry = registry, cfg: AgentConfig | None = None, *, replac
     if cfg is not None:
         _CONFIG[0] = cfg
     done: list[str] = []
-    for kind, fn in ((K.RUN_START, run_start), (K.TRIAGE, triage), (K.ERA_ARRIVED, era_arrived)):
+    for kind, fn in HANDLERS:
         if reg.get(kind) is not None and not replace:
-            if reg.get(kind) in (run_start, triage, era_arrived):
+            if reg.get(kind) in tuple(f for _, f in HANDLERS):
                 done.append(kind)
             continue
         reg.register(kind, fn, replace=replace)
         done.append(kind)
     return done
+
+
+HANDLERS = (
+    (K.RUN_START, run_start),
+    (K.TRIAGE, triage),
+    (K.ERA_ARRIVED, era_arrived),
+    (K.STATUS_CHECK_DUE, status_check_due),
+)
