@@ -2,7 +2,7 @@
 
 Agents never call the internet. They call **tools** whose implementations are simulated systems with realistic shapes and payer-specific behavior. The simulation is deterministic given the seed and the clock, so the demo is repeatable; a small amount of seeded randomness (PRNG keyed by claim id) decides ack timing and denial draws so it doesn't look scripted.
 
-Package: `apps/api/torch/world/`. Every simulated system exposes a Python interface **and** records every call in `WorldCallLog` (the basis for Evidence objects and the "what the agent did" story).
+Package: `apps/api/torch_rcm/world/`. Every simulated system exposes a Python interface **and** records every call in `WorldCallLog` (the basis for Evidence objects and the "what the agent did" story).
 
 ## Clock and scheduler
 

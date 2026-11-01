@@ -3,12 +3,14 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { API_BASE } from '@/env'
-import type { Run } from '@/api/schema'
+import type { RunDetail } from '@/api/schema'
 import { renderWithProviders } from '@/test/render'
 import { ProgressPanel } from './ProgressPanel'
 import type { Launch } from '@/state/launches'
 
-const snapshot: Run = {
+// GET /runs/{id} answers RunDetail {run, evidence, last_event_id}, as the API does.
+const snapshot: RunDetail = {
+  run: {
   id: 'run_t',
   agent: 'followup',
   trigger: 'approval',
@@ -20,6 +22,7 @@ const snapshot: Run = {
     { idx: 0, name: 'fetch_pa_from_pms_imaging', status: 'pending', progress_lines: [], evidence_ids: [] },
     { idx: 1, name: 'upload_to_nea', status: 'pending', progress_lines: [], evidence_ids: [] },
   ],
+  },
   evidence: [],
   last_event_id: 0,
 }

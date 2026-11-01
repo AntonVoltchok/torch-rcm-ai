@@ -13,8 +13,8 @@ Torch is a believable, interactive demo of an agentic-AI revenue-cycle product f
 ## Repo layout
 
 ```text
-apps/api/        FastAPI + SQLModel (SQLite) · torch/{domain,world,seed,agents,api,scheduler}
-apps/web/        Vite + React 19 + TS · TanStack Router/Query/Table · Zod client generated from OpenAPI
+apps/api/        FastAPI + pydantic, JSON document store on SQLite (`db/store.py`) · torch_rcm/{domain,world,seed,agents,api,scheduler}
+apps/web/        Vite + React 19 + TS · TanStack Router/Query/Table · Zod mirror of the API's OpenAPI (hand-maintained until `make gen-api` runs; see docs/FIRST_RUN.md)
 packages/        (none yet; shared contracts live in the API's OpenAPI → web codegen)
 docs/            spec/ (contracts) · adr/ · design/ (mocks, red-team reports, decisions log) · SESSIONS.md
 infra/           docker-compose, Dockerfiles, deploy configs (Fly for api, Vercel for web — not deployed)
@@ -33,7 +33,7 @@ make gen-api      # regenerate apps/web/src/api/* from /api/openapi.json — run
 make lint         # ruff + mypy (api); eslint + tsc --noEmit (web)
 ```
 
-Python: `uv` (3.13), `ruff`, `mypy --strict` on `torch/domain` and `torch/agents`. Web: `pnpm`, TypeScript strict, ESLint. Node 22.
+Python: `uv` (3.13), `ruff`, `mypy --strict` on `torch_rcm/domain` and `torch_rcm/agents`. Web: `pnpm`, TypeScript strict, ESLint. Node 22.
 
 ## Hard rules (red-team findings turned into constraints)
 
@@ -53,7 +53,7 @@ Python: `uv` (3.13), `ruff`, `mypy --strict` on `torch/domain` and `torch/agents
 
 ## Working style
 
-- Plan in `docs/plans/<topic>.md` before a multi-file change; keep it short; delete it when merged.
+- Plan in `docs/plans/<topic>.md` before a multi-file change; keep it short; when merged, fold its decisions into an ADR (or `docs/adr/worker-notes/`) and delete the plan.
 - Small commits with conventional messages (`feat(api): …`, `feat(web): …`, `docs: …`). Never commit `.env`, `*.db`, cassettes containing real keys.
 - Tests are part of the feature. A feature without its invariant test is not done.
 - When unsure about a product or architecture decision, do not ask the user: write the options in a plan, run `/challenge --red-team` on your lean with a domain persona (see `docs/SESSIONS.md` → "Deciding without the user"), adopt the result, record an ADR.

@@ -11,7 +11,8 @@ import { useMutation, useQueryClient, type QueryClient, type QueryKey } from '@t
 import { api } from '@/api/endpoints'
 import { isApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
-import type { InboxItem, InboxList, Run } from '@/api/schema'
+import type { InboxItem, InboxList, Run, RunView } from '@/api/schema'
+import { mergeSnapshot, runViewOf } from '@/lib/runEvents'
 import { launchStore, type Launch } from '@/state/launches'
 import { toast } from '@/state/toast'
 import { withoutItems } from '@/features/inbox/selectors'
@@ -39,19 +40,19 @@ function settle(qc: QueryClient, claimIds: (string | null | undefined)[]) {
 }
 
 function recordLaunch(qc: QueryClient, kind: Launch['kind'], title: string, runs: Run[], items: InboxItem[]): Launch {
-  for (const run of runs) qc.setQueryData(qk.run(run.id), run)
+  for (const run of runs) qc.setQueryData<RunView>(qk.run(run.id), (old) => mergeSnapshot(old, runViewOf(run)))
   const launch: Launch = {
     id: runs[0]?.id ?? `launch_${items[0]?.id ?? 'x'}`,
     kind,
     title,
     runs: runs.map((r) => {
       const item = items.find((i) => i.id === r.inbox_item_id)
-      const n = item?.subject?.claim_number
+      const n = item?.claim?.number
       return {
         run_id: r.id,
         claim_id: r.claim_id ?? null,
         item_id: item?.id ?? r.inbox_item_id ?? null,
-        label: [n ? `#${n}` : null, item?.subject?.patient_name].filter(Boolean).join(' ') || (item?.title ?? r.id),
+        label: [n ? `#${n}` : null, item?.patient?.display_name].filter(Boolean).join(' ') || (item?.title ?? r.id),
       }
     }),
     started_at: qc.getQueryData<{ now: string }>(qk.clock)?.now ?? runs[0]?.started_at ?? '',
@@ -97,7 +98,7 @@ export function useApprove(opts: { onLaunched?: (l: Launch) => void; onFileDepar
       toast(explain(err), { tone: 'bad' })
     },
     onSettled: (_d, _e, v) => {
-      settle(qc, [v.item.claim_id])
+      settle(qc, [v.item.claim?.id])
     },
   })
 }
@@ -115,7 +116,7 @@ export function useApproveGroup(opts: { onLaunched?: (l: Launch) => void } = {})
       toast(explain(err), { tone: 'bad' })
     },
     onSettled: (_d, _e, v) => {
-      settle(qc, v.items.map((i) => i.claim_id))
+      settle(qc, v.items.map((i) => i.claim?.id))
     },
   })
 }
@@ -133,7 +134,7 @@ export function useReject() {
       toast(isApiError(err) ? err.message : 'Reject failed.', { tone: 'bad' })
     },
     onSettled: (_d, _e, v) => {
-      settle(qc, [v.item.claim_id])
+      settle(qc, [v.item.claim?.id])
     },
   })
 }
@@ -151,7 +152,7 @@ export function useSnooze() {
       toast(isApiError(err) ? err.message : 'Snooze failed.', { tone: 'bad' })
     },
     onSettled: (_d, _e, v) => {
-      settle(qc, [v.item.claim_id])
+      settle(qc, [v.item.claim?.id])
     },
   })
 }

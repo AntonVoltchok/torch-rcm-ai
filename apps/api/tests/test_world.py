@@ -7,12 +7,12 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from torch.domain.entities import Claim, Coverage, Visit, WorldCallLog
-from torch.domain.enums import ClaimStatus, PayerKey
-from torch.runtime import Runtime
-from torch.world.calendar import FILE_TIMES, is_business_day, next_file_time
-from torch.world.calllog import WorldUnavailableError
-from torch.world.rng import keyed_int
+from torch_rcm.domain.entities import Claim, Coverage, Visit, WorldCallLog
+from torch_rcm.domain.enums import ClaimStatus, PayerKey
+from torch_rcm.runtime import Runtime
+from torch_rcm.world.calendar import FILE_TIMES, is_business_day, next_file_time
+from torch_rcm.world.calllog import WorldUnavailableError
+from torch_rcm.world.rng import keyed_int
 
 
 def test_injected_portal_outage_raises_and_is_recorded(rt: Runtime) -> None:
@@ -30,7 +30,7 @@ def test_injected_portal_outage_raises_and_is_recorded(rt: Runtime) -> None:
 
 
 def test_portal_outage_scenario_starts_at_1052() -> None:
-    from torch.world.scenarios import build_scenario
+    from torch_rcm.world.scenarios import build_scenario
 
     w = build_scenario("portal_outage")
     meta = next(m for m in w.entities[next(k for k in w.entities if k.__name__ == "Meta")] if m.id == "outages")

@@ -9,11 +9,11 @@ import random
 
 import pytest
 
-from torch.domain.enums import AdjGroup, ClaimStatus, PayerKey
-from torch.domain.values import PlanBenefits
-from torch.world.fees import CODES, SCHEDULES, Category
-from torch.world.payers.adjudicate import LineIn, Outcome, adjudicate
-from torch.world.payers.profiles import PROFILES
+from torch_rcm.domain.enums import AdjGroup, ClaimStatus, PayerKey
+from torch_rcm.domain.values import PlanBenefits
+from torch_rcm.world.fees import CODES, SCHEDULES, Category
+from torch_rcm.world.payers.adjudicate import LineIn, Outcome, adjudicate
+from torch_rcm.world.payers.profiles import PROFILES
 
 D, ML, CG, AE = PayerKey.DELTA_NY, PayerKey.METLIFE, PayerKey.CIGNA, PayerKey.AETNA
 CROWN = [LineIn("l1", "D2740", 109_000, "19"), LineIn("l2", "D2950", 12_000, "19"), LineIn("l3", "D0220", 3_000, "19")]

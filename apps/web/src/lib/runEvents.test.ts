@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { Run } from '@/api/schema'
-import { applyDoneEvent, applyStatusEvent, applyStepEvent, mergeSnapshot } from './runEvents'
+import type { RunView } from '@/api/schema'
+import { applyDoneEvent, applyStatusEvent, applyStepEvent, mergeSnapshot, reduceRunMessage, runViewOf } from './runEvents'
 
-const base = (): Run => ({
+const base = (): RunView => ({
   id: 'run_1',
   agent: 'followup',
   trigger: 'approval',
@@ -63,5 +63,45 @@ describe('run event reducer', () => {
     const merged = mergeSnapshot(live, { ...base(), status: 'running', last_event_id: 1 })
     expect(merged.steps.map((s) => s.status)).toEqual(['ok', 'running'])
     expect(merged.last_event_id).toBe(3)
+  })
+
+  it('folds GET /runs/{id} RunDetail into the cached view; a mutation\'s bare Run replays from the start', () => {
+    const { evidence: _e, last_event_id: _l, ...run } = base()
+    const view = runViewOf({ run, evidence: [nea], last_event_id: 7 })
+    expect(view.evidence.map((e) => e.id)).toEqual(['ev_nea'])
+    expect(view.last_event_id).toBe(7)
+    expect(runViewOf(run)).toMatchObject({ evidence: [], last_event_id: null })
+  })
+
+  it('a malformed `done` never marks the run succeeded: the stream is desynced and the run refetched', () => {
+    const running = applyStatusEvent(base(), { status: 'running' }, 1)
+    const fx = reduceRunMessage(running, { id: 9, event: 'done', data: '{"status": "succeeded", "audit_line": ' })
+    expect(fx.result).toBe('desynced')
+    expect(fx.refetchRun).toBe(true)
+    expect(fx.run?.status).toBe('running')
+    expect(fx.run?.last_event_id).toBe(1)
+    // Parses as JSON but not as a done payload (unknown status): same outcome.
+    const odd = reduceRunMessage(running, { id: 9, event: 'done', data: '{"status": "finished"}' })
+    expect(odd).toMatchObject({ result: 'desynced', refetchRun: true })
+    expect(odd.run?.status).toBe('running')
+    // A done without a status says nothing about the outcome either.
+    const bare = reduceRunMessage(running, { id: 9, event: 'done', data: '{}' })
+    expect(bare.result).toBe('desynced')
+    expect(bare.run?.status).toBe('running')
+    expect(applyDoneEvent(running, {}, 9).status).toBe('running')
+  })
+
+  it('after a desync, the server\'s failed status is what renders', () => {
+    const running = applyStatusEvent(base(), { status: 'running' }, 1)
+    const stuck = reduceRunMessage(running, { id: 9, event: 'done', data: 'not json' }).run
+    const merged = mergeSnapshot(stuck, { ...base(), status: 'failed', audit_line: 'Upload to NEA failed' })
+    expect(merged.status).toBe('failed')
+    expect(merged.audit_line).toBe('Upload to NEA failed')
+  })
+
+  it('a well-formed `done` finishes the stream with the server-sent status', () => {
+    const fx = reduceRunMessage(applyStatusEvent(base(), { status: 'running' }, 1), { id: 9, event: 'done', data: '{"status":"failed"}' })
+    expect(fx).toMatchObject({ result: 'done', refetchRun: true })
+    expect(fx.run?.status).toBe('failed')
   })
 })

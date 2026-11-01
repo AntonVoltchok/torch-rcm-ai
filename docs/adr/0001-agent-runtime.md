@@ -10,7 +10,7 @@ Status: accepted · 2026-11-01 · Decided after red team (docs/design/red-team/c
 - A terminal tool (`submit_plan`/`submit_result`) sent in the same turn as reads is rejected with `is_error` and a nudge; one repair turn; then labeled scripted fallback.
 - No "round 2" inside a run: a rep call that changes the picture writes evidence and enqueues a new triage run.
 - `POST /clock/advance` is **async** (202 + progress on the run firehose), live concurrency 2, per-advance live-run cap.
-- Checkpoints pinned to `{model, effort, system_sha, tools_sha}`; mismatch → re-plan (safe: nothing mutates before `submit_plan`). Cassette key includes `system_sha`. Prompt ids deterministic.
+- Checkpoints pinned to `{model, effort, system_sha, tools_sha}`; mismatch before a plan exists → discard the conversation and any state and re-plan (safe: nothing mutates before `submit_plan`); after a plan exists → continue the stored plan under the pin it was planned with (`Executor._reconcile_checkpoint`). Cassette key includes `system_sha`. Prompt ids deterministic.
 - Run states include `paused`; kill switch parks runs (no hot loop). SQLite rules: one writer, short transactions, none held across an LLM await or a step delay.
 - Cut from the demo: runtime LearningService and demotion (stats are seeded; threshold is a pure tested function), OpenTelemetry (structlog + `llm_calls` table), replay timing knobs, daily cost cap, alarm rows (asserts instead).
 

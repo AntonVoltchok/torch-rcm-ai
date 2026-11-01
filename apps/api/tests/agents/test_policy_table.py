@@ -8,8 +8,8 @@ from datetime import datetime
 import pytest
 from agent_world import CLAIM, PATIENT, ctx, ev, rule
 
-from torch.agents.catalog.actions import ACTIONS, AGENT_ACTIONS, TIER3_ACTIONS
-from torch.agents.policy import (
+from torch_rcm.agents.catalog.actions import ACTIONS, AGENT_ACTIONS, TIER3_ACTIONS
+from torch_rcm.agents.policy import (
     ROWS,
     Policy,
     PolicyInvariantError,
@@ -22,7 +22,7 @@ from torch.agents.policy import (
     match_rule,
     route_rule_patch,
 )
-from torch.agents.types import BaseRate, GuardResult, ProposedAction, RuleScope
+from torch_rcm.agents.types import BaseRate, GuardResult, ProposedAction, RuleScope
 
 RESUBMIT = ProposedAction(
     action="resubmit_with_attachment",
@@ -47,7 +47,7 @@ def test_rows_match_spec_table() -> None:
         14: "refuse", 15: "execute",
     }  # fmt: skip
     assert {r.number: r.verdict for r in ROWS} == expected
-    assert {r.number for r in ROWS if r.approval_recheck} == {0, 1, 3, 14, 15}
+    assert {r.number for r in ROWS if r.approval_recheck} == {0, 1, 3, 7, 14, 15}
 
 
 def test_row15_baseline_executes() -> None:
@@ -351,8 +351,8 @@ def test_policy_constructor_raises_at_load() -> None:
 
 
 def test_seeded_rules_satisfy_invariants(canonical_world) -> None:  # type: ignore[no-untyped-def]
-    from torch.agents.tools.adapters import rule_view
-    from torch.domain.entities import Rule
+    from torch_rcm.agents.tools.adapters import rule_view
+    from torch_rcm.domain.entities import Rule
 
     rules = [rule_view(e) for e in canonical_world.entities.get(Rule, [])]
     assert len(rules) >= 15
@@ -420,3 +420,36 @@ def test_property_unknown_or_ours_never_executes() -> None:
         cause = "ours" if situation != "unknown" else rng.choice(["ours", "payer"])
         c = ctx(r, classifier_situation=situation, item_type=situation, root_cause=cause, cents=rng.randint(0, 10**6))
         assert decide(c, RESUBMIT).verdict == "propose"
+
+
+# ---------------------------------------------------------------- Observe mode on approval (row 7 re-check)
+
+
+def test_approval_of_an_item_whose_rule_is_now_observe_records_only() -> None:
+    observe = rule("send_claim_pms_codes", 1, "observe")
+    approval = ctx(observe, agent="claims", run_kind="approval", actor_id="usr_dana", actor_role="billing")
+    d = decide(approval, SEND)
+    assert (d.verdict, d.policy_row) == ("observe", 7)
+    assert d.rule_id == observe.id
+
+
+def test_approved_item_under_observe_rule_runs_nothing_and_marks_the_item(rt) -> None:  # type: ignore[no-untyped-def]
+    import asyncio
+
+    from tests.agents.test_executor import agents, approve_4821
+    from torch_rcm.domain.entities import InboxItem, Rule, WorldCallLog
+    from torch_rcm.domain.enums import RuleMode, RunStatus
+
+    for r in rt.store.find(Rule, {"action": "resubmit_with_attachment"}):
+        r.mode = RuleMode.OBSERVE
+        rt.store.update(r)
+    art = agents(rt)
+    run = approve_4821(rt)
+    done = asyncio.run(art.start_run(run.id)).run
+    assert done.status is RunStatus.WOULD_HAVE_RUN
+    assert done.verdict is not None and done.verdict.value == "observe"
+    assert not any(s.name.startswith("act:") for s in done.steps)
+    assert not [w for w in rt.store.find(WorldCallLog, {"run_id": run.id}) if w.idempotency_key]  # no world act
+    item = rt.store.require(InboxItem, "itm_4821")
+    assert item.payload["approval_outcome"] == "would_have_run" and item.payload["approval_run_id"] == run.id
+    assert item.resolution_note and item.resolution_note.startswith("Would have run")

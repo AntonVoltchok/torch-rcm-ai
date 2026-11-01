@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from typing import Any
 
 from tests.agents.test_executor import CFG, RESUBMIT_STEPS, approve_4821, fake
-from torch.agents.handlers import register
-from torch.agents.runtime import AdvanceLimits, AgentRuntime
-from torch.agents.types import Pin
-from torch.domain.entities import Job, Practice, Run
-from torch.domain.enums import JobState, RunStatus
-from torch.events import FIREHOSE
-from torch.runtime import Runtime
-from torch.scheduler import kinds as K
-from torch.scheduler.registry import Registry
+from torch_rcm.agents.handlers import register
+from torch_rcm.agents.runtime import AdvanceLimits, AgentRuntime
+from torch_rcm.agents.types import Pin
+from torch_rcm.domain.entities import Job, Practice, Run
+from torch_rcm.domain.enums import JobState, RunStatus
+from torch_rcm.events import FIREHOSE
+from torch_rcm.runtime import Runtime
+from torch_rcm.scheduler import kinds as K
+from torch_rcm.scheduler.registry import Registry
 
 
 def go(coro: Any) -> Any:
@@ -58,7 +59,9 @@ def test_approve_run_start_steps_done_through_the_scheduler(rt: Runtime, world_o
     assert names[0] == "status" and names[-1] == "done" and "counts" in names
     step_events = [e["data"] for e in events if e["event"] == "step"]
     assert {e["phase"] for e in step_events} == {"started", "completed"}  # approval runs make no reads
-    assert all({"progress_lines", "policy_verdict", "model_situation_label", "planner"} <= e.keys() for e in step_events)
+    assert all(
+        {"progress_lines", "policy_verdict", "model_situation_label", "planner"} <= e.keys() for e in step_events
+    )
     assert any(e["data"].get("run_id") == run.id for e in art.bus.replay(FIREHOSE))
     # at-least-once: a duplicate run.start is a no-op
     again = go(art.start_run(run.id))
@@ -126,7 +129,7 @@ def test_pause_mid_run_stops_at_the_step_boundary_and_resumes(rt: Runtime, world
 
     async def start(ctx: Any) -> Any:
         calls.append(ctx.job.id)
-        from torch.agents.handlers import _outcome
+        from torch_rcm.agents.handlers import _outcome
 
         return _outcome(art, await art.start_run(ctx.job.payload["run_id"]), ctx)
 
@@ -155,10 +158,8 @@ def test_restart_recovery_resumes_from_checkpoint(rt: Runtime, world_only_regist
     art, fw = fake(rt, crash_after="pms.write_claim_remarks")
     run = approve_4821(rt)
     # the process dies mid-run: the run is `running`, its job still leased by the dead boot
-    try:
+    with contextlib.suppress(Crash):
         go(art.start_run(run.id))
-    except Crash:
-        pass
     job = run_start_jobs(rt, run.id)[0]
     job.state, job.lease_owner, job.lease_until = JobState.LEASED, "boot_dead", 0.0
     rt.store.update(job)
@@ -168,7 +169,7 @@ def test_restart_recovery_resumes_from_checkpoint(rt: Runtime, world_only_regist
     world_only_registry.unregister(K.RUN_START)
 
     async def start(ctx: Any) -> Any:
-        from torch.agents.handlers import _outcome
+        from torch_rcm.agents.handlers import _outcome
 
         return _outcome(art2, await art2.start_run(ctx.job.payload["run_id"]), ctx)
 
@@ -176,7 +177,13 @@ def test_restart_recovery_resumes_from_checkpoint(rt: Runtime, world_only_regist
     drain(rt)
     done = rt.store.require(Run, run.id)
     assert done.status is RunStatus.SUCCEEDED
-    assert fw.ops() == ["pms.get_image", "nea.upload", "pms.write_claim_remarks", "pms.write_claim_remarks", "vyne.queue"]
+    assert fw.ops() == [
+        "pms.get_image",
+        "nea.upload",
+        "pms.write_claim_remarks",
+        "pms.write_claim_remarks",
+        "vyne.queue",
+    ]
 
 
 def test_overnight_triage_when_an_835_denial_lands(rt: Runtime, world_only_registry: Registry) -> None:
@@ -185,11 +192,17 @@ def test_overnight_triage_when_an_835_denial_lands(rt: Runtime, world_only_regis
     result = drain(rt)
     kinds = [e["kind"] for e in result.events_fired]
     assert kinds.count("triage_enqueued") == 3 and kinds.count("run_finished") == 3
-    triaged = [r for r in rt.store.all(Run) if r.parent_run_id is None and r.trigger.value == "rule" and r.id.startswith("run_") and len(r.id) == 16]
+    triaged = [
+        r
+        for r in rt.store.all(Run)
+        if r.parent_run_id is None and r.trigger.value == "rule" and r.id.startswith("run_") and len(r.id) == 16
+    ]
     assert {r.claim_id for r in triaged} == {"clm_4821", "clm_4836", "clm_4840"}
     assert all(r.status is RunStatus.SUCCEEDED and r.planner.value == "scripted" for r in triaged)
     # a second 835 delivery (at-least-once) starts nothing new
-    rt.scheduler.enqueue(K.ERA_ARRIVED, rt.clock.now(), {"remittance_id": "rem_delta_1026"}, "test:era:rem_delta_1026:dup")
+    rt.scheduler.enqueue(
+        K.ERA_ARRIVED, rt.clock.now(), {"remittance_id": "rem_delta_1026"}, "test:era:rem_delta_1026:dup"
+    )
     drain(rt)
     assert len([r for r in rt.store.all(Run) if r.id.startswith("run_") and len(r.id) == 16]) == 3
 
@@ -226,10 +239,10 @@ def test_status_reports_counts(rt: Runtime) -> None:
 
 
 def test_live_planner_slot_and_advance_cap(rt: Runtime, monkeypatch: Any) -> None:
-    import torch.agents.planner.live as live_mod
-    from torch.agents.config import AgentConfig
-    from torch.agents.planner.scripted import ScriptedPlanner
-    from torch.agents.types import Usage
+    import torch_rcm.agents.planner.live as live_mod
+    from torch_rcm.agents.config import AgentConfig
+    from torch_rcm.agents.planner.scripted import ScriptedPlanner
+    from torch_rcm.agents.types import Usage
 
     pin = Pin(model="claude-sonnet-5-5", effort="medium", thinking="between_tools", system_sha="s", tools_sha="t")
 
@@ -239,6 +252,10 @@ def test_live_planner_slot_and_advance_cap(rt: Runtime, monkeypatch: Any) -> Non
         def __init__(self) -> None:
             self.usage = Usage(model_calls=1, input=10)
             self.pin = pin
+            self.transcript: list[dict[str, Any]] = []  # the Planner protocol's checkpoint transcript
+
+        def expected_pin(self, agent: Any) -> Pin:
+            return pin
 
         async def plan(self, case: Any, read: Any, evidence: Any) -> Any:
             plan = await ScriptedPlanner().plan(case, read, evidence)

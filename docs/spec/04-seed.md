@@ -1,6 +1,6 @@
 # Seed data (canonical scenario)
 
-The generator (`apps/api/torch/seed/`) builds the whole practice from a PRNG with a fixed seed, then **pins** the ~40 named records the demo script and the mocks reference so they come out exactly as designed. Everything else is generated to make the totals below true. A test asserts the reconciled numbers after seeding.
+The generator (`apps/api/torch_rcm/seed/`) builds the whole practice from a PRNG with a fixed seed, then **pins** the ~40 named records the demo script and the mocks reference so they come out exactly as designed. Everything else is generated to make the totals below true. A test asserts the reconciled numbers after seeding.
 
 ## Frozen clock
 

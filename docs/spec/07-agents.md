@@ -11,7 +11,7 @@ This spec covers how the five agents plan, act, persist, stream and resume, and 
 ## 1. Architecture overview
 
 ```text
- triggers                     ┌───────────────────────────── torch/agents ─────────────────────────────┐
+ triggers                     ┌───────────────────────────── torch_rcm/agents ─────────────────────────────┐
  clock tick ──▶ Scheduler ────┼─▶ jobs (SQLite) ──▶ Worker (asyncio, lease) ──▶ Executor                │
  approve / triage ─▶ API ─────┼─▶   run.execute                                    │                    │
  world event ─▶ Router ───────┤   (835 denial, 277CA A7, status text)              ▼                    │
@@ -24,7 +24,7 @@ This spec covers how the five agents plan, act, persist, stream and resume, and 
                               │   Guardrails ◀──── Policy.decide(action) ◀── RulesTable                 │
                               │   (text, injection,    │ observe | propose | execute | refuse | park    │
                               │    rep bounds, scope)  ▼                                                │
-                              │                  Recipe steps ──▶ ToolRegistry ──▶ World adapters ──▶ torch/world
+                              │                  Recipe steps ──▶ ToolRegistry ──▶ World adapters ──▶ torch_rcm/world
                               │                        │           (idempotency keys, evidence)         │
                               │                        ▼                                                │
                               │   RunStore (runs, run_steps, evidence, run_events, llm_calls,           │
@@ -41,7 +41,7 @@ This spec covers how the five agents plan, act, persist, stream and resume, and 
 | **Policy** | rule matching (most-specific wins), the decision table (§5.1), confidence from base rates, sign-off. Never calls the world or the model |
 | **Planner** | `CaseFile` → validated `Plan`, drafts, result text (`LivePlanner`, `ScriptedPlanner`, `RecordedPlanPlanner`). Never executes a mutation |
 | **Executor** | run lifecycle, checkpoints, step delays, budget |
-| **ToolRegistry / World adapters** | tool specs and the static model-facing subset per agent; idempotency, subject scoping and evidence capture over `torch/world`. No network calls |
+| **ToolRegistry / World adapters** | tool specs and the static model-facing subset per agent; idempotency, subject scoping and evidence capture over `torch_rcm/world`. No network calls |
 | **RunStore / EventBus** | SQLite state plus the `run_events` log that SSE replays |
 | **Scheduler** | durable jobs, leases, clock jobs, async `clock/advance`. Sim time only |
 | **Router** | CARC·RARC → next action → agent (shared with the Denials worklist) |
@@ -375,7 +375,7 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 - No tier-3 rule leaves `human_only`.
 A violation raises `PolicyInvariantError` at boot and in the rules repository.
 
-**Approval runs** re-check rows 0, 1, 3 and 14 at execution time. **"Propose"** creates or updates exactly one open InboxItem per `(claim_id, action)`.
+**Approval runs** re-check rows 0, 1, 3, 7 and 14 at execution time (then row 15). Row 7 is re-checked because Observe mode does nothing: approving an item whose governing rule has since become `observe` records a `would_have_run` run, executes nothing, and marks the item `approval_outcome: would_have_run`. **"Propose"** creates or updates exactly one open InboxItem per `(claim_id, action)`.
 
 ### 5.2 Owner sign-off and rep-call bounds
 
@@ -446,7 +446,7 @@ def draft_rule(base: Rule, s: SliceStats) -> RuleDraft:
 - **`llm_calls` table:** `id, run_id, seq, role, model, effort, thinking, stop_reason, attempt, latency_ms, input, output, cache_read, cache_write, cost_usd_micros, system_sha, tools_sha, error?`. Cost is priced from `pricing.toml`.
 - **Activity rows** read "live · 4 calls · 3.1k tok (78% cached) · $0.011" or "deterministic · $0". The footer shows fallback, no-terminal, classifier-disagreement and unedited-approval rates, plus the cache-hit %.
 
-**`make eval`** (`python -m torch.agents.eval --scenario canonical`):
+**`make eval`** (`python -m torch_rcm.agents.eval --scenario canonical`):
 1. Reseed. Run the demo's agent steps (approve the Delta group; **3b triage #4744**; flip status-check; advance to Thu 07:10, then Fri 07:10) twice: once deterministic, once live replayed from cassettes.
 2. **Known-key runs** must be identical across modes in: trigger, situation key, ordered `(action, normalized params)`, verdicts, step names and statuses, evidence kinds, InboxItem kinds and group keys, and audit template.
 3. **Unknown runs (§2.1)** must pass these property checks:
@@ -544,7 +544,7 @@ A failed run always writes its audit line and creates at most one `run_failed` i
 ## 10. Package layout and interfaces
 
 ```text
-apps/api/torch/agents/
+apps/api/torch_rcm/agents/
   config.py  types.py  policy.py  guardrails.py  case.py  runtime.py (RunStore, EventBus, AgentRuntime)
   handlers.py (scheduler job handlers: run.start, triage, era.arrived, claim.status_check_due)  learning.py (pure)
   executor/executor.py
@@ -554,12 +554,12 @@ apps/api/torch/agents/
   planner/   base.py live.py scripted.py recorded.py  scripts/<agent>.py  recorded/<claim_id>.plan.json  templates/<agent>/*.j2
   llm/       client.py (retries, budget)  profiles.py (static table §3.1)  transport.py (Http, Cassette)  pricing.py + pricing.toml
   tools/     registry.py  reads.py  adapters.py
-  eval/      harness.py (run_scenario, compare, invariants, reconciled numbers)  __main__.py (`python -m torch.agents.eval`)
+  eval/      harness.py (run_scenario, compare, invariants, reconciled numbers)  __main__.py (`python -m torch_rcm.agents.eval`)
 ```
 
-The scheduler is not part of `torch.agents`: it lives in `apps/api/torch/scheduler/` (queue, leases, runner, cadence,
-world handlers) and `torch.agents.handlers.register(registry)` adds the agent job kinds to its registry. Routing of a
-denial to its owning agent (`era.arrived` → Follow-up or Appeals) uses `torch.domain.routing.route_denial`, the same
+The scheduler is not part of `torch_rcm.agents`: it lives in `apps/api/torch_rcm/scheduler/` (queue, leases, runner, cadence,
+world handlers) and `torch_rcm.agents.handlers.register(registry)` adds the agent job kinds to its registry. Routing of a
+denial to its owning agent (`era.arrived` → Follow-up or Appeals) uses `torch_rcm.domain.routing.route_denial`, the same
 function the Denials worklist uses.
 
 ```python

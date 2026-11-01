@@ -168,6 +168,7 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
   it('plays the overnight: Owens group leaves 11:15 (stays denied, in flight), four denials, six paid, Inbox 17, Denied 9', () => {
     const { db, drain } = throughStep3b()
     expect(db.strip().inbox_open).toBe(10)
+    expect(db.cash('usr_morgan').kpis.find((k) => k.key === 'insurance_collections_month')).toMatchObject({ value: 6_130_000, basis: '118 claims paid' })
     const { advance_id } = db.advanceClock(THURSDAY_0710, 'usr_morgan')
     expect(err(() => db.advanceClock(THURSDAY_0710, 'usr_morgan')).code).toBe('advance_in_progress')
     expect(db.clock.advancing?.advance_id).toBe(advance_id)
@@ -185,6 +186,9 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     expect(strip.paid_month_count).toBe(124)
     expect(strip.paid_month_cents).toBe(6_474_646)
     expect(strip.paid_month_label).toBe('Oct')
+    // Cash reads the same Paid as the strip (Wednesday 118 / $61,300 → Thursday 124 / $64,746.46).
+    expect(db.cash('usr_morgan').kpis.find((k) => k.key === 'insurance_collections_month')).toMatchObject({ value: 6_474_646, basis: '124 claims paid' })
+    expect(db.cash('usr_morgan').kpis.find((k) => k.key === 'collections_month')?.value).toBe(6_474_646 + 2_564_000)
     expect(strip.tiles.map((t) => `${t.status} ${t.count}`)).toEqual(['ready 3', 'sent 1', 'rejected 1', 'accepted 8', 'pending 71', 'denied 9', 'partial 5', 'paid 124', 'appealed 3'])
     expect(strip.nav_badges).toEqual({ payments: 7, eligibility: 3, activity: 41 })
     expect(strip.inbox_open).toBe(17)

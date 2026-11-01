@@ -7,12 +7,22 @@ import asyncio
 import pytest
 
 from conftest import FRIDAY_0710, THURSDAY_0710, snap
-from torch.domain import invariants as inv
-from torch.domain.entities import Claim, InboxItem, Practice, Remittance, Rule, RuleProposal, Run, User, WorldCallLog
-from torch.domain.enums import ClaimStatus, Role
-from torch.readmodels.claims import strip
-from torch.readmodels.snapshot import Snapshot
-from torch.runtime import Runtime
+from torch_rcm.domain import invariants as inv
+from torch_rcm.domain.entities import (
+    Claim,
+    InboxItem,
+    Practice,
+    Remittance,
+    Rule,
+    RuleProposal,
+    Run,
+    User,
+    WorldCallLog,
+)
+from torch_rcm.domain.enums import ClaimStatus, Role
+from torch_rcm.readmodels.claims import strip
+from torch_rcm.readmodels.snapshot import Snapshot
+from torch_rcm.runtime import Runtime
 
 
 def assert_all(s: Snapshot, calls: list[WorldCallLog]) -> None:
@@ -40,7 +50,7 @@ def test_invariants_after_seed(canonical: Snapshot, canonical_world) -> None:  #
 
 
 def test_inbox_badge_equals_open_items_and_activity_awaiting(canonical: Snapshot) -> None:
-    from torch.readmodels.activity import activity
+    from torch_rcm.readmodels.activity import activity
 
     s = strip(canonical, "usr_dana")
     assert s.inbox_open == len(canonical.open_items) == activity(canonical).summary.awaiting_you == 12

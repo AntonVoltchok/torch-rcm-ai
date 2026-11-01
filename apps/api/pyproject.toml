@@ -6,7 +6,6 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
-    "sqlmodel>=0.0.22",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "sse-starlette>=2.1",
@@ -18,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-torch = "torch.cli:main"
+torch = "torch_rcm.cli:main"
 
 [dependency-groups]
 dev = [
@@ -36,7 +35,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["torch"]
+packages = ["torch_rcm"]
 
 [tool.ruff]
 line-length = 120
@@ -59,13 +58,13 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["torch", "conftest"]
+known-first-party = ["torch_rcm", "conftest"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0915", "PLR0912", "S101", "N802", "E501"]
 # Seed data tables and the route table: one record per line is the readable form.
-"torch/seed/canonical/*.py" = ["E501"]
-"torch/api/contract.py" = ["E501"]
+"torch_rcm/seed/canonical/*.py" = ["E501"]
+"torch_rcm/api/contract.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -78,12 +77,13 @@ disallow_untyped_defs = true
 exclude = ["tests/"]
 
 [[tool.mypy.overrides]]
-module = ["torch.domain.*"]
+# CLAUDE.md promises `mypy --strict` on the domain and the agent runtime
+module = ["torch_rcm.domain.*", "torch_rcm.agents.*"]
 strict = true
 
 [[tool.mypy.overrides]]
 # optional-dependency shims: their ignores are used in one environment and unused in the other
-module = ["torch.config", "torch.log", "torch.cli"]
+module = ["torch_rcm.config", "torch_rcm.log", "torch_rcm.cli"]
 warn_unused_ignores = false
 warn_return_any = false
 

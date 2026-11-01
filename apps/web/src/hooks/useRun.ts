@@ -3,6 +3,10 @@
  * SSE events through the pure reducer in lib/runEvents.ts. Reconnects send `Last-Event-ID`, so the
  * server replays only what we missed; a reload refetches the snapshot and resubscribes from it. After
  * three failed connects the hook stops streaming and polls GET /runs/{id} every 2 s instead.
+ *
+ * GET /runs/{id} returns `RunDetail {run, evidence, last_event_id}`; the cache holds it flattened as a
+ * RunView (lib/runEvents.ts `runViewOf`). A `done` frame that fails to parse never implies an outcome: the
+ * stream is marked `desynced`, ['run', id] is refetched and polled until the server's Run.status is terminal.
  */
 import { useEffect, useState } from 'react'
 import { queryOptions, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
@@ -10,23 +14,34 @@ import { API_BASE } from '@/env'
 import { api, sseUrl } from '@/api/endpoints'
 import { authHeaders } from '@/api/client'
 import { qk } from '@/api/queryKeys'
-import { RunDoneEvent, RunStatusEvent, RunStepEvent, StripSummary, type Run } from '@/api/schema'
-import { applyDoneEvent, applyStatusEvent, applyStepEvent, isTerminal, mergeSnapshot } from '@/lib/runEvents'
+import type { RunView } from '@/api/schema'
+import { isTerminal, mergeSnapshot, reduceRunMessage, runViewOf, type RunMessageEffect } from '@/lib/runEvents'
 import { backoffMs, connectSse, type SseMessage } from '@/lib/sse'
 import { session } from '@/state/session'
 
-export type StreamMode = 'sse' | 'poll' | 'idle'
+/** `desynced`: the stream ended on a frame we could not read; the view polls the server until it is terminal. */
+export type StreamMode = 'sse' | 'poll' | 'desynced' | 'idle'
+
+/** What one SSE message did to the stream: keep reading, finished cleanly, or finished unreadably. */
+export type RunMessageResult = RunMessageEffect['result']
 
 /** Shared by every observer of ['run', id]: a write (snapshot or SSE patch) never moves the view backwards. */
 export const runQueryOptions = (runId: string) =>
   queryOptions({
     queryKey: qk.run(runId),
-    queryFn: () => api.run(runId),
-    structuralSharing: (old: unknown, next: unknown) => mergeSnapshot(old as Run | undefined, next as Run),
+    queryFn: async () => runViewOf(await api.run(runId)),
+    structuralSharing: (old: unknown, next: unknown) => mergeSnapshot(old as RunView | undefined, next as RunView),
     staleTime: Infinity,
   })
 
-function invalidateAfterRun(qc: QueryClient, run: Run | undefined) {
+/**
+ * After a run ends: the run itself (its server status is the truth: `staleTime` is Infinity, so nothing else
+ * would refetch it), then everything it can have changed. Polling already holds the server's run, so it skips it.
+ */
+function invalidateAfterRun(qc: QueryClient, runId: string, opts: { refetchRun: boolean }) {
+  if (opts.refetchRun) void qc.invalidateQueries({ queryKey: qk.run(runId) })
+  const run = qc.getQueryData<RunView>(qk.run(runId))
+  void qc.invalidateQueries({ queryKey: qk.stripAll })
   void qc.invalidateQueries({ queryKey: qk.inbox.all })
   void qc.invalidateQueries({ queryKey: qk.claims.all })
   void qc.invalidateQueries({ queryKey: qk.activityAll })
@@ -35,55 +50,26 @@ function invalidateAfterRun(qc: QueryClient, run: Run | undefined) {
   if (run?.claim_id) void qc.invalidateQueries({ queryKey: qk.claim(run.claim_id) })
 }
 
-/** Exported for tests: fold one SSE message into the cache. Returns true when the stream is finished. */
-export function handleRunMessage(qc: QueryClient, runId: string, msg: SseMessage): boolean {
-  let data: unknown
-  try {
-    data = JSON.parse(msg.data) as unknown
-  } catch {
-    return false
-  }
-  const patch = (fn: (r: Run) => Run) => {
-    qc.setQueryData<Run>(qk.run(runId), (old) => (old ? fn(old) : old))
-  }
-  switch (msg.event) {
-    case 'step': {
-      const ev = RunStepEvent.safeParse(data)
-      if (!ev.success) return false
-      patch((r) => applyStepEvent(r, ev.data, msg.id))
-      // `decide` carries the agent's label and rationale on the stored run: fetch them once.
-      if (ev.data.policy_verdict) void qc.invalidateQueries({ queryKey: qk.run(runId) })
-      return false
-    }
-    case 'status': {
-      const ev = RunStatusEvent.safeParse(data)
-      if (ev.success) patch((r) => applyStatusEvent(r, ev.data, msg.id))
-      return false
-    }
-    case 'counts': {
-      const ev = StripSummary.safeParse(data)
-      if (ev.success) qc.setQueryData(qk.strip(session.locationParam()), ev.data)
-      return false
-    }
-    case 'done': {
-      const ev = RunDoneEvent.safeParse(data)
-      patch((r) => applyDoneEvent(r, ev.success ? ev.data : {}, msg.id))
-      invalidateAfterRun(qc, qc.getQueryData<Run>(qk.run(runId)))
-      return true
-    }
-    default:
-      return false
-  }
+/** Exported for tests: fold one SSE message into the cache (pure part: lib/runEvents.ts `reduceRunMessage`). */
+export function handleRunMessage(qc: QueryClient, runId: string, msg: SseMessage): RunMessageResult {
+  const cached = qc.getQueryData<RunView>(qk.run(runId))
+  const fx = reduceRunMessage(cached, msg)
+  if (fx.run && fx.run !== cached) qc.setQueryData<RunView>(qk.run(runId), fx.run)
+  if (fx.counts) qc.setQueryData(qk.strip(session.locationParam()), fx.counts)
+  // Finished (cleanly or not): the server's Run.status is the truth, so ['run', id] is always refetched.
+  if (fx.result !== 'continue') invalidateAfterRun(qc, runId, { refetchRun: true })
+  else if (fx.refetchRun) void qc.invalidateQueries({ queryKey: qk.run(runId) })
+  return fx.result
 }
 
-export function useRun(runId: string | undefined): { run: Run | undefined; mode: StreamMode; error: unknown } {
+export function useRun(runId: string | undefined): { run: RunView | undefined; mode: StreamMode; error: unknown } {
   const qc = useQueryClient()
   const [mode, setMode] = useState<StreamMode>('idle')
 
   const query = useQuery({
     ...runQueryOptions(runId ?? 'none'),
     enabled: Boolean(runId),
-    refetchInterval: (q) => (mode === 'poll' && q.state.data && !isTerminal(q.state.data.status) ? 2000 : false),
+    refetchInterval: (q) => ((mode === 'poll' || mode === 'desynced') && q.state.data && !isTerminal(q.state.data.status) ? 2000 : false),
   })
 
   const hasSnapshot = query.data !== undefined
@@ -95,9 +81,9 @@ export function useRun(runId: string | undefined): { run: Run | undefined; mode:
     let attempt = 0
     void (async () => {
       while (!ctrl.signal.aborted) {
-        const cached = qc.getQueryData<Run>(qk.run(runId))
+        const cached = qc.getQueryData<RunView>(qk.run(runId))
         if (cached && isTerminal(cached.status)) break
-        let finished = false
+        let finished = 'continue' as RunMessageResult
         try {
           await connectSse({
             url: `${API_BASE}${sseUrl.runEvents(runId)}`,
@@ -109,7 +95,8 @@ export function useRun(runId: string | undefined): { run: Run | undefined; mode:
               setMode('sse')
             },
             onMessage: (msg) => {
-              if (handleRunMessage(qc, runId, msg)) finished = true
+              const r = handleRunMessage(qc, runId, msg)
+              if (r !== 'continue') finished = r
             },
           })
         } catch {
@@ -119,7 +106,11 @@ export function useRun(runId: string | undefined): { run: Run | undefined; mode:
             return
           }
         }
-        if (finished || ctrl.signal.aborted) break
+        if (finished === 'desynced') {
+          if (!ctrl.signal.aborted) setMode('desynced')
+          return
+        }
+        if (finished === 'done' || ctrl.signal.aborted) break
         await new Promise((r) => setTimeout(r, backoffMs(attempt)))
       }
       if (!ctrl.signal.aborted) setMode('idle')
@@ -129,10 +120,10 @@ export function useRun(runId: string | undefined): { run: Run | undefined; mode:
     }
   }, [qc, runId, hasSnapshot, terminal])
 
-  // Polling fallback has no `done` event: do the same invalidation when the snapshot turns terminal.
+  // Polling (fallback or after a desync) has no `done` event: do the same invalidation once the server's status is terminal.
   useEffect(() => {
-    if (mode === 'poll' && terminal) invalidateAfterRun(qc, query.data)
-  }, [mode, terminal, qc, query.data])
+    if ((mode === 'poll' || mode === 'desynced') && terminal && runId) invalidateAfterRun(qc, runId, { refetchRun: false })
+  }, [mode, terminal, qc, runId])
 
   return { run: query.data, mode, error: query.error }
 }

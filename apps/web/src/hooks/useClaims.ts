@@ -3,7 +3,8 @@ import { keepPreviousData, queryOptions, useInfiniteQuery, useMutation, useQuery
 import { api } from '@/api/endpoints'
 import { isApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
-import type { Run } from '@/api/schema'
+import type { RunView } from '@/api/schema'
+import { mergeSnapshot, runViewOf } from '@/lib/runEvents'
 import { toApiParams, type ClaimsSearch } from '@/features/claims/search'
 import { launchStore, type Launch } from '@/state/launches'
 import { useSession } from '@/state/session'
@@ -48,7 +49,7 @@ export function useTriage(opts: { onLaunched?: (l: Launch) => void } = {}) {
   return useMutation({
     mutationFn: (v: { claimId: string; number: number; patient: string }) => api.triage(v.claimId, 'followup'),
     onSuccess: ({ run }, v) => {
-      qc.setQueryData<Run>(qk.run(run.id), run)
+      qc.setQueryData<RunView>(qk.run(run.id), (old) => mergeSnapshot(old, runViewOf(run)))
       const launch: Launch = {
         id: run.id,
         kind: 'triage',

@@ -3,11 +3,11 @@ key has a script or is `unknown`; no recipe step performs a tier-3 action."""
 
 from __future__ import annotations
 
-from torch.agents.catalog.actions import ACTIONS, AGENT_ACTIONS, TIER3_ACTIONS, TIER3_ROLES
-from torch.agents.catalog.recipes import RECIPES, recipe_for
-from torch.agents.catalog.situations import SITUATIONS, situation_keys
-from torch.agents.planner.scripted import SCRIPTS, has_script
-from torch.agents.types import AGENT_KINDS, UNKNOWN
+from torch_rcm.agents.catalog.actions import ACTIONS, AGENT_ACTIONS, TIER3_ACTIONS, TIER3_ROLES
+from torch_rcm.agents.catalog.recipes import RECIPES, recipe_for
+from torch_rcm.agents.catalog.situations import SITUATIONS, situation_keys
+from torch_rcm.agents.planner.scripted import SCRIPTS, has_script
+from torch_rcm.agents.types import AGENT_KINDS, UNKNOWN
 
 SPEC_TIERS = {  # 07 §2 table + §5 (tier 3 human-only)
     "eligibility_check": 1, "update_pms_benefits": 2, "send_claim_pms_codes": 1, "fix_demographics_resend": 1,

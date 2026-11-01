@@ -8,11 +8,11 @@ from typing import Any
 
 import pytest
 
-from torch.agents.config import AgentConfig
-from torch.agents.llm.cassette import CassetteMiss
-from torch.agents.planner.base import EvidenceSet, PlannerFallback
-from torch.agents.planner.live import NUDGE_ALONE, Handles, LivePlanner, PlanRejected
-from torch.agents.testing.fakes import (
+from torch_rcm.agents.config import AgentConfig
+from torch_rcm.agents.llm.cassette import CassetteMiss
+from torch_rcm.agents.planner.base import EvidenceSet, PlannerFallback
+from torch_rcm.agents.planner.live import NUDGE_ALONE, Handles, LivePlanner, PlanRejected
+from torch_rcm.agents.testing.fakes import (
     READ_HISTORY,
     READ_IMAGES,
     FakeClient,
@@ -24,13 +24,13 @@ from torch.agents.testing.fakes import (
     tool_use,
     usage,
 )
-from torch.agents.testing.fakes import (
+from torch_rcm.agents.testing.fakes import (
     FakeReader as Reader,
 )
-from torch.agents.testing.fakes import (
+from torch_rcm.agents.testing.fakes import (
     fake_case as make_case,
 )
-from torch.agents.types import CaseFile, Pin
+from torch_rcm.agents.types import CaseFile, Pin
 
 NOW = datetime.fromisoformat("2026-10-28T10:40:00-04:00")
 INJECTION = (

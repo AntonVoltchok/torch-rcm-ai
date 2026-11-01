@@ -9,12 +9,12 @@ import asyncio
 import pytest
 from agent_world import World, case_for, plan_case, policy_ctx_for, world  # noqa: F401  (fixture)
 
-from torch.agents.catalog.actions import ACTIONS
-from torch.agents.guardrails import guard_draft
-from torch.agents.planner.scripted import RecordedPlanPlanner, ScriptedPlanner
-from torch.agents.planner.templates import TEMPLATE_DIR, render, structured_facts
-from torch.agents.policy import decide
-from torch.agents.types import UNKNOWN
+from torch_rcm.agents.catalog.actions import ACTIONS
+from torch_rcm.agents.guardrails import guard_draft
+from torch_rcm.agents.planner.scripted import RecordedPlanPlanner, ScriptedPlanner
+from torch_rcm.agents.planner.templates import TEMPLATE_DIR, render, structured_facts
+from torch_rcm.agents.policy import decide
+from torch_rcm.agents.types import UNKNOWN
 
 # claim, agent, situation key, action, tier, evidence kinds that must be cited
 PINNED = [

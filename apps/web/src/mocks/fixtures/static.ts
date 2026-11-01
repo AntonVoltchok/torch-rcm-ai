@@ -1,7 +1,7 @@
 /**
  * Fixtures for the read-only screens (Activity, Today's claims, Eligibility, Cash, Denials) and the week of
  * agent decisions that Settings › Agents previews against. Built to the same numbers and rules as the API
- * seed (docs/spec/04-seed.md, apps/api/torch/seed/canonical/agents.py, torch/domain/routing.py), so mock
+ * seed (docs/spec/04-seed.md, apps/api/torch_rcm/seed/canonical/agents.py, torch_rcm/domain/routing.py), so mock
  * mode and the real API tell the same story.
  */
 import type {
@@ -429,7 +429,7 @@ export const CASH: Omit<CashSummary, 'agent_impact'> = {
   appeals_12mo: { won: 6, total: 9, reconsideration_won: 5, reconsideration_total: 6, formal_won: 1, formal_total: 3 },
 }
 
-// ── Denials routing (port of apps/api/torch/domain/routing.py) ─────────────────────────────────────────
+// ── Denials routing (port of apps/api/torch_rcm/domain/routing.py) ─────────────────────────────────────────
 export const NEXT_ACTION_LABEL: Record<NextAction, string> = {
   reconsideration: 'Reconsideration · resend or inquiry, no signature',
   corrected: 'Corrected claim / COB resubmit',

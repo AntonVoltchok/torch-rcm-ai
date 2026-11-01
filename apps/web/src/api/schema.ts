@@ -1,15 +1,15 @@
+// Hand-maintained mirror of the API contract until `pnpm gen:api` has run on a machine with registry access; after that, this file should re-export from ./generated.ts.
 /**
- * Wire contract (Zod) — hand-written mirror of the API's Pydantic models (apps/api/torch/api/schemas.py,
- * apps/api/openapi.snapshot.json).
+ * Wire contract (Zod) — hand-written mirror of the API's Pydantic models (apps/api/torch_rcm/api/schemas.py,
+ * apps/api/openapi.snapshot.json). `scripts/gen-api.mjs` writes src/api/generated.ts from the snapshot.
  *
- * `pnpm gen:api` will write src/api/generated.ts from the snapshot and this file should then re-export from it.
- * Until then: snake_case field names, integer cents, enums verbatim from the domain model.
+ * Snake_case field names, integer cents, enums verbatim from the domain model.
  *
- * Reconciled with openapi.snapshot.json (web-s2): Strip, AgentsStatus, the clock advance, and every
- * Settings / static-screen shape (rules, changes, proposals, preview, ledger, activity, eligibility,
- * benefits, cash, denials). Still the S1 hand-written shapes, NOT yet the API's: InboxItem / InboxList,
- * ClaimRow, ClaimDetail, Run (the API wraps GET /runs/{id} as RunDetail {run, evidence, last_event_id}) —
- * see docs/plans/web-s2.md §3. Fields the UI needs that the API does not send are marked `// assumed`.
+ * Reconciled with openapi.snapshot.json: Strip, AgentsStatus, the clock advance, every Settings /
+ * static-screen shape, and (review fix pass) Evidence, InboxItemOut / InboxItemDetail / InboxList, Run and
+ * RunDetail. Those API responses are `.strict()`: a field the API adds or renames fails the parse loudly
+ * (`schema_mismatch`) instead of rendering empty. Still the S1 hand-written shapes, NOT yet the API's:
+ * ClaimRow, ClaimDetail. Fields the UI needs that the API does not send are marked `// assumed`.
  */
 import { z } from 'zod'
 
@@ -180,13 +180,19 @@ export const Evidence = z.object({
   uri: z.string().nullish(),
   captured_at: IsoDateTime,
   reference: z.string().nullish(),
-  suspicious: z.boolean().nullish(),
-  gathered_by: z.enum(['agent', 'code']).nullish(),
-})
+  // The API always sends the fields below (with defaults); optional here so fixtures stay terse.
+  suspicious: z.boolean().optional(),
+  gathered_by: z.enum(['agent', 'code']).optional(),
+  claim_id: z.string().nullish(),
+  run_id: z.string().nullish(),
+  world_call_id: z.string().nullish(),
+  source: z.string().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
+}).strict()
 export type Evidence = z.infer<typeof Evidence>
 
 /** `pct: null` = no base rate yet (n < 5): the UI says so instead of inventing a number. */
-export const Confidence = z.object({ pct: z.number().nullable(), basis: z.string() })
+export const Confidence = z.object({ pct: z.number().nullable(), basis: z.string() }).strict()
 
 export const ProposedAction = z.object({
   action: ActionKind,
@@ -317,50 +323,72 @@ export const TimelineEntry = z.object({
 })
 export type TimelineEntry = z.infer<typeof TimelineEntry>
 
-// ── Inbox ────────────────────────────────────────────────────────────────────
-export const InboxItem = z.object({
+// ── Shared references (API: PatientRef, PayerRef, ClaimSummary) ─────────────────
+export const PatientRef = z.object({ id: z.string(), name: z.string(), display_name: z.string(), dob: IsoDate.nullish() }).strict()
+export type PatientRef = z.infer<typeof PatientRef>
+export const PayerRef = z.object({ key: PayerKey, name: z.string(), short_name: z.string() }).strict()
+export type PayerRef = z.infer<typeof PayerRef>
+
+/** The claim as the static screens and the Denials worklist reference it (API `ClaimSummary`). */
+export const ClaimSummary = z.object({
   id: z.string(),
-  kind: InboxItemKind,
-  state: InboxItemState,
-  claim_id: z.string().nullish(),
-  patient_id: z.string().nullish(),
-  appointment_id: z.string().nullish(),
-  remittance_id: z.string().nullish(),
-  rule_id: z.string().nullish(),
-  agent: AgentKind.nullish(),
-  title: z.string(),
-  summary: z.string().nullish(),
-  recommendation: z.string(),
-  plan_steps: z.array(z.string()).default([]),
-  confidence: Confidence.nullish(),
-  evidence: z.array(z.string()).default([]), // Evidence ids (hydrated on GET /inbox/{id})
-  proposed_action: ProposedAction.nullish(),
-  tier: Tier.nullish(),
-  group_key: z.string().nullish(),
-  group_title: z.string().nullish(),
-  cents: Cents.default(0),
-  deadline_on: IsoDate.nullish(),
-  audit_note: z.string().nullish(),
-  assignee_user_id: z.string().nullish(),
-  required_role: Role.nullish(),
-  created_at: IsoDateTime,
-  snoozed_until: IsoDateTime.nullish(),
-  resolved_by: z.string().nullish(),
-  resolved_at: IsoDateTime.nullish(),
-  resolution_note: z.string().nullish(),
-  run_id: z.string().nullish(),
-  // assumed denormalisations for the list row and detail header (degrade to `title` when absent)
-  subject: z
-    .object({
-      claim_number: z.number().int().nullish(),
-      patient_name: z.string().nullish(),
-      payer_key: PayerKey.nullish(),
-      label: z.string().nullish(),
-    })
-    .nullish(),
-  root_cause: RootCause.nullish(),
-  reversibility: z.object({ editable_until: z.string().nullish(), then: z.string().nullish() }).nullish(),
-})
+  number: z.number().int(),
+  status: ClaimStatus,
+  needs_action: z.boolean(),
+  patient: PatientRef,
+  payer: PayerRef,
+  dos: IsoDate,
+  procedures: z.string(),
+  billed_cents: Cents,
+  allowed_cents: Cents.nullish(),
+  paid_cents: Cents.nullish(),
+  icn: z.string().nullish(),
+  reason: z.string().nullish(),
+  in_flight: z.string().nullish(),
+  age_days: z.number().int().nullish(),
+  file_time: IsoDateTime.nullish(),
+}).strict()
+export type ClaimSummary = z.infer<typeof ClaimSummary>
+
+// ── Inbox ────────────────────────────────────────────────────────────────────
+/**
+ * API `InboxItemOut` (GET /inbox rows, mutation responses, ClaimDetail.open_inbox_items). The claim and the
+ * patient arrive as nested references; evidence arrives as ids only and is hydrated on GET /inbox/{id}.
+ */
+export const InboxItem = z
+  .object({
+    id: z.string(),
+    kind: InboxItemKind,
+    state: InboxItemState,
+    title: z.string(),
+    summary: z.string(),
+    recommendation: z.string(),
+    agent: AgentKind.nullish(),
+    tier: Tier.nullish(),
+    cents: Cents,
+    confidence: Confidence.nullish(),
+    group_key: z.string().nullish(),
+    group_title: z.string().nullish(),
+    claim: ClaimSummary.nullish(),
+    patient: PatientRef.nullish(),
+    appointment_id: z.string().nullish(),
+    remittance_id: z.string().nullish(),
+    rule_id: z.string().nullish(),
+    run_id: z.string().nullish(),
+    evidence_ids: z.array(z.string()),
+    proposed_action: ProposedAction.nullish(),
+    required_role: Role.nullish(),
+    assignee_user_id: z.string().nullish(),
+    deadline_on: IsoDate.nullish(),
+    created_at: IsoDateTime,
+    snoozed_until: IsoDateTime.nullish(),
+    resolved_by: z.string().nullish(),
+    resolved_at: IsoDateTime.nullish(),
+    priority: z.number(),
+    root_cause: RootCause.nullish(),
+    suspicious_evidence: z.boolean().optional(),
+  })
+  .strict()
 export type InboxItem = z.infer<typeof InboxItem>
 
 export const InboxGroup = z.object({
@@ -369,24 +397,39 @@ export const InboxGroup = z.object({
   count: z.number().int(),
   cents: Cents,
   item_ids: z.array(z.string()),
-  summary: z.string().nullish(), // assumed
+  summary: z.string().nullish(), // assumed (mock only; the API's title carries the count)
 })
 export type InboxGroup = z.infer<typeof InboxGroup>
 
-/** GET /inbox?group=true. Assumed: `items` holds every matching item; `groups` reference them by id. */
-export const InboxList = z.object({
-  items: z.array(InboxItem),
-  total: z.number().int(),
-  next_cursor: z.string().nullish(),
-  groups: z.array(InboxGroup).default([]),
-  facets: z.object({ kind: z.record(z.string(), z.number().int()) }).partial().nullish(), // assumed, optional
-})
+/** GET /inbox?group=true: `items` holds every matching item; `groups` reference them by id. */
+export const InboxList = z
+  .object({
+    items: z.array(InboxItem),
+    total: z.number().int(),
+    total_cents: Cents,
+    next_cursor: z.string().nullish(),
+    groups: z
+      .array(InboxGroup)
+      .nullish()
+      .transform((g) => g ?? []),
+  })
+  .strict()
 export type InboxList = z.infer<typeof InboxList>
 
+/** The file a hold-window item rides in (API `HoldWindow`); `departed` → only a corrected claim is left. */
+export const HoldWindow = z
+  .object({ editable_until: IsoDateTime.nullable(), file_time: IsoDateTime.nullable(), departed: z.boolean(), alternatives: z.array(z.string()) })
+  .strict()
+export type HoldWindow = z.infer<typeof HoldWindow>
+
+/** GET /inbox/{id} (API `InboxItemDetail`): the row plus plan, audit note, hydrated evidence and hold window. */
 export const InboxItemDetail = InboxItem.extend({
+  plan_steps: z.array(z.string()),
+  audit_note: z.string().nullish(),
   evidence: z.array(Evidence),
-  claim: ClaimRow.nullish(), // S1 shape; the API sends ClaimSummary (see the header note)
-})
+  payload: z.record(z.string(), z.unknown()),
+  hold_window: HoldWindow.nullish(),
+}).strict()
 export type InboxItemDetail = z.infer<typeof InboxItemDetail>
 
 export const ClaimDetail = Claim.extend({
@@ -403,51 +446,81 @@ export const ClaimDetail = Claim.extend({
 export type ClaimDetail = z.infer<typeof ClaimDetail>
 
 // ── Runs ─────────────────────────────────────────────────────────────────────
-export const RunStep = z.object({
-  idx: z.number().int(),
-  name: z.string(),
-  status: RunStepStatus,
-  started_at: IsoDateTime.nullish(),
-  finished_at: IsoDateTime.nullish(),
-  tool: z.string().nullish(),
-  input_summary: z.string().nullish(),
-  output_summary: z.string().nullish(),
-  progress_lines: z.array(z.string()).default([]),
-  policy_verdict: PolicyVerdict.nullish(),
-  evidence_ids: z.array(z.string()).default([]),
-  label: z.string().nullish(), // display label from the recipe; falls back to the name
-})
+export const RunStep = z
+  .object({
+    idx: z.number().int(),
+    name: z.string(),
+    status: RunStepStatus,
+    started_at: IsoDateTime.nullish(),
+    finished_at: IsoDateTime.nullish(),
+    tool: z.string().nullish(),
+    input_summary: z.string().nullish(),
+    output_summary: z.string().nullish(),
+    progress_lines: z.array(z.string()).default([]),
+    policy_verdict: PolicyVerdict.nullish(),
+    evidence_ids: z.array(z.string()).default([]),
+    label: z.string().nullish(), // display label from the recipe; falls back to the name
+  })
+  .strict()
 export type RunStep = z.infer<typeof RunStep>
 
-export const Run = z.object({
-  id: z.string(),
-  agent: AgentKind,
-  trigger: z.enum(['rule', 'approval', 'schedule', 'manual']),
-  actor: z.string().nullish(),
-  parent_run_id: z.string().nullish(),
-  rule_id: z.string().nullish(),
-  inbox_item_id: z.string().nullish(),
-  claim_id: z.string().nullish(),
-  status: RunStatus,
-  mode: AgentMode.nullish(),
-  planner: PlannerKind.nullish(),
-  situation_key: z.string().nullish(),
-  model_situation_label: z.string().nullish(),
-  plan: z.object({ rationale: z.string().nullish() }).passthrough().nullish(),
-  action: ActionKind.nullish(),
-  action_label: z.string().nullish(),
-  tier: Tier.nullish(),
-  verdict: PolicyVerdict.nullish(),
-  outcome: z.string().nullish(),
-  started_at: IsoDateTime.nullish(),
-  finished_at: IsoDateTime.nullish(),
-  steps: z.array(RunStep),
-  result_summary: z.string().nullish(),
-  audit_line: z.string().nullish(),
-  evidence: z.array(Evidence).default([]),
-  last_event_id: z.number().int().nullish(), // assumed: snapshot cursor for Last-Event-ID
-})
+export const Usage = z
+  .object({
+    model_calls: z.number().int(),
+    input: z.number().int(),
+    output: z.number().int(),
+    cache_read: z.number().int(),
+    cache_write: z.number().int(),
+    cost_usd_micros: z.number().int(),
+  })
+  .partial()
+  .strict()
+
+/** API `Run` (mutation responses, GET /runs rows, RunDetail.run). Evidence and the SSE cursor live on RunDetail. */
+export const Run = z
+  .object({
+    id: z.string(),
+    agent: AgentKind,
+    trigger: z.enum(['rule', 'approval', 'schedule', 'manual']),
+    actor: z.string().nullish(),
+    rule_id: z.string().nullish(),
+    rule_version: z.number().int().nullish(),
+    inbox_item_id: z.string().nullish(),
+    claim_id: z.string().nullish(),
+    patient_id: z.string().nullish(),
+    remittance_id: z.string().nullish(),
+    parent_run_id: z.string().nullish(),
+    idempotency_key: z.string().optional(),
+    status: RunStatus,
+    mode: AgentMode.nullish(),
+    planner: PlannerKind.nullish(),
+    situation_key: z.string().nullish(),
+    model_situation_label: z.string().nullish(),
+    plan: z.object({ rationale: z.string().nullish() }).passthrough().nullish(),
+    action: ActionKind.nullish(),
+    action_label: z.string().nullish(),
+    tier: Tier.nullish(),
+    verdict: PolicyVerdict.nullish(),
+    started_at: IsoDateTime.nullish(),
+    finished_at: IsoDateTime.nullish(),
+    steps: z.array(RunStep),
+    result_summary: z.string().nullish(),
+    audit_line: z.string().nullish(),
+    usage: Usage.nullish(),
+    outcome: z.string().nullish(),
+  })
+  .strict()
 export type Run = z.infer<typeof Run>
+
+/** GET /runs/{id}: the run, the evidence its steps gathered, and the SSE cursor to resume from. */
+export const RunDetail = z.object({ run: Run, evidence: z.array(Evidence), last_event_id: z.number().int() }).strict()
+export type RunDetail = z.infer<typeof RunDetail>
+
+/**
+ * What ['run', id] caches: the API's Run with RunDetail's evidence and cursor folded in, so the SSE reducer
+ * patches one object. Built only by `runViewOf` (lib/runEvents.ts) from a RunDetail or a mutation's Run.
+ */
+export type RunView = Run & { evidence: Evidence[]; last_event_id: number | null }
 
 /** SSE payloads of GET /runs/{id}/events. */
 export const RunStepEvent = z.object({
@@ -554,32 +627,6 @@ export const WorldStatus = z.object({
   outages: z.array(z.object({ system: z.string(), since: IsoDateTime, message: z.string() })),
 }) // assumed: GET /_world/status
 
-// ── Shared references (API: PatientRef, PayerRef, ClaimSummary) ─────────────────
-export const PatientRef = z.object({ id: z.string(), name: z.string(), display_name: z.string(), dob: IsoDate.nullish() })
-export type PatientRef = z.infer<typeof PatientRef>
-export const PayerRef = z.object({ key: PayerKey, name: z.string(), short_name: z.string() })
-export type PayerRef = z.infer<typeof PayerRef>
-
-/** The claim as the static screens and the Denials worklist reference it (API `ClaimSummary`). */
-export const ClaimSummary = z.object({
-  id: z.string(),
-  number: z.number().int(),
-  status: ClaimStatus,
-  needs_action: z.boolean(),
-  patient: PatientRef,
-  payer: PayerRef,
-  dos: IsoDate,
-  procedures: z.string(),
-  billed_cents: Cents,
-  allowed_cents: Cents.nullish(),
-  paid_cents: Cents.nullish(),
-  icn: z.string().nullish(),
-  reason: z.string().nullish(),
-  in_flight: z.string().nullish(),
-  age_days: z.number().int().nullish(),
-  file_time: IsoDateTime.nullish(),
-})
-export type ClaimSummary = z.infer<typeof ClaimSummary>
 
 // ── Settings › Agents ────────────────────────────────────────────────────────
 export const OutcomeMetric = z.enum(['paid_30d', 'accepted', 'balanced', 'none'])

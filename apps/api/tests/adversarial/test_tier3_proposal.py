@@ -6,9 +6,9 @@ from __future__ import annotations
 import pytest
 from agent_world import CLAIM, PATIENT, ctx, rule
 
-from torch.agents.catalog.actions import AGENT_ACTIONS
-from torch.agents.policy import decide
-from torch.agents.types import Plan, ProposedAction
+from torch_rcm.agents.catalog.actions import AGENT_ACTIONS
+from torch_rcm.agents.policy import decide
+from torch_rcm.agents.types import Plan, ProposedAction
 
 WRITE_OFF = ProposedAction(
     action="write_off", params={"claim_id": CLAIM, "writeoff_cents": 22_800}, evidence_ids=("ev_1",)

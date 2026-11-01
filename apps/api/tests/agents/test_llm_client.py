@@ -9,8 +9,8 @@ from datetime import datetime
 
 import pytest
 
-from torch.agents.config import AgentConfig
-from torch.agents.llm.client import (
+from torch_rcm.agents.config import AgentConfig
+from torch_rcm.agents.llm.client import (
     CallMeta,
     LiveModeDisabled,
     LlmBadRequest,
@@ -23,10 +23,10 @@ from torch.agents.llm.client import (
     pricing,
     request_pin,
 )
-from torch.agents.llm.models import CAPABILITIES, SAMPLING_PARAMS, capability
-from torch.agents.prompts import load, plans_live, tools_sha_for
-from torch.agents.testing.fakes import FakeTransport, StatusError, response, usage
-from torch.agents.tools.schemas import MODEL_ACTIONS, TERMINAL_TOOLS, lint_tools, tools_sha
+from torch_rcm.agents.llm.models import CAPABILITIES, SAMPLING_PARAMS, capability
+from torch_rcm.agents.prompts import load, plans_live, tools_sha_for
+from torch_rcm.agents.testing.fakes import FakeTransport, StatusError, response, usage
+from torch_rcm.agents.tools.schemas import MODEL_ACTIONS, TERMINAL_TOOLS, lint_tools, tools_sha
 
 MSG = [{"role": "user", "content": "case"}]
 META = CallMeta(run_id="run_t", agent="followup", purpose="plan", situation_key="unknown", subject_id="clm_1", seq=0)

@@ -6,9 +6,9 @@ import random
 
 import pytest
 
-from torch.agents.learning import SliceStats, acceptable, demotion_due, draft_rule, p95_cap, proposal_eligible
-from torch.agents.policy import assert_invariants
-from torch.agents.types import RuleView
+from torch_rcm.agents.learning import SliceStats, acceptable, demotion_due, draft_rule, p95_cap, proposal_eligible
+from torch_rcm.agents.policy import assert_invariants
+from torch_rcm.agents.types import RuleView
 
 
 def stats(**kw) -> SliceStats:  # type: ignore[no-untyped-def]

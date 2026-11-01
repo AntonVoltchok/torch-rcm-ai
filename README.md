@@ -25,6 +25,16 @@ Set `TORCH_AGENT_MODE=live` and `ANTHROPIC_API_KEY` to have Claude triage ambigu
 
 ## Architecture in one paragraph
 
-FastAPI + SQLite serve a frozen, advanceable clock over a simulated world (PMS, clearinghouse, five payers with their real quirks). Agents never touch the internet: in `live` mode a Claude model reads world content through tools, classifies the situation and **proposes** an allowed action with evidence; a Policy layer (rules table × autonomy tier × caps × root cause) decides whether it runs, goes to the inbox, is only observed, or is refused; an Executor runs each action as a fixed, idempotent, code-defined recipe and streams steps over SSE. `deterministic` mode satisfies the same planner interface with scripted policies, so tests and the demo never depend on the API. The web app is a React/TypeScript SPA on TanStack Router (filters, selection and tabs live in the URL) and TanStack Query (all server data; counts are selectors, never state), with Zod schemas generated from the API's OpenAPI.
+FastAPI over a pydantic document store in SQLite serves a frozen, advanceable clock over a simulated world (PMS, clearinghouse, five payers with their real quirks). Agents never touch the internet: in `live` mode a Claude model reads world content through tools, classifies the situation and **proposes** an allowed action with evidence; a Policy layer (rules table × autonomy tier × caps × root cause) decides whether it runs, goes to the inbox, is only observed, or is refused; an Executor runs each action as a fixed, idempotent, code-defined recipe and streams steps over SSE. `deterministic` mode satisfies the same planner interface with scripted policies, so tests and the demo never depend on the API. The web app is a React/TypeScript SPA on TanStack Router (filters, selection and tabs live in the URL) and TanStack Query (all server data; counts are selectors, never state), with Zod schemas mirroring the API's OpenAPI (hand-maintained until `make gen-api` has run on a machine with registry access; see `docs/FIRST_RUN.md`).
 
 Docs: `docs/spec/` (contracts) · `docs/adr/` · `docs/SESSIONS.md` (how the build is parallelized across Claude Code sessions) · `docs/STATUS.md`.
+
+## Not built in this demo (by design)
+
+- Scheduler handlers for `visit.checked_out` (claims are seeded as built), `eligibility.sweep`, `claim.rejected`, `hold.escalate`, `prompt_pay.due`; posting runs on `era.arrived` (overnight 835s stay in "needs review").
+- Live-mode cassettes are hand-authored (`synthetic: true`) until `torch cassette record` is run with an API key.
+- Real EDI, payer portals, PMS integration, auth, HIPAA controls, payment processing.
+
+## How this was built
+
+Designed over seven red-teamed mock rounds, then built in parallel Claude Code sessions coordinated by one session that made decisions by red team instead of guessing (`docs/SESSIONS.md`). The first build pass ran in an environment without PyPI/npm access, so the Python side is verified by 365 pure-pytest tests and the web side was reviewed but not compiled — `docs/FIRST_RUN.md` is the honest list of what the first run on a laptop must verify.

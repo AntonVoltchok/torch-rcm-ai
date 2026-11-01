@@ -70,5 +70,5 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 ## Conventions
 
 - OpenAPI at `/api/openapi.json`; `pnpm gen:api` regenerates Zod + typed client.
-- Idempotency: mutations accept `Idempotency-Key`; the approve endpoints are idempotent per item.
+- Idempotency: `Idempotency-Key` is honoured on approve, approve-group, reject, snooze, `PATCH /rules/{id}` and `PATCH /settings/practice` — the first successful response per `(user, key)` is stored (`idempotency` table, `api/services/idempotency.py`) and replayed byte-for-byte; the same key on a different request is `422 idempotency_key_reused`; refusals are not stored. Other mutations ignore the header. Approve is also idempotent per item without a key (run key `approval:{item_id}`).
 - All timestamps ISO-8601 with offset; the server never uses wall-clock time.

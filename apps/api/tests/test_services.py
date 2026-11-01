@@ -9,18 +9,18 @@ from datetime import datetime, timedelta
 import pytest
 
 from conftest import THURSDAY_0710
-from torch.api.errors import ApiError
-from torch.api.schemas import InjectIn, RulePatchIn
-from torch.api.services import claims as claims_svc
-from torch.api.services import inbox as inbox_svc
-from torch.api.services import rules as rules_svc
-from torch.api.services import screens, system
-from torch.api.services.context import Ctx
-from torch.domain.entities import InboxItem, Job, Rule, Run
-from torch.domain.enums import ClaimStatus, InboxItemState, RuleMode
-from torch.readmodels.claims import ClaimQuery
-from torch.runtime import Runtime
-from torch.scheduler import kinds as K
+from torch_rcm.api.errors import ApiError
+from torch_rcm.api.schemas import InjectIn, RulePatchIn
+from torch_rcm.api.services import claims as claims_svc
+from torch_rcm.api.services import inbox as inbox_svc
+from torch_rcm.api.services import rules as rules_svc
+from torch_rcm.api.services import screens, system
+from torch_rcm.api.services.context import Ctx
+from torch_rcm.domain.entities import InboxItem, Job, Rule, Run
+from torch_rcm.domain.enums import ClaimStatus, InboxItemState, RuleMode
+from torch_rcm.readmodels.claims import ClaimQuery
+from torch_rcm.runtime import Runtime
+from torch_rcm.scheduler import kinds as K
 
 GROUP = "delta_ny:denied:CO-16:N29:pa_missing"
 
@@ -84,7 +84,7 @@ def test_file_departed_offers_a_corrected_claim(rt: Runtime) -> None:
     item = rt.store.require(InboxItem, "itm_4851")
     rt.world.vyne.queue(
         "clm_4851",
-        __import__("torch.domain.enums", fromlist=["FileEntryKind"]).FileEntryKind.RESUBMIT,
+        __import__("torch_rcm.domain.enums", fromlist=["FileEntryKind"]).FileEntryKind.RESUBMIT,
         by="usr_dana",
         key="t",
     )
@@ -318,7 +318,7 @@ def test_unknown_user_is_401(rt: Runtime) -> None:
 
 
 def test_practice_cap_patch_is_owner_only(rt: Runtime) -> None:
-    from torch.api.schemas import PracticeSettingsIn
+    from torch_rcm.api.schemas import PracticeSettingsIn
 
     with pytest.raises(ApiError) as exc:
         rules_svc.patch_practice(ctx(rt), PracticeSettingsIn(practice_cap_cents=150_000))
@@ -338,7 +338,7 @@ def test_strip_nav_badges_are_server_counts(rt: Runtime) -> None:
 
 
 def test_overnight_denials_carry_typed_deadlines(rt: Runtime) -> None:
-    from torch.domain.entities import Claim
+    from torch_rcm.domain.entities import Claim
 
     asyncio.run(rt.scheduler.run_due(THURSDAY_0710))
     got = {

@@ -67,6 +67,7 @@ export function withoutItems(list: InboxList, ids: readonly string[]): InboxList
     ...list,
     items: list.items.filter((i) => !drop.has(i.id)),
     total: Math.max(0, list.total - removed.length),
+    total_cents: Math.max(0, list.total_cents - removed.reduce((a, i) => a + i.cents, 0)),
     groups: list.groups
       .map((g) => {
         const gone = g.item_ids.filter((id) => drop.has(id))

@@ -3,13 +3,13 @@ API serves. If any of these move, the demo script and the mocks disagree."""
 
 from __future__ import annotations
 
-from torch.domain.enums import ClaimStatus as S
-from torch.domain.enums import PayerKey
-from torch.readmodels import cash as C
-from torch.readmodels.activity import week_decisions
-from torch.readmodels.claims import ar_aging, ar_by_payer, strip
-from torch.readmodels.snapshot import Snapshot
-from torch.seed import targets as T
+from torch_rcm.domain.enums import ClaimStatus as S
+from torch_rcm.domain.enums import PayerKey
+from torch_rcm.readmodels import cash as C
+from torch_rcm.readmodels.activity import week_decisions
+from torch_rcm.readmodels.claims import ar_aging, ar_by_payer, strip
+from torch_rcm.readmodels.snapshot import Snapshot
+from torch_rcm.seed import targets as T
 
 
 def usd(x: float) -> int:

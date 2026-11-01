@@ -8,16 +8,17 @@ from typing import Any
 
 import pytest
 
-from torch.agents.config import AgentConfig
-from torch.agents.executor import needs_person
-from torch.agents.ports import WorldCallResult, WorldRead, WorldUnavailable
-from torch.agents.runtime import AgentRuntime
-from torch.agents.types import CaseFile, DeadlineView, JsonValue, Subject
-from torch.api.services.context import Ctx
-from torch.api.services.inbox import approve
-from torch.domain.entities import InboxItem, Practice, Run, WorldCallLog
-from torch.domain.enums import AgentKind, InboxItemKind, RunStatus, RunTrigger
-from torch.runtime import Runtime
+from torch_rcm.agents.config import AgentConfig
+from torch_rcm.agents.executor import needs_person
+from torch_rcm.agents.planner.scripted import scripted_pin
+from torch_rcm.agents.ports import WorldCallResult, WorldRead, WorldUnavailable
+from torch_rcm.agents.runtime import AgentRuntime
+from torch_rcm.agents.types import CaseFile, DeadlineView, JsonValue, Pin, Subject
+from torch_rcm.api.services.context import Ctx
+from torch_rcm.api.services.inbox import approve
+from torch_rcm.domain.entities import InboxItem, Practice, Run, WorldCallLog
+from torch_rcm.domain.enums import AgentKind, InboxItemKind, RunStatus, RunTrigger
+from torch_rcm.runtime import Runtime
 
 CFG = AgentConfig(step_delay=False, world_retry_backoff_s=(0.0, 0.0, 0.0))
 RESUBMIT_STEPS = [
@@ -32,14 +33,22 @@ RESUBMIT_STEPS = [
 ]
 
 
-class Crash(RuntimeError):
+class Crash(RuntimeError):  # noqa: N818 - a simulated process death, not an error type
     """A simulated process crash between a world call and the step's bookkeeping."""
 
 
 class FakeWorld:
     """WorldPort over the real SimWorld that can go down, crash once, or flip the kill switch."""
 
-    def __init__(self, inner: Any, *, down: set[str] | None = None, crash_after: str | None = None, pause_after: str | None = None, store: Any = None) -> None:
+    def __init__(
+        self,
+        inner: Any,
+        *,
+        down: set[str] | None = None,
+        crash_after: str | None = None,
+        pause_after: str | None = None,
+        store: Any = None,
+    ) -> None:
         self.inner = inner
         self.down = down or set()
         self.crash_after = crash_after
@@ -74,7 +83,7 @@ def agents(rt: Runtime, **kw: Any) -> AgentRuntime:
 
 
 def fake(rt: Runtime, **kw: Any) -> tuple[AgentRuntime, FakeWorld]:
-    from torch.agents.tools.adapters import SimWorld
+    from torch_rcm.agents.tools.adapters import SimWorld
 
     fw = FakeWorld(SimWorld(rt.world), store=rt.store, **kw)
     return agents(rt, world_port=fw), fw
@@ -130,7 +139,9 @@ def test_resubmit_with_attachment_on_4821_runs_the_recipe(rt: Runtime) -> None:
     assert nea and f"NEA# {nea}" in run.steps[5].output_summary
     assert run.steps[6].output_summary.startswith("queue for 11:15 Delta file")
     # code-built audit line (07 §5.5)
-    assert run.audit_line.startswith("Follow-up · Resubmit with attachment · #4821 K. Owens · Delta · $1,240 · PA via NEA# ")
+    assert run.audit_line.startswith(
+        "Follow-up · Resubmit with attachment · #4821 K. Owens · Delta · $1,240 · PA via NEA# "
+    )
     assert "approved by Dana S." in run.audit_line and run.audit_line.endswith("until the 11:15 file leaves")
     # checkpoint pinned to the scripted planner
     ck = art.runs.load_checkpoint(run.id)
@@ -175,7 +186,11 @@ def test_world_unavailable_retries_then_fails_with_item_when_file_time_at_risk(r
     assert res.run.status is RunStatus.FAILED and res.failure == "world_unavailable"
     assert fw.ops().count("nea.upload") == 4  # first try + 3 retries (07 §9)
     st = {s.name: s.status.value for s in res.run.steps}
-    assert st["act:nea_upload"] == "failed" and st["act:write_remarks"] == "skipped" and st["act:queue_for_file"] == "skipped"
+    assert (
+        st["act:nea_upload"] == "failed"
+        and st["act:write_remarks"] == "skipped"
+        and st["act:queue_for_file"] == "skipped"
+    )
     assert any("retry 3 of 3" in line for line in res.run.steps[4].progress_lines)
     items = [i for i in rt.store.all(InboxItem) if i.run_id == run.id and i.kind is InboxItemKind.RUN_FAILED]
     assert len(items) == 1 and res.inbox_item_ids == [items[0].id]
@@ -211,3 +226,37 @@ def test_triage_proposes_and_reuses_the_open_item(rt: Runtime) -> None:
     assert "PMS imaging · PA #19 · 1 found" in run.steps[1].progress_lines
     assert res.inbox_item_ids == ["itm_4821"]  # one open item per (claim, action)
     assert run.steps[2].output_summary.startswith("propose: Resubmit with attachment · rule Missing PA")
+
+
+# ── ADR-0001: checkpoint pin mismatch ──────────────────────────────────────────────────────────────────────
+
+STALE_PIN = Pin(
+    model="claude-old-model", effort="high", thinking="between_tools", system_sha="old-system", tools_sha="old-tools"
+)
+
+
+def test_pre_plan_checkpoint_under_another_pin_re_plans(rt: Runtime) -> None:
+    art = agents(rt)
+    run = approve_4821(rt)
+    stale = [{"role": "user", "content": "a conversation under the old prompt"}]
+    art.runs.save_checkpoint(run.id, STALE_PIN, stale, {"advance_id": None, "derived_from_old_pin": True})
+    done = go(art.start_run(run.id)).run
+    assert done.status is RunStatus.SUCCEEDED and [s.name for s in done.steps] == RESUBMIT_STEPS
+    assert any("re-planning" in line for line in done.steps[1].progress_lines)
+    ck = art.runs.load_checkpoint(run.id)
+    assert ck is not None and ck.pin == scripted_pin("scripted", "followup")
+    assert ck.messages == [] and "derived_from_old_pin" not in ck.state and "plan" in ck.state
+
+
+def test_post_plan_checkpoint_under_another_pin_continues_the_stored_plan(rt: Runtime) -> None:
+    art, fw = fake(rt, crash_after="nea.upload")
+    run = approve_4821(rt)
+    with pytest.raises(Crash):
+        go(art.start_run(run.id))
+    ck = art.runs.load_checkpoint(run.id)
+    assert ck is not None and "plan" in ck.state
+    art.runs.save_checkpoint(run.id, STALE_PIN, [], ck.state)  # e.g. the prompt changed between crash and restart
+    done = go(agents(rt, world_port=fw).start_run(run.id)).run
+    assert done.status is RunStatus.SUCCEEDED
+    assert not any("re-planning" in line for s in done.steps for line in s.progress_lines)
+    assert fw.ops() == ["pms.get_image", "nea.upload", "nea.upload", "pms.write_claim_remarks", "vyne.queue"]

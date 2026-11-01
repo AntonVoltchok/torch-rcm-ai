@@ -2,8 +2,20 @@
  * Inbox fixture at Wed 10/28 10:40: 12 open items = 9 claim items + 3 eligibility items
  * (docs/spec/04-seed.md "Inbox open"), in server priority order. The Delta missing-PA group of 3 is first.
  */
-import type { Evidence, InboxGroup, InboxItem } from '@/api/schema'
+import type { Evidence, InboxGroup, InboxItemDetail } from '@/api/schema'
 import { at } from './claims'
+
+/**
+ * The mock's stored inbox row, shaped like the API's domain `InboxItem`: ids (`claim_id`, `evidence_ids`), not
+ * nested references. db.ts builds the wire shapes from it the way the API's read models do
+ * (`InboxItemOut` = row + `claim`/`patient` refs + priority; `InboxItemDetail` adds hydrated evidence and the
+ * hold window). Nothing outside src/mocks sees this type.
+ */
+export type MockInboxItem = Omit<InboxItemDetail, 'claim' | 'patient' | 'priority' | 'suspicious_evidence' | 'evidence' | 'hold_window' | 'payload' | 'summary'> & {
+  claim_id?: string | null
+  summary?: string | null
+  payload?: Record<string, unknown>
+}
 
 export const GROUP_DELTA_PA = 'delta_ny:resubmit_with_attachment'
 
@@ -142,7 +154,6 @@ export const EVIDENCE: Evidence[] = [
 const base = {
   state: 'open' as const,
   plan_steps: [] as string[],
-  patient_id: null,
   appointment_id: null,
   snoozed_until: null,
   resolved_by: null,
@@ -151,10 +162,9 @@ const base = {
   group_key: null,
   root_cause: null,
   audit_note: null,
-  reversibility: null,
 }
 
-function paItem(n: number, patient: string, tooth: string, cents: number, pct: number, created: string): InboxItem {
+function paItem(n: number, patient: string, tooth: string, cents: number, pct: number, created: string): MockInboxItem {
   return {
     ...base,
     id: `inb_${n}`,
@@ -165,7 +175,7 @@ function paItem(n: number, patient: string, tooth: string, cents: number, pct: n
     recommendation: `Upload the PA of #${tooth} to NEA; resubmit with the NEA# and the original claim number.`,
     summary: 'Denied CO-16 · N29: pre-op radiograph required. Our Claims agent sent the BWX, not the PA; rule fixed 10/26.',
     confidence: { pct, basis: PA_BASIS },
-    evidence: [`ev_${n}_portal`, `ev_${n}_pms`, `ev_${n}_era`],
+    evidence_ids: [`ev_${n}_portal`, `ev_${n}_pms`, `ev_${n}_era`],
     proposed_action: { action: 'resubmit_with_attachment', params: { attachment: 'pa', tooth, file: 'delta_ny 11:15' }, cents, requires_hold_window: true },
     plan_steps: [
         `Upload PA #${tooth} (PMS imaging, ${created} 10:41) to NEA FastAttach`,
@@ -177,14 +187,12 @@ function paItem(n: number, patient: string, tooth: string, cents: number, pct: n
     group_key: GROUP_DELTA_PA,
     created_at: at('2026-10-28', '06:15'),
     cents: cents,
-    subject: { claim_number: n, patient_name: patient, payer_key: 'delta_ny', label: null },
     root_cause: 'ours',
     audit_note: 'root cause: ours — Claims agent attached BWX; rule updated 10/26',
-    reversibility: { editable_until: 'the 11:15 Delta file leaves', then: 'Void claim (freq. 8)' },
   }
 }
 
-export function buildInbox(): InboxItem[] {
+export function buildInbox(): MockInboxItem[] {
   return [
     paItem(4821, 'K. Owens', '19', 124000, 92, '10/12'),
     paItem(4836, 'L. Grant', '3', 118000, 95, '10/14'),
@@ -199,13 +207,12 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Send a claim inquiry with Delta’s own 03/2022 EOB: their tooth history puts a 2022 crown on #30 that was #31.',
       summary: 'Frequency denial (CO-119): payer tooth-# error. Review the drafted inquiry?',
       confidence: { pct: 82, basis: '5 of 6 reconsiderations won (12 mo)' },
-      evidence: ['ev_4733_prior', 'ev_4733_era'],
+      evidence_ids: ['ev_4733_prior', 'ev_4733_era'],
       proposed_action: { action: 'send_claim_agent_text', params: { channel: 'portal inquiry' }, cents: 0, requires_hold_window: false },
       plan_steps: ['Attach the 03/2022 EOB', 'Send the inquiry text (drafted, cites the EOB)'],
       tier: 2,
       created_at: at('2026-10-28', '06:40'),
       cents: 124000,
-      subject: { claim_number: 4733, patient_name: 'J. Webb', payer_key: 'delta_ny', label: null },
       root_cause: 'payer',
     },
     {
@@ -218,13 +225,12 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Transfer allowed $1,012 to the patient and post the $228 contractual adjustment.',
       summary: 'Max met (PR-119). Bill patient allowed $1,012, contractual $228?',
       confidence: { pct: 96, basis: 'max confirmed on portal 10/27' },
-      evidence: ['ev_4611_portal'],
+      evidence_ids: ['ev_4611_portal'],
       proposed_action: { action: 'write_off', params: { patient_cents: 101200, writeoff_cents: 22800 }, cents: 22800, requires_hold_window: false },
       plan_steps: ['Move $1,012 to patient responsibility', 'Write off the $228 contractual difference (tier 3 · Dr. Morgan)', 'Statement goes in the next run'],
       tier: 3, // the API seed's tier: the contractual write-off commits the practice
       created_at: at('2026-10-27', '15:10'),
       cents: 124000,
-      subject: { claim_number: 4611, patient_name: 'R. Diaz', payer_key: 'delta_ny', label: null },
       root_cause: 'patient',
     },
     {
@@ -237,12 +243,11 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Send a NY prompt-pay reprocessing request citing § 3224-a and the 10/27 rep call.',
       summary: 'Clean claim, 64 days. Send NY prompt-pay reprocessing request?',
       confidence: { pct: 88, basis: '7 of 8 prompt-pay requests paid within 15 d' },
-      evidence: ['ev_4705_rep', 'ev_4705_policy'],
+      evidence_ids: ['ev_4705_rep', 'ev_4705_policy'],
       proposed_action: { action: 'reprocessing_request', params: { basis: 'ny_prompt_pay' }, cents: 0, requires_hold_window: false },
       tier: 1,
       created_at: at('2026-10-27', '14:35'),
       cents: 115000,
-      subject: { claim_number: 4705, patient_name: 'T. Brooks', payer_key: 'metlife', label: null },
       root_cause: 'payer',
     },
     {
@@ -255,12 +260,11 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Update the subscriber id from the 271 and resend in the next Cigna file.',
       summary: 'Subscriber ID not found; 271 has a new ID. Update & resend?',
       confidence: { pct: 84, basis: '21 of 25 A7:164 fixes accepted on resend' },
-      evidence: ['ev_4851_pms'],
+      evidence_ids: ['ev_4851_pms'],
       proposed_action: { action: 'fix_demographics_resend', params: { field: 'subscriber_id' }, cents: 0, requires_hold_window: false },
       tier: 1,
       created_at: at('2026-10-28', '07:02'),
       cents: 39500,
-      subject: { claim_number: 4851, patient_name: 'I. Moreau', payer_key: 'cigna', label: null },
       root_cause: 'patient',
     },
     {
@@ -273,12 +277,11 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Hold the $32 variance for reprocessing (deductible was met 05/12). Not a write-off.',
       summary: 'Cigna ERA hold: PR-1 deductible applied though met 05/12.',
       confidence: { pct: 90, basis: 'deductible met per 05/12 EOB' },
-      evidence: ['ev_4772_era'],
+      evidence_ids: ['ev_4772_era'],
       proposed_action: { action: 'post_era_line', params: { hold_variance_cents: 3200, then: 'reprocessing_request' }, cents: 3200, requires_hold_window: false },
       tier: 2, // posting a line is tier 2 (rule_t2_post_era); the line was held because it does not match tracked benefits
       created_at: at('2026-10-28', '06:20'),
       cents: 3200,
-      subject: { claim_number: 4772, patient_name: 'D. Foster', payer_key: 'cigna', label: null },
       root_cause: 'payer',
     },
     {
@@ -291,12 +294,11 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Bill the patient the $38 alternate-benefit difference (not appealable under the plan).',
       summary: 'Aetna alternate benefit D2140 applied. Bill patient difference?',
       confidence: { pct: 94, basis: 'plan language: alternate benefit, no appeal' },
-      evidence: ['ev_4748_era'],
+      evidence_ids: ['ev_4748_era'],
       proposed_action: { action: 'patient_transfer', params: { cents: 3800 }, cents: 0, requires_hold_window: false },
       tier: 2,
       created_at: at('2026-10-27', '09:00'),
       cents: 3800,
-      subject: { claim_number: 4748, patient_name: 'L. Osei', payer_key: 'aetna', label: null },
       root_cause: 'patient',
     },
     {
@@ -310,12 +312,11 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Tell the front desk: plan pays $180 of $650 planned; patient estimate $470.',
       summary: 'Annual max nearly used. Flag the shortfall to the front desk?',
       confidence: { pct: 97, basis: 'portal as of 10/28 6:12 AM' },
-      evidence: ['ev_chen_portal'],
+      evidence_ids: ['ev_chen_portal'],
       proposed_action: { action: 'eligibility_check', params: { notify: 'front_desk' }, cents: 0, requires_hold_window: false },
       tier: 1,
       created_at: at('2026-10-28', '06:12'),
       cents: 47000,
-      subject: { claim_number: null, patient_name: 'J. Chen', payer_key: 'metlife', label: 'Thu 10/29 · 9:00' },
     },
     {
       ...base,
@@ -328,12 +329,11 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'Bitewings are not covered until 11/03 (last 11/03/2025). Skip D0274 or have the patient sign the non-covered acknowledgment.',
       summary: 'D0274 frequency: next eligible 11/03.',
       confidence: { pct: 91, basis: 'Guardian portal as of 10/28 6:12 AM' },
-      evidence: ['ev_kim_271'],
+      evidence_ids: ['ev_kim_271'],
       proposed_action: { action: 'eligibility_check', params: { notify: 'front_desk' }, cents: 0, requires_hold_window: false },
       tier: 1,
       created_at: at('2026-10-28', '06:12'),
       cents: 5800,
-      subject: { claim_number: null, patient_name: 'S. Kim', payer_key: 'guardian', label: 'Thu 10/29 · 1:00' },
     },
     {
       ...base,
@@ -346,12 +346,11 @@ export function buildInbox(): InboxItem[] {
       recommendation: 'MetLife portal and IVR unavailable since 05:40; 271 returned no plan detail. Verify at check-in or call MetLife.',
       summary: 'Portal down; unverified.',
       confidence: { pct: null, basis: 'could not verify: MetLife portal and IVR down since 05:40' },
-      evidence: ['ev_park_ivr'],
+      evidence_ids: ['ev_park_ivr'],
       proposed_action: { action: 'eligibility_check', params: { channel: 'rep_call' }, cents: 0, requires_hold_window: false },
       tier: 1,
       created_at: at('2026-10-28', '06:14'),
       cents: 63900,
-      subject: { claim_number: null, patient_name: 'N. Park', payer_key: 'metlife', label: 'Fri 10/30 · 9:00' },
     },
   ]
 }

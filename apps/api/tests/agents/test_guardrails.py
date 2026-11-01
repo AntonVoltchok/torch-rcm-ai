@@ -6,11 +6,11 @@ from datetime import datetime
 
 from agent_world import CLAIM, ctx, ev, rule
 
-from torch.agents.catalog.actions import ACTIONS
-from torch.agents.guardrails import guard_draft, looks_like_injection, out_of_bounds_offers, wrap_world_content
-from torch.agents.policy import decide
-from torch.agents.tools.registry import candidate_is_suspicious
-from torch.agents.types import Draft, DraftSegment, EvidenceCandidate, ProposedAction
+from torch_rcm.agents.catalog.actions import ACTIONS
+from torch_rcm.agents.guardrails import guard_draft, looks_like_injection, out_of_bounds_offers, wrap_world_content
+from torch_rcm.agents.policy import decide
+from torch_rcm.agents.tools.registry import candidate_is_suspicious
+from torch_rcm.agents.types import Draft, DraftSegment, EvidenceCandidate, ProposedAction
 
 T = datetime.fromisoformat("2026-10-29T07:10:00-04:00")
 PRIOR = ev("ev_prior", "prior_eob", excerpt="03/2022 EOB: D2740 #31 crown paid $612.00")

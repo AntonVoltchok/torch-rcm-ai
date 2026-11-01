@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from torch.db.store import Store
-from torch.domain import invariants as inv
-from torch.domain.entities import Claim, InboxItem, Remittance, Rule, Run
-from torch.domain.enums import InboxItemState, RunStatus
-from torch.seed.persist import persist
-from torch.world.scenarios import SCENARIOS, build_scenario
+from torch_rcm.db.store import Store
+from torch_rcm.domain import invariants as inv
+from torch_rcm.domain.entities import Claim, InboxItem, Remittance, Rule, Run
+from torch_rcm.domain.enums import InboxItemState, RunStatus
+from torch_rcm.seed.persist import persist
+from torch_rcm.world.scenarios import SCENARIOS, build_scenario
 
 
 @pytest.mark.parametrize("name", sorted(SCENARIOS))

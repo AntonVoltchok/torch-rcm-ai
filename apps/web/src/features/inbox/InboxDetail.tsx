@@ -1,13 +1,14 @@
 /**
- * The selected item. Header and plan render from the list row at once; evidence and the claim summary
- * come from GET /inbox/{id}. Edit/Reject/Snooze panels are ephemeral UI state owned by InboxPage.
+ * The selected item. The header renders from the list row at once (API `InboxItemOut` carries the claim and
+ * patient references); the plan, audit note, evidence and hold window come from GET /inbox/{id}
+ * (`InboxItemDetail`). Edit/Reject/Snooze panels are ephemeral UI state owned by InboxPage.
  */
 import { Link } from '@tanstack/react-router'
 import type { InboxGroup, InboxItem } from '@/api/schema'
 import { useInboxItem } from '@/hooks/useInbox'
 import { useAlwaysAutoRun } from '@/hooks/useInboxActions'
 import { isApiError } from '@/api/client'
-import { money, shortDate } from '@/lib/format'
+import { money, shortDate, time } from '@/lib/format'
 import { AGENT_NAME, PAYER_NAME } from '@/lib/payers'
 import { useCurrentUser } from '@/state/session'
 import { Button } from '@/components/ui/Button'
@@ -21,6 +22,8 @@ import { EditPlanForm, RejectForm, SnoozeMenu } from './ItemForms'
 import type { FileDeparted } from '@/hooks/useInboxActions'
 
 export type DetailPanel = 'none' | 'edit' | 'reject' | 'snooze'
+
+const ALTERNATIVE_LABEL: Record<string, string> = { corrected_claim: 'corrected claim (freq. 7)' }
 
 interface Props {
   item: InboxItem
@@ -42,21 +45,24 @@ export function InboxDetail(p: Props) {
   const detail = useInboxItem(item.id)
   const user = useCurrentUser()
   const autoRun = useAlwaysAutoRun()
-  const claim = detail.data?.claim
-  const rootCause = item.root_cause ?? claim?.denial?.root_cause
+  const { claim, patient } = item
+  const rootCause = item.root_cause
+  const planSteps = detail.data?.plan_steps ?? []
+  const auditNote = detail.data?.audit_note
+  const hold = detail.data?.hold_window
   const ownerOnly = item.tier === 3 && user.role !== 'owner'
   const guardReason = isApiError(autoRun.error, 'root_cause_guard') || isApiError(autoRun.error, 'tier_not_learnable') ? autoRun.error.message : null
 
   return (
     <article aria-label={`Inbox item ${item.title}`} className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto px-5 py-3.5">
       <header className="flex flex-wrap items-center gap-2">
-        <h2 className="m-0 text-[18px] font-bold">{item.subject?.claim_number ? `#${item.subject.claim_number} · ${item.subject.patient_name ?? ''}` : item.title}</h2>
+        <h2 className="m-0 text-[18px] font-bold">{claim ? `#${claim.number} · ${patient?.display_name ?? claim.patient.display_name}` : item.title}</h2>
         {claim && <StatusChip status={claim.status} />}
-        {claim?.reason_text && <span className="text-sm font-semibold text-mid">{claim.reason_text}</span>}
+        {claim?.reason && <span className="text-sm font-semibold text-mid">{claim.reason}</span>}
         {claim?.needs_action && <FlagPill label="needs action" />}
         {item.tier ? <TierBadge tier={item.tier} compact /> : null}
-        {item.claim_id ? (
-          <Link to="/claims/$claimId" params={{ claimId: item.claim_id }} search={{ from: `inbox:${item.id}` }} className="ml-auto text-sm font-semibold text-acc no-underline hover:underline">
+        {claim ? (
+          <Link to="/claims/$claimId" params={{ claimId: claim.id }} search={{ from: `inbox:${item.id}` }} className="ml-auto text-sm font-semibold text-acc no-underline hover:underline">
             Open claim →
           </Link>
         ) : item.appointment_id ? (
@@ -67,11 +73,10 @@ export function InboxDetail(p: Props) {
       </header>
       <div className="text-sm text-mid">
         {[
-          item.subject?.payer_key ? PAYER_NAME[item.subject.payer_key] : null,
+          claim ? PAYER_NAME[claim.payer.key] : null,
           claim ? `DOS ${shortDate(claim.dos)}` : null,
-          claim?.procedures_label,
+          claim?.procedures,
           claim ? `billed ${money(claim.billed_cents)}` : null,
-          item.subject?.label,
           p.group ? `${p.group.position} of ${p.group.group.count}` : null,
         ]
           .filter(Boolean)
@@ -91,9 +96,9 @@ export function InboxDetail(p: Props) {
           {item.confidence && <ConfidenceMeter pct={item.confidence.pct} compact />}
         </div>
         <p className="m-0 font-semibold">{item.recommendation}</p>
-        {item.plan_steps.length > 0 && (
+        {planSteps.length > 0 && (
           <ol className="m-0 mt-1.5 pl-5 text-sm">
-            {item.plan_steps.map((s) => (
+            {planSteps.map((s) => (
               <li key={s}>{s}</li>
             ))}
           </ol>
@@ -112,9 +117,9 @@ export function InboxDetail(p: Props) {
         </p>
       </section>
 
-      {item.audit_note && (
+      {auditNote && (
         <p className="m-0 text-sm" data-testid="audit-note">
-          <span className={rootCause === 'ours' ? 'rounded border border-bad-line bg-bad-bg px-1 font-semibold text-bad' : 'font-semibold text-mid'}>{item.audit_note}</span>
+          <span className={rootCause === 'ours' ? 'rounded border border-bad-line bg-bad-bg px-1 font-semibold text-bad' : 'font-semibold text-mid'}>{auditNote}</span>
         </p>
       )}
 
@@ -173,15 +178,21 @@ export function InboxDetail(p: Props) {
             Always auto-run this…
           </button>
         )}
-        {item.reversibility && (
-          <span className="ml-auto text-right text-xs text-mid">
-            Editable until {item.reversibility.editable_until ?? '—'}
-            {item.reversibility.then ? (
+        {hold && (
+          <span className="ml-auto text-right text-xs text-mid" data-testid="hold-window">
+            {hold.departed ? (
               <>
+                File left {time(hold.file_time)}
                 <br />
-                then: {item.reversibility.then}
+                now: {hold.alternatives.map((a) => ALTERNATIVE_LABEL[a] ?? a.replace(/_/g, ' ')).join(' · ') || '—'}
               </>
-            ) : null}
+            ) : (
+              <>
+                Editable until {time(hold.editable_until)}
+                <br />
+                leaves in the {time(hold.file_time)} file
+              </>
+            )}
           </span>
         )}
         {guardReason && (

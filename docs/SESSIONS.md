@@ -7,7 +7,7 @@ The owner wants to be hands-off. A **coordinator session** (Fable 5.1) plans, sp
 | Work | Model | Effort | Why |
 |---|---|---|---|
 | Coordinator: planning, splitting, integration review, red-team adjudication, writing ADRs/STATUS | **Fable 5.1** | default | Needs the whole context and judgment across workers |
-| Agent runtime (`torch/agents/*`), Policy table, scheduler/leases, SQLite concurrency | **Opus 5.5** | **high** | Correctness-critical, many invariants, subtle async |
+| Agent runtime (`torch_rcm/agents/*`), Policy table, scheduler/leases, SQLite concurrency | **Opus 5.5** | **high** | Correctness-critical, many invariants, subtle async |
 | World simulation + payer rules + seed generator (reconciled numbers must hold) | **Opus 5.5** | **high** | Numeric consistency across ~400 claims; easy to get subtly wrong |
 | Web app architecture (router, query, SSE hook, table virtualization) | **Opus 5.5** | **high** | State-ownership decisions are what the interviewer will probe |
 | Individual screens once the architecture exists (Activity, Eligibility, Cash, Denials list) | Opus 5.5 | medium | Pattern-following; the hard choices are made |

@@ -10,7 +10,7 @@ The web mock reached 16 with Lindgren (built 10:51, held) and a held ERA line �
 produce (no claim-building on `visit.checked_out`, no posting run on `era.arrived`).
 
 ## Decision
-- `era.arrived` routes each denial with `torch.domain.routing.route_denial` (the Denials worklist's router):
+- `era.arrived` routes each denial with `torch_rcm.domain.routing.route_denial` (the Denials worklist's router):
   CO-50/CO-29 → Appeals, CO-16/CO-22/CO-119 → Follow-up, patient-responsibility codes → none (Payments).
 - Moreno gets a second coverage in the seed (MetLife, listed secondary): the COB script's real branch proposes
   `cob_order_change` (tier 2, no rule → Dana). The single-coverage branch stays tested by stripping it.

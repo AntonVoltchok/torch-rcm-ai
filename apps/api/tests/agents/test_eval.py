@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from torch.agents.eval import evaluate, render, run_eval
-from torch.agents.eval.harness import UNKNOWN_CLAIMS, compare, run_scenario
-from torch.agents.llm.cassette import CANONICAL_DIR, Cassette
+from torch_rcm.agents.eval import evaluate, render, run_eval
+from torch_rcm.agents.eval.harness import UNKNOWN_CLAIMS, compare, run_scenario
+from torch_rcm.agents.llm.cassette import CANONICAL_DIR, Cassette
 
 
 def _cassettes_load() -> bool:
     try:
         return all(Cassette.load(p) for p in (CANONICAL_DIR / "canonical").glob("*.jsonl"))
-    except Exception:  # noqa: BLE001 - a broken cassette skips live replay; test_cassette.py reports why
+    except Exception:
         return False
 
 
@@ -48,7 +48,7 @@ def test_live_replay_has_identical_run_shapes(det, tmp_path: Path) -> None:  # t
 def test_compare_reports_a_shape_mismatch(det) -> None:  # type: ignore[no-untyped-def]
     from dataclasses import replace
 
-    from torch.agents.eval.harness import ModeResult
+    from torch_rcm.agents.eval.harness import ModeResult
 
     key = "followup clm_4821 approval"
     other = ModeResult(mode="live", shapes={**det.shapes, key: replace(det.shapes[key], steps=("gather_case",))})

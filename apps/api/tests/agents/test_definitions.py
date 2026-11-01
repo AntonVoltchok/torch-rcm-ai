@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from torch.agents.catalog.actions import ACTIONS, AGENT_ACTIONS
-from torch.agents.definitions import AgentDefinition, DefinitionError, assert_definition, registry
-from torch.agents.tools.registry import READS, ToolRegistry
-from torch.agents.types import AGENT_KINDS
+from torch_rcm.agents.catalog.actions import ACTIONS, AGENT_ACTIONS
+from torch_rcm.agents.definitions import AgentDefinition, DefinitionError, assert_definition, registry
+from torch_rcm.agents.tools.registry import READS, ToolRegistry
+from torch_rcm.agents.types import AGENT_KINDS
 
 
 def test_registry_has_all_five() -> None:

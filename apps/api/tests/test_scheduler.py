@@ -10,14 +10,14 @@ from datetime import datetime, timedelta
 import pytest
 
 from conftest import THURSDAY_0710, snap
-from torch.domain.entities import Advance, Claim, FileEntry, Job
-from torch.domain.enums import ClaimStatus, FileEntryKind, FileEntryState, JobState
-from torch.readmodels.claims import strip
-from torch.runtime import Runtime
-from torch.scheduler import kinds as K
-from torch.scheduler.cadence import next_status_check
-from torch.scheduler.registry import JobContext, JobOutcome
-from torch.scheduler.runner import AdvanceInProgressError
+from torch_rcm.domain.entities import Advance, Claim, FileEntry, Job
+from torch_rcm.domain.enums import ClaimStatus, FileEntryKind, FileEntryState, JobState
+from torch_rcm.readmodels.claims import strip
+from torch_rcm.runtime import Runtime
+from torch_rcm.scheduler import kinds as K
+from torch_rcm.scheduler.cadence import next_status_check
+from torch_rcm.scheduler.registry import JobContext, JobOutcome
+from torch_rcm.scheduler.runner import AdvanceInProgressError
 
 S = ClaimStatus
 GROUP = ("clm_4821", "clm_4836", "clm_4840")
@@ -60,7 +60,7 @@ def test_skip_to_thursday_0710_matches_demo_step_8(rt: Runtime) -> None:
         assert claim.status is S.DENIED and claim.in_flight and "11:15" in claim.in_flight
     assert s.now == THURSDAY_0710
     agent_jobs = dict(result.skipped_unhandled)
-    assert agent_jobs.get(K.ERA_ARRIVED) == 4, "one posting trigger per remittance, queued for torch.agents"
+    assert agent_jobs.get(K.ERA_ARRIVED) == 4, "one posting trigger per remittance, queued for torch_rcm.agents"
     assert K.STATUS_CHECK_DUE in agent_jobs, "status checks fired (queued for the followup agent)"
 
 
@@ -143,7 +143,7 @@ def test_stale_lease_is_recovered(rt: Runtime) -> None:
 
 
 def test_clock_only_moves_forward(rt: Runtime) -> None:
-    from torch.clock import ClockError
+    from torch_rcm.clock import ClockError
 
     with pytest.raises(ClockError):
         rt.clock.set(rt.clock.now() - timedelta(minutes=1))
@@ -181,7 +181,7 @@ def test_seeded_status_checks_for_unknown_claims_fall_after_friday(rt: Runtime) 
 
 
 def test_file_departure_closes_the_hold_window(rt: Runtime) -> None:
-    from torch.world.sim import HoldWindowClosedError
+    from torch_rcm.world.sim import HoldWindowClosedError
 
     rt.world.vyne.assert_editable("clm_4859")
     asyncio.run(rt.scheduler.run_due(datetime.fromisoformat("2026-10-28T10:46:00-04:00")))

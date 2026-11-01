@@ -7,12 +7,21 @@ from pathlib import Path
 
 import pytest
 
-from torch.domain.enums import ClaimStatus as S
-from torch.domain.enums import NextAction, PayerKey, RootCause, Tier
-from torch.domain.routing import patient_billable_if_lost, route_denial
-from torch.domain.transitions import Cause, TransitionError, allowed_targets, apply_transition
+from torch_rcm.domain.enums import ClaimStatus as S
+from torch_rcm.domain.enums import ClosedReason, NextAction, PayerKey, RootCause, Tier
+from torch_rcm.domain.routing import patient_billable_if_lost, route_denial
+from torch_rcm.domain.transitions import (
+    EDGES,
+    Cause,
+    TransitionError,
+    allowed_causes,
+    allowed_targets,
+    apply_transition,
+    close_claim,
+    start_corrected_claim,
+)
 
-ROOT = Path(__file__).resolve().parents[1] / "torch"
+ROOT = Path(__file__).resolve().parents[1] / "torch_rcm"
 
 
 def test_world_events_cannot_be_caused_by_torch() -> None:
@@ -25,7 +34,72 @@ def test_tier_gates() -> None:
     assert apply_transition(S.DENIED, S.PENDING, Cause.RECONSIDERATION_SENT, actor_tier=Tier.ONE) is S.PENDING
     with pytest.raises(TransitionError):
         apply_transition(S.DENIED, S.APPEALED, Cause.FORMAL_APPEAL_FILED, actor_tier=Tier.TWO)
-    assert apply_transition(S.DENIED, S.APPEALED, Cause.FORMAL_APPEAL_FILED, actor_tier=Tier.THREE) is S.APPEALED
+    with pytest.raises(TransitionError, match="tier 3"):
+        apply_transition(S.DENIED, S.APPEALED, Cause.FORMAL_APPEAL_FILED, actor_tier=Tier.THREE)  # not a person
+    assert (
+        apply_transition(S.DENIED, S.APPEALED, Cause.FORMAL_APPEAL_FILED, actor_tier=Tier.THREE, by_human=True)
+        is S.APPEALED
+    )
+
+
+def test_partial_can_be_reconsidered_or_appealed() -> None:
+    assert apply_transition(S.PARTIAL, S.PENDING, Cause.RECONSIDERATION_SENT, actor_tier=Tier.ONE) is S.PENDING
+    assert (
+        apply_transition(S.PARTIAL, S.APPEALED, Cause.FORMAL_APPEAL_FILED, actor_tier=Tier.THREE, by_human=True)
+        is S.APPEALED
+    )
+    with pytest.raises(TransitionError):
+        apply_transition(S.PARTIAL, S.APPEALED, Cause.FORMAL_APPEAL_FILED, actor_tier=Tier.TWO, by_human=True)
+    assert allowed_targets(S.PARTIAL) == {S.PENDING, S.APPEALED}
+
+
+@pytest.mark.parametrize("source", [S.DENIED, S.PARTIAL, S.REJECTED, S.SENT, S.ACCEPTED, S.PENDING])
+def test_corrected_claim_spawns_a_ready_replacement_at_tier_2(source: S) -> None:
+    assert start_corrected_claim(source, Tier.TWO) is S.READY
+    with pytest.raises(TransitionError, match="needs tier 2"):
+        start_corrected_claim(source, Tier.ONE)
+    with pytest.raises(TransitionError, match="spawn edge"):
+        apply_transition(source, S.SENT, Cause.CORRECTED_CLAIM, actor_tier=Tier.TWO)  # the original never moves
+
+
+@pytest.mark.parametrize("source", [S.READY, S.PAID, S.APPEALED])
+def test_corrected_claim_needs_a_claim_the_payer_has(source: S) -> None:
+    with pytest.raises(TransitionError):
+        start_corrected_claim(source, Tier.THREE)
+
+
+def test_void_closes_any_non_terminal_claim_and_is_human_tier_3() -> None:
+    for source in S:
+        if source is S.PAID:
+            with pytest.raises(TransitionError):
+                close_claim(source, Cause.VOID_CLAIM, Tier.THREE, by_human=True)
+            continue
+        assert close_claim(source, Cause.VOID_CLAIM, Tier.THREE, by_human=True) is ClosedReason.VOIDED
+        with pytest.raises(TransitionError, match="tier 3"):
+            close_claim(source, Cause.VOID_CLAIM, Tier.THREE, by_human=False)  # a rule or agent: never
+        with pytest.raises(TransitionError):
+            close_claim(source, Cause.VOID_CLAIM, Tier.TWO, by_human=True)
+        assert Cause.VOID_CLAIM in allowed_causes(source)
+
+
+def test_write_off_closes_denied_or_partial_only() -> None:
+    assert close_claim(S.DENIED, Cause.WRITE_OFF, Tier.THREE, by_human=True) is ClosedReason.WRITE_OFF
+    assert close_claim(S.PARTIAL, Cause.WRITE_OFF, Tier.THREE, by_human=True) is ClosedReason.WRITE_OFF
+    with pytest.raises(TransitionError):
+        close_claim(S.PENDING, Cause.WRITE_OFF, Tier.THREE, by_human=True)
+    with pytest.raises(TransitionError):
+        close_claim(S.DENIED, Cause.RECONSIDERATION_SENT, Tier.THREE, by_human=True)
+
+
+def test_every_tier_3_edge_is_human_only() -> None:
+    tier3 = [e for e in EDGES if e.min_tier is Tier.THREE]
+    assert {e.cause for e in tier3} == {Cause.FORMAL_APPEAL_FILED, Cause.WRITE_OFF, Cause.VOID_CLAIM}
+    for e in tier3:
+        with pytest.raises(TransitionError, match="tier 3"):
+            if e.kind == "close":
+                close_claim(e.source, e.cause, Tier.THREE, by_human=False)
+            else:
+                apply_transition(e.source, e.target, e.cause, actor_tier=Tier.THREE)
 
 
 def test_no_edge_out_of_paid_and_no_edge_into_ready() -> None:

@@ -17,7 +17,7 @@ const KIND_LABEL: Record<InboxItemKind, { label: string; tone: string }> = {
 }
 
 function typeLabel(item: InboxItem): { label: string; tone: string } {
-  if (item.kind === 'approve_action' && item.claim_id && /denied|CO-|PR-/i.test(item.summary ?? '')) return { label: 'Denial', tone: 'text-bad' }
+  if (item.kind === 'approve_action' && item.claim && /denied|CO-|PR-/i.test(item.summary ?? '')) return { label: 'Denial', tone: 'text-bad' }
   return KIND_LABEL[item.kind]
 }
 
@@ -44,8 +44,7 @@ function ItemRow({ item, selected, onSelect, nested = false }: { item: InboxItem
         {!nested && item.summary && <span className="mb-0.5 mt-0.5 block text-sm leading-[1.3] text-ink">{item.summary}</span>}
         <span className="flex items-center gap-2 text-xs text-soft">
           {item.confidence && <ConfidenceMeter pct={item.confidence.pct} compact />}
-          {item.subject?.payer_key && <span>{PAYER_NAME[item.subject.payer_key]}</span>}
-          {item.subject?.label && <span>{item.subject.label}</span>}
+          {item.claim && <span>{PAYER_NAME[item.claim.payer.key]}</span>}
         </span>
       </button>
     </li>

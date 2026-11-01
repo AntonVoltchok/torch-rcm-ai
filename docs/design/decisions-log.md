@@ -1,7 +1,9 @@
-# Molar (dental RCM demo) — decision log
+# Torch (dental RCM demo) — decision log
+
+_The product was called "Molar" during the mock rounds; it was renamed Torch when the repo was created. Historical red-team reports keep the old name and have real PMS vendor names redacted to "the PMS" to match the repo's no-vendor-names rule._
 
 Mock page: https://claude.ai/artifact/SzxDujasTyuLW4qMBmjJ7h (Overview + Engineering notes at the top are the executive summary.)
-Local source: /home/claude/rcm-mocks/index.html. Red-team reports: rcm-demo/challenge-round2…6 and challenge-final-interviewer (this project).
+In this repo: `docs/design/mocks.html` (mock page), `docs/design/red-team/` (every report), `docs/adr/` (build decisions).
 
 Method from Round 3 on: a design agent (Opus 5.5, medium) built the round; an independent red-team agent with a rotating persona attacked it; Claude adopted the top recommendation (hybrids allowed) and the next round implemented it plus the fixes. Every decision below records who red-teamed it and the one reason that carried.
 
@@ -27,3 +29,18 @@ Method from Round 3 on: a design agent (Opus 5.5, medium) built the round; an in
 - Be ready to **defend**: build-at-checkout over a 4 PM batch; the tiered table over per-agent dials.
 - Be ready to **reverse**: Denials as top-level nav (may belong as a saved view of Claims); the Partial status (could be Paid + flag).
 - Expected questions are in the final red-team report (ten of them); the state-ownership and "Approve 3 invalidation" answers are written in the Engineering notes.
+
+## Build decisions (repo phase, 2026-11-01)
+
+The build used the same method: workers in parallel sessions, red teams on anything a reviewer could reasonably have decided differently, decisions recorded as ADRs.
+
+| Decision | Options | Chosen | Red team | Why |
+|---|---|---|---|---|
+| Agent runtime shape | model-driven loop with mutating tools · scripted rules engine · model proposes, code gates and executes | **Model proposes, code gates and executes** (ADR-0001) | Staff engineer who shipped production agents; verified Anthropic API facts | Every money-touching action stays reviewable, idempotent and identical across live/deterministic modes; the model earns its place on `unknown` situations and free-text evidence. |
+| Anthropic API usage | per-call tuning (temperature, forced tools) · static per-model capability table | **Static table**: no sampling params on 5.5 models; Haiku forced-tool, Sonnet `between_tools`, Opus adaptive; automatic caching + one explicit marker | same | The doc's original claims were partly wrong; the table encodes the verified facts and fails fast. |
+| Live mode scope | all five agents · claims/followup/appeals only | **claims, followup, appeals** (eligibility, posting scripted) | same | Their screens are static/mock-only in the demo; fewer calls per advance; the visible AI moment is step 3b triage. |
+| Learning | runtime LearningService with demotion · seeded stats + pure threshold functions | **Seeded stats, pure functions** | same | A two-week demo doesn't need a learning service; the threshold logic is still tested. |
+| Clock advance | synchronous POST · async 202 + firehose | **Async** with live concurrency 2, ≤8 live runs per advance | same | A synchronous advance with live calls would hang the room on a spinner. |
+| Storage | SQLModel tables · pydantic documents in SQLite | **Document store** (api worker, D1) | — (environment: SQLModel not installable; reviewed in the repo review) | One pydantic model set serves OpenAPI and storage; swap for Postgres JSONB in production. |
+| Step-8 inbox | invent items to hit the mocks' 16 · report the computed 17 | **17, computed** (ADR-0002) | — | Never invent a number; the mock layer and e2e were re-baselined to the API. |
+| Repo review findings | — | Fix pass: streaming `done` bug, API↔web shape drift, package rename `torch_rcm`, Observe on approval, Partial/void/corrected transitions, server-side Idempotency-Key, executor split, truthful docs | Hiring Director of Engineering persona | "Advance to onsite, but the onsite tests whether he owns the code." |

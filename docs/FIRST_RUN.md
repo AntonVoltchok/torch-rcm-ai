@@ -7,7 +7,7 @@ git clone https://github.com/AntonVoltchok/torch-rcm-ai && cd torch-rcm-ai
 cp .env.example .env
 
 # API
-cd apps/api && uv sync && uv run ruff check . && uv run mypy torch && uv run pytest -q
+cd apps/api && uv sync && uv run ruff check . && uv run mypy torch_rcm && uv run pytest -q
 uv run torch seed --force && uv run torch openapi --out openapi.snapshot.json
 
 # Web

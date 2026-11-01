@@ -1,13 +1,13 @@
 /**
  * Settings › Agents fixture: the 19 rules, the 5-row change log and the 3 proposals exactly as the API seed
- * builds them (apps/api/torch/seed/canonical/agents.py), so mock mode and the real API show the same table.
+ * builds them (apps/api/torch_rcm/seed/canonical/agents.py), so mock mode and the real API show the same table.
  */
 import type { Rule, RuleChange, RuleProposal, Tier } from '@/api/schema'
 import { at } from './claims'
 
 export const PRACTICE_CAP_CENTS = 100_000
 
-/** Tier headers, verbatim from the API (torch/api/services/rules.py TIER_TEXT). */
+/** Tier headers, verbatim from the API (torch_rcm/api/services/rules.py TIER_TEXT). */
 export const TIER_TEXT: Record<Tier, { label: string; description: string }> = {
   1: {
     label: 'Talks to payers',

@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from torch.agents.case import build_case
-from torch.agents.config import AgentConfig
-from torch.agents.llm.cassette import (
+from torch_rcm.agents.case import build_case
+from torch_rcm.agents.config import AgentConfig
+from torch_rcm.agents.llm.cassette import (
     CANONICAL,
     CANONICAL_DIR,
     Cassette,
@@ -21,17 +21,17 @@ from torch.agents.llm.cassette import (
     cassette_key,
     restamp_synthetic,
 )
-from torch.agents.llm.client import CallMeta, LlmClient, build_request
-from torch.agents.planner.base import EvidenceSet, PlannerFallback
-from torch.agents.planner.live import LivePlanner, registry_reader
-from torch.agents.planner.scripted import RecordedPlanPlanner
-from torch.agents.testing.fakes import READ_IMAGES, FakeTransport, response, submit, thinking
-from torch.agents.testing.fakes import FakeReader as Reader
-from torch.agents.testing.fakes import fake_case as make_case
-from torch.agents.tools.adapters import SimWorld, StoreDomain
-from torch.agents.tools.registry import ToolRegistry
-from torch.agents.types import ClaimLineView, ClaimView, DenialView, Evidence, Plan, ProposedAction, Subject
-from torch.runtime import Runtime
+from torch_rcm.agents.llm.client import CallMeta, LlmClient, build_request
+from torch_rcm.agents.planner.base import EvidenceSet, PlannerFallback
+from torch_rcm.agents.planner.live import LivePlanner, registry_reader
+from torch_rcm.agents.planner.scripted import RecordedPlanPlanner
+from torch_rcm.agents.testing.fakes import READ_IMAGES, FakeTransport, response, submit, thinking
+from torch_rcm.agents.testing.fakes import FakeReader as Reader
+from torch_rcm.agents.testing.fakes import fake_case as make_case
+from torch_rcm.agents.tools.adapters import SimWorld, StoreDomain
+from torch_rcm.agents.tools.registry import ToolRegistry
+from torch_rcm.agents.types import ClaimLineView, ClaimView, DenialView, Evidence, Plan, ProposedAction, Subject
+from torch_rcm.runtime import Runtime
 
 NOW = datetime.fromisoformat("2026-10-28T10:40:00-04:00")
 CANON = CANONICAL_DIR / "canonical"

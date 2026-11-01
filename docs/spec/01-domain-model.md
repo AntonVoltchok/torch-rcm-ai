@@ -1,6 +1,6 @@
 # Domain model and enums (the contract every package builds against)
 
-Source of truth for types is **one Pydantic model set in `apps/api/torch/domain/`** exported to OpenAPI, from which the web client generates Zod schemas (`apps/web/src/api/schema.ts` via `openapi-zod-client`). Never hand-write a type on the web side that exists on the API side. Money is integer **cents** everywhere; render as dollars only in the UI.
+Source of truth for types is **one Pydantic model set in `apps/api/torch_rcm/domain/`** exported to OpenAPI, from which the web client generates Zod schemas (`apps/web/src/api/schema.ts` via `openapi-zod-client`). Never hand-write a type on the web side that exists on the API side. Money is integer **cents** everywhere; render as dollars only in the UI.
 
 IDs are deterministic in the seed (`clm_4821`, `pat_owens_k`, `rule_t1_delta_pa`) so the demo script can reference them.
 
@@ -35,14 +35,20 @@ ready ──send──▶ sent ──999 ok, 277CA A1 (clearinghouse)──▶ s
 sent ──277CA A7 (clearinghouse or payer)──▶ rejected ──fix, resend──▶ sent
 sent ──payer 277CA A1/A2 (ICN assigned)──▶ accepted ──day 1──▶ pending
 pending ──835──▶ paid | partial | denied
-denied ──records sent / reconsideration──▶ pending (same claim, in-flight flag)
-denied ──corrected claim (freq 7)──▶ sent (new claim id, links original)
-denied ──formal appeal filed──▶ appealed ──decision──▶ paid | partial | denied(upheld)
+denied | partial ──records sent / reconsideration──▶ pending (same claim, in-flight flag)
+denied | partial | rejected | sent | accepted | pending ──corrected claim (freq 7, tier 2)──▶ sent
+    (a NEW claim id built `ready` with parent_claim_id → original, queued, sent when its file departs;
+     the original keeps its status and is closed `superseded`)
+denied | partial ──formal appeal filed (tier 3)──▶ appealed ──decision──▶ paid | partial | denied(upheld)
 denied | partial ──write_off (tier 3)──▶ terminal (status unchanged, reason recorded)
-any ──void (freq 8, tier 3)──▶ terminal
+any but paid ──void (freq 8, tier 3)──▶ terminal (status unchanged, closed_reason voided)
 ```
 
-Who may trigger what: tier 1 rules may move `ready→sent`, `rejected→sent` (demographic fix), `denied→pending` (records/reconsideration); tier 2 may create a corrected claim and post 835 lines; tier 3 transitions are human-only. `needs_action` is set by the server whenever an open InboxItem references the claim.
+Code: `apps/api/torch_rcm/domain/transitions.py` (`move`, `spawn` and `close` edges; tier-3 edges also require
+`by_human=True`). The corrected-claim sources match `services/claims.py::corrected_claim`, which already
+accepted any claim the payer has; the spec was widened to the code (review fix pass, 2026-11-01).
+
+Who may trigger what: tier 1 rules may move `ready→sent`, `rejected→sent` (demographic fix), `denied|partial→pending` (records/reconsideration); tier 2 may create a corrected claim and post 835 lines; tier 3 transitions are human-only. `needs_action` is set by the server whenever an open InboxItem references the claim.
 
 Status-check cadence: **day 30** from send, then every 15 days.
 

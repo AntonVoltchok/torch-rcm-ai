@@ -6,7 +6,7 @@ import random
 
 import pytest
 
-from torch.agents.config import AgentConfig, ConfigError
+from torch_rcm.agents.config import AgentConfig, ConfigError
 
 CFG = AgentConfig()
 

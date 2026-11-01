@@ -106,7 +106,7 @@ export function InboxPage() {
     onSelect: selectKey,
     onOpen: (id) => {
       const it = items.find((i) => i.id === id)
-      if (it?.claim_id) void navigate({ to: '/claims/$claimId', params: { claimId: it.claim_id }, search: { from: `inbox:${it.id}` } })
+      if (it?.claim) void navigate({ to: '/claims/$claimId', params: { claimId: it.claim.id }, search: { from: `inbox:${it.id}` } })
     },
     bindings: {
       a: selected && departed?.itemId !== selected.id ? () => doApprove(selected) : undefined,
@@ -119,7 +119,7 @@ export function InboxPage() {
             if (g) doApproveGroup(g, items.filter((i) => g.item_ids.includes(i.id)))
           }
         : undefined,
-      'g c': selected?.claim_id ? () => void navigate({ to: '/claims/$claimId', params: { claimId: selected.claim_id ?? '' }, search: { from: `inbox:${selected.id}` } }) : undefined,
+      'g c': selected?.claim ? () => void navigate({ to: '/claims/$claimId', params: { claimId: selected.claim?.id ?? '' }, search: { from: `inbox:${selected.id}` } }) : undefined,
       escape: search.launch ? () => void select({ launch: undefined }) : undefined,
     },
   })
@@ -145,7 +145,8 @@ export function InboxPage() {
         <div className="flex w-[430px] flex-none flex-col border-r border-line">
           <div role="tablist" aria-label="Filter" className="flex gap-1 border-b border-line px-2.5 py-2 text-sm text-mid">
             {TABS.map((t) => {
-              const n = t.kind ? data?.facets?.kind?.[t.kind] : data?.total
+              // Only the server's total: GET /inbox sends no per-kind facets, and the UI never counts.
+              const n = t.kind ? undefined : data?.total
               const on = search.kind === t.kind
               return (
                 <Link
@@ -215,7 +216,7 @@ export function InboxPage() {
                 snooze.mutate({ item: selected, until, label })
               }}
               onCorrected={() => {
-                if (selected.claim_id) corrected.mutate({ claimId: selected.claim_id, changes: selected.proposed_action?.params ?? {} })
+                if (selected.claim) corrected.mutate({ claimId: selected.claim.id, changes: selected.proposed_action?.params ?? {} })
                 setDeparted(null)
               }}
             />

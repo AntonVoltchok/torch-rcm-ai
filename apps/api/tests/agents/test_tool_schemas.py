@@ -7,9 +7,9 @@ from typing import Any
 
 import pytest
 
-from torch.agents.catalog.actions import ACTIONS, TIER3_ACTIONS
-from torch.agents.tools.registry import READS
-from torch.agents.tools.schemas import (
+from torch_rcm.agents.catalog.actions import ACTIONS, TIER3_ACTIONS
+from torch_rcm.agents.tools.registry import READS
+from torch_rcm.agents.tools.schemas import (
     ACTION_VARIANTS,
     MAX_STRICT_TOOLS,
     MODEL_ACTIONS,
@@ -22,7 +22,7 @@ from torch.agents.tools.schemas import (
     plan_tools,
     submit_plan_tool,
 )
-from torch.agents.types import AGENT_KINDS
+from torch_rcm.agents.types import AGENT_KINDS
 
 FORBIDDEN_FIELD_WORDS = ("confidence", "tier", "root_cause", "amount", "cents", "verdict", "policy", "rule")
 

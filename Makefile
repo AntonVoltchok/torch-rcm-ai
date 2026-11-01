@@ -7,7 +7,7 @@ dev: ## run api + web (seeds canonical DB if missing)
 	@$(MAKE) -j2 api web
 
 api:
-	cd $(API_DIR) && uv run torch seed --if-missing && uv run uvicorn torch.api.app:app --reload --port 8000
+	cd $(API_DIR) && uv run torch seed --if-missing && uv run uvicorn torch_rcm.api.app:app --reload --port 8000
 
 web:
 	cd $(WEB_DIR) && pnpm dev --port 5173
@@ -34,7 +34,7 @@ gen-api: ## regenerate the web client from the API's OpenAPI
 	cd $(WEB_DIR) && pnpm gen:api
 
 lint:
-	cd $(API_DIR) && uv run ruff check . && uv run ruff format --check . && uv run mypy torch
+	cd $(API_DIR) && uv run ruff check . && uv run ruff format --check . && uv run mypy torch_rcm
 	cd $(WEB_DIR) && pnpm lint && pnpm typecheck
 
 fmt:

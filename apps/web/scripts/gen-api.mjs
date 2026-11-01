@@ -1,5 +1,7 @@
 // Regenerates Zod schemas from the API's OpenAPI snapshot (apps/api/openapi.snapshot.json → src/api/generated.ts).
-// Until the snapshot exists, src/api/schema.ts is the hand-written mirror of docs/spec/01-domain-model.md.
+// Needs registry access (openapi-zod-client, prettier). Until it has run, src/api/schema.ts is the hand-maintained
+// mirror of the snapshot; afterwards schema.ts should re-export from ./generated.ts. Objects are generated strict,
+// like the mirror: an unknown key fails the parse instead of rendering empty.
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -19,7 +21,7 @@ const pkgDir = dirname(require.resolve('openapi-zod-client/package.json'))
 const template = join(pkgDir, 'src/templates/schemas-only.hbs')
 execFileSync(
   'pnpm',
-  ['exec', 'openapi-zod-client', snapshot, '-o', out, '-t', template, '--export-schemas', '--export-types', '--strict-objects=false'],
+  ['exec', 'openapi-zod-client', snapshot, '-o', out, '-t', template, '--export-schemas', '--export-types', '--strict-objects'],
   { stdio: 'inherit' },
 )
 execFileSync('pnpm', ['exec', 'prettier', '--write', out], { stdio: 'inherit' })

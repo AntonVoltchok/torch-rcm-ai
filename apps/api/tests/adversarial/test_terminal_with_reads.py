@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from torch.agents.guardrails import TERMINAL_TOOL_NAMES, terminal_protocol_violation
-from torch.agents.tools.schemas import TERMINAL_TOOLS
+from torch_rcm.agents.guardrails import TERMINAL_TOOL_NAMES, terminal_protocol_violation
+from torch_rcm.agents.tools.schemas import TERMINAL_TOOLS
 
 
 def test_terminal_set_matches_schemas() -> None:

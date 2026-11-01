@@ -3,7 +3,7 @@
 - `canonical_world` / `canonical`: the seed built once per session, as entities and as a Snapshot (pure).
 - `rt`: a Runtime over a fresh SQLite file per test, copied from a template seeded once per session.
 - `world_only_registry`: a job registry with only the world handlers (agent kinds stay queued), so tests can
-  register recording stand-ins for torch.agents without touching the global registry.
+  register recording stand-ins for torch_rcm.agents without touching the global registry.
 """
 
 from __future__ import annotations
@@ -15,14 +15,14 @@ from pathlib import Path
 
 import pytest
 
-from torch.config import Settings
-from torch.db.store import Store
-from torch.readmodels.snapshot import Snapshot
-from torch.runtime import Runtime
-from torch.scheduler.registry import Registry
-from torch.seed.builder import SeedWorld
-from torch.seed.canonical import build
-from torch.seed.persist import persist
+from torch_rcm.config import Settings
+from torch_rcm.db.store import Store
+from torch_rcm.readmodels.snapshot import Snapshot
+from torch_rcm.runtime import Runtime
+from torch_rcm.scheduler.registry import Registry
+from torch_rcm.seed.builder import SeedWorld
+from torch_rcm.seed.canonical import build
+from torch_rcm.seed.persist import persist
 
 THURSDAY_0710 = datetime.fromisoformat("2026-10-29T07:10:00-04:00")
 FRIDAY_0710 = datetime.fromisoformat("2026-10-30T07:10:00-04:00")

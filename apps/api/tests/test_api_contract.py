@@ -13,9 +13,9 @@ import pytest
 fastapi = pytest.importorskip("fastapi")
 testclient = pytest.importorskip("fastapi.testclient")
 
-from torch.api.app import API_PREFIX, create_app  # noqa: E402
-from torch.api.contract import ROUTES  # noqa: E402
-from torch.config import Settings  # noqa: E402
+from torch_rcm.api.app import API_PREFIX, create_app  # noqa: E402
+from torch_rcm.api.contract import ROUTES  # noqa: E402
+from torch_rcm.config import Settings  # noqa: E402
 
 DANA = {"X-Torch-User": "usr_dana"}
 MORGAN = {"X-Torch-User": "usr_morgan"}

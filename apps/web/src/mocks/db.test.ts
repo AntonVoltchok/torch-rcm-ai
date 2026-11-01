@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CLAIM_STATUSES } from '@/api/schema'
+import { CLAIM_STATUSES, InboxItem, InboxItemDetail, InboxList, RunDetail } from '@/api/schema'
 import { MockDb, MockError } from './db'
 import { GROUP_DELTA_PA } from './fixtures/inbox'
 
@@ -23,7 +23,7 @@ function invariants(db: MockDb) {
   }
   const open = db.inbox({}).items
   expect(strip.inbox_open).toBe(open.length)
-  for (const c of claims) expect(c.needs_action).toBe(open.some((i) => i.claim_id === c.id))
+  for (const c of claims) expect(c.needs_action).toBe(open.some((i) => i.claim?.id === c.id))
 }
 
 describe('mock API', () => {
@@ -37,10 +37,10 @@ describe('mock API', () => {
     expect(res.meta.counts.inbox_open).toBe(9)
     expect(res.meta.counts.tiles.find((t) => t.status === 'denied')).toMatchObject({ count: 5, flagged: 2 })
     drain()
-    const run = db.run(res.runs[0]?.id ?? '')
+    const { run, evidence } = db.run(res.runs[0]?.id ?? '')
     expect(run.status).toBe('succeeded')
     expect(run.steps.map((s) => s.name)).toEqual(['fetch_pa_from_pms_imaging', 'upload_to_nea', 'write_nea_to_remarks', 'queue_for_delta_file'])
-    expect(run.evidence[0]?.kind).toBe('nea_attachment')
+    expect(evidence[0]?.kind).toBe('nea_attachment')
     expect(run.audit_line).toContain('11:15 Delta file')
     expect(db.claim('clm_4821')).toMatchObject({ open_inbox_items: [], in_flight: 'resubmit queued · leaves 11:15' })
     invariants(db)
@@ -61,13 +61,32 @@ describe('mock API', () => {
     const { db, drain } = setup()
     const { run } = db.triage('clm_4744', 'usr_dana')
     drain()
-    const done = db.run(run.id)
+    const done = db.run(run.id).run
     expect(done.planner).toBe('recorded_plan')
     expect(done.model_situation_label).toBe('payer asks for missing-tooth history')
     expect(done.steps.find((s) => s.name === 'decide')?.policy_verdict).toBe('propose')
     expect(done.steps.find((s) => s.name === 'investigate')?.progress_lines).toContain('read portal correspondence 10/22')
     expect(db.strip().inbox_open).toBe(13)
     expect(() => db.triage('clm_4744', 'usr_dana')).toThrow(MockError)
+  })
+
+  it('speaks the API’s wire shapes: InboxItemOut, InboxItemDetail, RunDetail (strict Zod parses)', () => {
+    const { db, drain } = setup()
+    const list = InboxList.parse(db.inbox({}))
+    const pa = list.items.find((i) => i.id === 'inb_4821')
+    expect(pa).toMatchObject({ claim: { id: 'clm_4821', number: 4821, payer: { key: 'delta_ny' } }, patient: { display_name: 'K. Owens' }, evidence_ids: ['ev_4821_portal', 'ev_4821_pms', 'ev_4821_era'] })
+    expect(pa).not.toHaveProperty('evidence')
+    expect(list.items.find((i) => i.id === 'inb_elig_chen')).toMatchObject({ claim: null, patient: { id: 'pat_chen_j' } })
+    const detail = InboxItemDetail.parse(db.inboxItem('inb_4821'))
+    expect(detail.evidence.map((e) => e.id)).toEqual(['ev_4821_portal', 'ev_4821_pms', 'ev_4821_era'])
+    expect(detail.plan_steps).toHaveLength(4)
+    const { run } = db.approve('inb_4705', 'usr_dana')
+    drain()
+    const rd = RunDetail.parse(db.run(run?.id ?? ''))
+    expect(rd.run.status).toBe('succeeded')
+    expect(rd.last_event_id).toBeGreaterThan(0)
+    expect(rd.run).not.toHaveProperty('evidence')
+    expect(() => InboxItem.parse({ ...pa, claim_id: 'clm_4821' })).toThrow()
   })
 
   it('refuses what the server refuses', () => {

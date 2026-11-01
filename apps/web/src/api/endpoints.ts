@@ -63,7 +63,8 @@ export const api = {
     http.post('/views', S.SavedView, { name, search_params }),
 
   // runs
-  run: (id: string) => http.get(`/runs/${enc(id)}`, S.Run),
+  /** `RunDetail {run, evidence, last_event_id}`; hooks/useRun.ts folds it into the cached RunView. */
+  run: (id: string) => http.get(`/runs/${enc(id)}`, S.RunDetail),
 
   // Settings › Agents
   rules: () => http.get('/rules', S.RulesOut),

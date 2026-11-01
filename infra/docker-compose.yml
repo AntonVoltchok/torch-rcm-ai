@@ -11,7 +11,7 @@ services:
     volumes:
       - torch-data:/data
     ports: ["8000:8000"]
-    command: sh -c "torch seed --if-missing && uvicorn torch.api.app:app --host 0.0.0.0 --port 8000"
+    command: sh -c "torch seed --if-missing && uvicorn torch_rcm.api.app:app --host 0.0.0.0 --port 8000"
   web:
     build:
       context: ../apps/web

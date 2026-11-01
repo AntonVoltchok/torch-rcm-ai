@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import type { PlannerKind, PolicyVerdict, Run, RunStep } from '@/api/schema'
+import type { PlannerKind, PolicyVerdict, RunStep, RunView } from '@/api/schema'
 import { useRun, type StreamMode } from '@/hooks/useRun'
 import { isTerminal, stepLabel } from '@/lib/runEvents'
 import { AGENT_NAME } from '@/lib/payers'
@@ -38,7 +38,7 @@ function StepDot({ status }: { status: RunStep['status'] }) {
   return <span className={cn(base, 'border-dashed border-soft')} aria-label="pending" />
 }
 
-function StepRow({ step, run }: { step: RunStep; run: Run }) {
+function StepRow({ step, run }: { step: RunStep; run: RunView }) {
   const evidence = run.evidence.filter((e) => step.evidence_ids.includes(e.id))
   const isDecide = step.name === 'decide'
   return (
@@ -76,7 +76,7 @@ function StepRow({ step, run }: { step: RunStep; run: Run }) {
   )
 }
 
-function RunStatusLine({ run, mode }: { run: Run; mode: StreamMode }) {
+function RunStatusLine({ run, mode }: { run: RunView; mode: StreamMode }) {
   const done = run.steps.filter((s) => s.status === 'ok').length
   return (
     <span className="flex flex-wrap items-center gap-1.5 text-xs text-mid">
@@ -89,8 +89,9 @@ function RunStatusLine({ run, mode }: { run: Run; mode: StreamMode }) {
       )}
       {run.status === 'succeeded' && <Chip tone="ok">done</Chip>}
       {run.status === 'failed' && <Chip tone="bad">failed</Chip>}
+      {run.status === 'cancelled' && <Chip tone="warn">cancelled</Chip>}
       {run.planner && <span>· {PLANNER_LABEL[run.planner]}</span>}
-      {!isTerminal(run.status) && <span>· {mode === 'poll' ? 'updating every 2 s' : 'live'}</span>}
+      {!isTerminal(run.status) && <span>· {mode === 'desynced' ? 'stream lost · checking the server every 2 s' : mode === 'poll' ? 'updating every 2 s' : 'live'}</span>}
     </span>
   )
 }

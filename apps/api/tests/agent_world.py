@@ -19,14 +19,14 @@ from typing import Any
 
 import pytest
 
-from torch.agents.case import build_case
-from torch.agents.guardrails import looks_like_injection
-from torch.agents.planner.base import EvidenceSet, Reader, ReadResult
-from torch.agents.planner.scripted import RecordedPlanPlanner, ScriptedPlanner
-from torch.agents.policy import PolicyCtx
-from torch.agents.tools.adapters import SimWorld, StoreDomain
-from torch.agents.tools.registry import ToolRegistry
-from torch.agents.types import (
+from torch_rcm.agents.case import build_case
+from torch_rcm.agents.guardrails import looks_like_injection
+from torch_rcm.agents.planner.base import EvidenceSet, Reader, ReadResult
+from torch_rcm.agents.planner.scripted import RecordedPlanPlanner, ScriptedPlanner
+from torch_rcm.agents.policy import PolicyCtx
+from torch_rcm.agents.tools.adapters import SimWorld, StoreDomain
+from torch_rcm.agents.tools.registry import ToolRegistry
+from torch_rcm.agents.types import (
     UNKNOWN,
     AgentKind,
     BaseRate,
@@ -40,9 +40,9 @@ from torch.agents.types import (
     Subject,
     SubjectKind,
 )
-from torch.config import Settings
-from torch.runtime import Runtime
-from torch.scheduler.registry import Registry
+from torch_rcm.config import Settings
+from torch_rcm.runtime import Runtime
+from torch_rcm.scheduler.registry import Registry
 
 THURSDAY_0710 = datetime.fromisoformat("2026-10-29T07:10:00-04:00")
 T0 = datetime.fromisoformat("2026-10-29T07:10:00-04:00")

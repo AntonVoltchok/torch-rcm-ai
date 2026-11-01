@@ -3,7 +3,7 @@
   "info": {
     "title": "Torch API",
     "version": "0.1.0",
-    "description": "Generated from torch/api/contract.py (FastAPI's document supersedes it wherever FastAPI is installed)."
+    "description": "Generated from torch_rcm/api/contract.py (FastAPI's document supersedes it wherever FastAPI is installed)."
   },
   "paths": {
     "/api/v1/clock": {
@@ -404,6 +404,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -457,6 +465,16 @@
               }
             }
           },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Error",
             "content": {
@@ -480,6 +498,14 @@
         "parameters": [
           {
             "name": "X-Torch-User",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
             "in": "header",
             "required": false,
             "schema": {
@@ -538,6 +564,16 @@
               }
             }
           },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Error",
             "content": {
@@ -569,6 +605,14 @@
           },
           {
             "name": "X-Torch-User",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
             "in": "header",
             "required": false,
             "schema": {
@@ -617,6 +661,16 @@
               }
             }
           },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Error",
             "content": {
@@ -648,6 +702,14 @@
           },
           {
             "name": "X-Torch-User",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
             "in": "header",
             "required": false,
             "schema": {
@@ -2151,6 +2213,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -2318,6 +2388,14 @@
         "parameters": [
           {
             "name": "X-Torch-User",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
             "in": "header",
             "required": false,
             "schema": {

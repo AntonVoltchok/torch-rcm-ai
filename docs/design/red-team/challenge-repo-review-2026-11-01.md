@@ -26,7 +26,7 @@ Written read-only by an independent subagent after the scaffold, agents runtime 
 4. **"Live mode gives identical run shapes" is unproven.** The cassettes are hand-written (`synthetic: true`), so `make eval` compares the script against a hand-made copy of the script. No model has ever been called. The injection test (`tests/adversarial/test_prompt_injection.py:36`) asserts the plan is unchanged by injected text, but it runs on scripted and recorded planners that cannot be steered by construction. It really tests the policy backstop.
 5. **`make lint` fails today.** I ran ruff 0.16.9 read-only: 71 errors (54 × E501), while STATUS says ruff was clean.
 6. **The Python package and CLI are named `torch`,** which shadows PyTorch.
-7. **Leftover files:** `src/__probe.ts`, a debug script. Five `docs/plans/*.md` that CLAUDE.md says to delete once merged. `decisions-log.md` is titled "Molar" and contains a `/home/claude` path. The red-team docs name Dentrix, which breaks the repo's own no-vendor-names rule.
+7. **Leftover files:** `src/__probe.ts`, a debug script. Five `docs/plans/*.md` that CLAUDE.md says to delete once merged. `decisions-log.md` is titled "Molar" and contains a `/home/claude` path. The red-team docs named a real PMS vendor, which broke the repo's own no-vendor-names rule.
 8. **Silent agent loss.** `api/app.py:40-48` swallows `ImportError` from `torch.agents`. One bad import and the API boots "world-only" with no error, so the demo is inert.
 
 ## First-run risk estimate
