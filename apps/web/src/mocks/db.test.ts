@@ -49,6 +49,7 @@ describe('mock API', () => {
   it('replays only events after Last-Event-ID', () => {
     const { db, drain } = setup()
     const { run } = db.approve('inb_4705', 'usr_dana')
+    if (!run) throw new Error('approving a claim item starts a run')
     drain()
     const all = db.subscribeRun(run.id, null, () => undefined).replay
     const after = db.subscribeRun(run.id, all[2]?.id ?? 0, () => undefined).replay

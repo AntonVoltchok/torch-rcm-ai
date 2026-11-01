@@ -10,12 +10,11 @@ import { API_BASE } from '@/env'
 import { authHeaders } from '@/api/client'
 import { sseUrl } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import { AdvanceSnapshot, FirehoseAgentsEvent, FirehoseRunEvent, type AgentsStatus } from '@/api/schema'
+import { AdvanceSnapshot, FirehoseAgentsEvent, FirehoseRunEvent, type AgentsStatus, type Clock } from '@/api/schema'
 import { backoffMs, connectSse, type SseMessage } from '@/lib/sse'
 import { isTerminal } from '@/lib/runEvents'
 import { liveStore } from '@/state/live'
 import { useSession } from '@/state/session'
-import { toast } from '@/state/toast'
 
 function parseData(msg: SseMessage): unknown {
   try {
@@ -48,12 +47,13 @@ export function useFirehose(): void {
       } else if (msg.event === 'advance') {
         const ev = AdvanceSnapshot.safeParse(data)
         if (!ev.success) return
-        qc.setQueryData(qk.advance(ev.data.advance_id), ev.data)
-        if (ev.data.done) {
-          // The scheduler moved the whole practice forward: every cached read is stale.
-          void qc.invalidateQueries()
-          toast(`Clock advanced · ${Array.isArray(ev.data.events_fired) ? ev.data.events_fired.length : ev.data.events_fired} events fired.`, { tone: 'ok' })
-        }
+        const adv = ev.data
+        qc.setQueryData(qk.advance(adv.advance_id), adv)
+        // An advance another tab (or the CLI) started: tell the clock so the sidebar shows it and disables the control.
+        // Completion (invalidate everything, once) is handled by useAdvanceCompletion, whichever channel says done.
+        qc.setQueryData<Clock>(qk.clock, (old) =>
+          old ? { ...old, now: adv.done ? old.now : adv.now, advancing: adv.done ? old.advancing : { advance_id: adv.advance_id, to: old.advancing?.to ?? adv.to ?? adv.now } } : old,
+        )
       }
     }
 

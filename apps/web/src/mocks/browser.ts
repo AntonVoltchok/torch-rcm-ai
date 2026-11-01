@@ -7,7 +7,7 @@ import { setupWorker } from 'msw/browser'
 import { MockDb } from './db'
 import { makeHandlers } from './handlers'
 
-const KEY = 'torch.mockdb.v1'
+const KEY = 'torch.mockdb.v2' // v2: S2 state (rules, week of decisions, overnight)
 
 export async function startMockWorker(): Promise<void> {
   let saved: string | undefined

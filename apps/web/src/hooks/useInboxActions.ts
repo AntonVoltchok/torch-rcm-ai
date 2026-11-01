@@ -78,7 +78,14 @@ export function useApprove(opts: { onLaunched?: (l: Launch) => void; onFileDepar
     mutationFn: (v: { item: InboxItem; edits?: Record<string, unknown> }) => api.approve(v.item.id, v.edits),
     onMutate: async (v) => ({ snapshot: await removeOptimistically(qc, [v.item.id]) }),
     onSuccess: (res, v) => {
-      opts.onLaunched?.(recordLaunch(qc, 'approve', v.item.title, [res.run], [res.item]))
+      if (res.run) {
+        opts.onLaunched?.(recordLaunch(qc, 'approve', v.item.title, [res.run], [res.item]))
+        return
+      }
+      // No run: an owner sign-off (the rule change applies, signed) or a flag handed to the front desk.
+      toast(v.item.kind === 'owner_signoff' ? 'Signed. The rule change applies now and is in the Changes log.' : 'Done.', { tone: 'ok' })
+      void qc.invalidateQueries({ queryKey: qk.rules })
+      void qc.invalidateQueries({ queryKey: qk.preview })
     },
     onError: (err, v, ctx) => {
       rollback(qc, ctx?.snapshot)

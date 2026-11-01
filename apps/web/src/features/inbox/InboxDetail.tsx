@@ -86,7 +86,7 @@ export function InboxDetail(p: Props) {
 
       <section aria-label="Recommendation" className="rounded-lg border border-acc-line bg-acc-bg px-3 py-2.5">
         <div className="mb-1 flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-[.06em] text-acc">
-          ✦ {item.agent ? `${AGENT_NAME[item.agent]} agent` : 'Agent'} recommends
+          {item.kind === 'owner_signoff' ? 'Rule change · needs your signature' : `✦ ${item.agent ? `${AGENT_NAME[item.agent]} agent` : 'Agent'} recommends`}
           <span className="flex-1" />
           {item.confidence && <ConfidenceMeter pct={item.confidence.pct} compact />}
         </div>
@@ -108,7 +108,7 @@ export function InboxDetail(p: Props) {
               <b className="text-ink">No confidence score:</b> {item.confidence?.basis ?? 'no base rate for this situation'}.{' '}
             </>
           )}
-          Nothing sent yet.
+          {item.kind === 'owner_signoff' ? 'Nothing changes until you sign.' : 'Nothing sent yet.'}
         </p>
       </section>
 
@@ -151,7 +151,7 @@ export function InboxDetail(p: Props) {
           </>
         ) : (
           <Button variant="primary" kbd="A" onClick={() => p.onApprove()} disabled={p.busy || ownerOnly} title={ownerOnly ? 'Tier 3 commits the practice: Dr. Morgan acts on this.' : undefined}>
-            Approve & run
+            {item.kind === 'owner_signoff' ? 'Sign & apply' : 'Approve & run'}
           </Button>
         )}
         {p.group && (

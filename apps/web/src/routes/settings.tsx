@@ -3,7 +3,7 @@ import { deniedWithToast } from '@/features/shell/guards'
 
 export const Route = createFileRoute('/settings')({
   beforeLoad: () => {
-    if (deniedWithToast('/settings/agents', 'Settings')) throw redirect({ to: '/inbox' })
+    if (deniedWithToast('/settings/agents', 'Settings', 'Settings is for billing and the owner.')) throw redirect({ to: '/inbox' })
   },
   component: Outlet,
 })

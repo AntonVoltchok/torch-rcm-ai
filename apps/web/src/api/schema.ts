@@ -1,10 +1,15 @@
 /**
- * Wire contract (Zod) — hand-written mirror of docs/spec/01-domain-model.md and 02-api.md.
+ * Wire contract (Zod) — hand-written mirror of the API's Pydantic models (apps/api/torch/api/schemas.py,
+ * apps/api/openapi.snapshot.json).
  *
- * The API's Pydantic models are the source of truth. Once apps/api/openapi.snapshot.json exists,
- * `pnpm gen:api` writes src/api/generated.ts and this file should re-export from it. Until then:
- * snake_case field names, integer cents, enums verbatim from the domain model. Fields the spec
- * leaves implicit but the UI needs are marked `// assumed` and listed in docs/plans/web-shell.md.
+ * `pnpm gen:api` will write src/api/generated.ts from the snapshot and this file should then re-export from it.
+ * Until then: snake_case field names, integer cents, enums verbatim from the domain model.
+ *
+ * Reconciled with openapi.snapshot.json (web-s2): Strip, AgentsStatus, the clock advance, and every
+ * Settings / static-screen shape (rules, changes, proposals, preview, ledger, activity, eligibility,
+ * benefits, cash, denials). Still the S1 hand-written shapes, NOT yet the API's: InboxItem / InboxList,
+ * ClaimRow, ClaimDetail, Run (the API wraps GET /runs/{id} as RunDetail {run, evidence, last_event_id}) —
+ * see docs/plans/web-s2.md §3. Fields the UI needs that the API does not send are marked `// assumed`.
  */
 import { z } from 'zod'
 
@@ -141,16 +146,26 @@ export const StripTile = z.object({
   cents: Cents,
   flagged: z.number().int(),
   cents_basis: z.enum(['billed', 'paid']).nullish(), // api-core D5: Paid tiles carry insurance paid
+  label: z.string().nullish(), // the API sends it; the UI labels tiles from STATUS_LABEL
 })
 export type StripTile = z.infer<typeof StripTile>
 
 /** GET /summary/strip and every mutation's `meta.counts`. */
 export const StripSummary = z.object({
-  tiles: z.array(StripTile), // assumed key name for the `[{status, count, cents, flagged}]` array
+  tiles: z.array(StripTile),
+  /** The viewer's open queue (shared items + items assigned to them), so it differs per user. */
   inbox_open: z.number().int(),
+  inbox_open_cents: Cents,
   paid_month_cents: Cents,
   paid_month_count: z.number().int(),
-  paid_month_label: z.string().nullish(), // assumed, e.g. "Oct"
+  open_count: z.number().int(),
+  open_cents: Cents,
+  ar_count: z.number().int(),
+  ar_cents: Cents,
+  flagged_count: z.number().int(),
+  flagged_cents: Cents,
+  as_of: IsoDateTime,
+  paid_month_label: z.string().nullish(), // assumed, e.g. "Oct" (not in the API; the UI falls back to "month")
   nav_badges: z.record(z.string(), z.number().int()).nullish(), // assumed: {payments, eligibility, activity}
 })
 export type StripSummary = z.infer<typeof StripSummary>
@@ -184,6 +199,8 @@ export type ProposedAction = z.infer<typeof ProposedAction>
 // ── Claims ───────────────────────────────────────────────────────────────────
 export const Denial = z.object({ carc: z.string(), rarc: z.string().nullish(), decoded: z.string(), root_cause: RootCause })
 export const Deadline = z.object({ kind: DeadlineKind, due_on: IsoDate.nullish(), basis: z.string() })
+export type Denial = z.infer<typeof Denial>
+export type Deadline = z.infer<typeof Deadline>
 export const ReadinessCheck = z.object({ key: ReadinessKey, status: CheckStatus, detail: z.string() })
 export type ReadinessCheck = z.infer<typeof ReadinessCheck>
 
@@ -366,10 +383,9 @@ export const InboxList = z.object({
 })
 export type InboxList = z.infer<typeof InboxList>
 
-export const ClaimSummary = ClaimRow
 export const InboxItemDetail = InboxItem.extend({
   evidence: z.array(Evidence),
-  claim: ClaimSummary.nullish(),
+  claim: ClaimRow.nullish(), // S1 shape; the API sends ClaimSummary (see the header note)
 })
 export type InboxItemDetail = z.infer<typeof InboxItemDetail>
 
@@ -463,14 +479,33 @@ export const FirehoseRunEvent = z.object({
 })
 export const FirehoseAgentsEvent = z.object({ paused: z.boolean(), by: z.string().nullish(), at: IsoDateTime.nullish() })
 
-/** `event: advance` on the firehose and GET /clock/advance/{id}. */
+/** One scheduler event of an advance (`EventFired`): "file_departed", "claim_denied", "era_arrived", … */
+export const EventFired = z.object({
+  at: IsoDateTime,
+  kind: z.string(),
+  summary: z.string(),
+  job_id: z.string().default(''),
+  data: z.record(z.string(), z.unknown()).default({}),
+})
+export type EventFired = z.infer<typeof EventFired>
+
+/**
+ * Both `event: advance` on the firehose and GET /clock/advance/{id} (`AdvanceOut`) land in ['advance', id].
+ * The firehose sends `events_fired` as a count while running and the full list on `done`; the poll always
+ * sends the list plus `state`/`from`/`to`/`error` and, once finished, `meta.counts`.
+ */
 export const AdvanceSnapshot = z.object({
   advance_id: z.string(),
   now: IsoDateTime,
-  events_fired: z.union([z.number().int(), z.array(z.unknown())]), // a count while running, the full list when done
+  state: z.enum(['running', 'done', 'failed']).nullish(),
+  from: IsoDateTime.nullish(),
+  to: IsoDateTime.nullish(),
+  events_fired: z.union([z.number().int(), z.array(EventFired)]),
   runs_started: z.number().int().nullish(),
   live_runs: z.number().int().nullish(),
+  skipped_unhandled: z.record(z.string(), z.number().int()).nullish(),
   done: z.boolean(),
+  error: z.string().nullish(),
 })
 export type AdvanceSnapshot = z.infer<typeof AdvanceSnapshot>
 
@@ -481,6 +516,7 @@ export const AgentsStatus = z.object({
   paused_at: IsoDateTime.nullish(),
   mode: AgentMode,
   live_agents: z.array(AgentKind).default([]),
+  agents: z.number().int().nullish(), // the API sends 5; the indicator falls back to the enum size
   running: z.number().int(),
   queued: z.number().int(),
   paused_runs: z.number().int().default(0),
@@ -488,23 +524,10 @@ export const AgentsStatus = z.object({
 export type AgentsStatus = z.infer<typeof AgentsStatus>
 
 // ── Mutations ────────────────────────────────────────────────────────────────
-export const ApproveResponse = z.object({ item: InboxItem, run: Run, meta: MutationMeta.nullish() })
+/** `run` is null when approving starts no run (owner sign-off of a rule change, eligibility flag → front desk). */
+export const ApproveResponse = z.object({ item: InboxItem, run: Run.nullable(), meta: MutationMeta.nullish() })
 export const ApproveGroupResponse = z.object({ items: z.array(InboxItem), runs: z.array(Run), meta: MutationMeta.nullish() })
 export const ItemResponse = z.object({ item: InboxItem, meta: MutationMeta.nullish() })
-
-export const RuleProposal = z.object({
-  id: z.string(),
-  rule_draft: z.record(z.string(), z.unknown()),
-  evidence: z.object({ approved: z.number().int(), total: z.number().int(), outcome_k: z.number().int(), outcome_n: z.number().int() }),
-  root_cause_guard: z.boolean(),
-  state: z.enum(['open', 'accepted', 'dismissed']),
-  title: z.string().nullish(),
-  watching: z.boolean().nullish(),
-  note: z.string().nullish(),
-  guard_reason: z.string().nullish(), // assumed
-})
-export type RuleProposal = z.infer<typeof RuleProposal>
-export const ProposalResponse = z.object({ proposal: RuleProposal, meta: MutationMeta.nullish() })
 
 export const CorrectedClaimResponse = z.object({ claim: Claim, item: InboxItem.nullish(), meta: MutationMeta.nullish() })
 
@@ -531,95 +554,339 @@ export const WorldStatus = z.object({
   outages: z.array(z.object({ system: z.string(), since: IsoDateTime, message: z.string() })),
 }) // assumed: GET /_world/status
 
-// ── Static screens (read-only shells; deliberately loose) ────────────────────
+// ── Shared references (API: PatientRef, PayerRef, ClaimSummary) ─────────────────
+export const PatientRef = z.object({ id: z.string(), name: z.string(), display_name: z.string(), dob: IsoDate.nullish() })
+export type PatientRef = z.infer<typeof PatientRef>
+export const PayerRef = z.object({ key: PayerKey, name: z.string(), short_name: z.string() })
+export type PayerRef = z.infer<typeof PayerRef>
+
+/** The claim as the static screens and the Denials worklist reference it (API `ClaimSummary`). */
+export const ClaimSummary = z.object({
+  id: z.string(),
+  number: z.number().int(),
+  status: ClaimStatus,
+  needs_action: z.boolean(),
+  patient: PatientRef,
+  payer: PayerRef,
+  dos: IsoDate,
+  procedures: z.string(),
+  billed_cents: Cents,
+  allowed_cents: Cents.nullish(),
+  paid_cents: Cents.nullish(),
+  icn: z.string().nullish(),
+  reason: z.string().nullish(),
+  in_flight: z.string().nullish(),
+  age_days: z.number().int().nullish(),
+  file_time: IsoDateTime.nullish(),
+})
+export type ClaimSummary = z.infer<typeof ClaimSummary>
+
+// ── Settings › Agents ────────────────────────────────────────────────────────
+export const OutcomeMetric = z.enum(['paid_30d', 'accepted', 'balanced', 'none'])
+export type OutcomeMetric = z.infer<typeof OutcomeMetric>
+export const ReversesIn = z.enum(['until_file_leaves', 'until_day_close', 'void_only', 'none'])
+export type ReversesIn = z.infer<typeof ReversesIn>
+export const RuleScope = z.object({ payer_key: PayerKey.nullish(), item_type: z.string().default('all'), max_cents: Cents.nullish() })
+export type RuleScope = z.infer<typeof RuleScope>
+export const BaseRate = z.object({ n: z.number().int(), k: z.number().int() })
+
 export const Rule = z.object({
   id: z.string(),
-  version: z.number().int().nullish(),
-  origin: z.enum(['authored', 'learned']).nullish(),
+  label: z.string(),
+  version: z.number().int().default(1),
+  origin: z.enum(['authored', 'learned']).default('authored'),
   tier: Tier,
+  agent: AgentKind,
   action: ActionKind,
-  scope: z.object({ payer_key: PayerKey.nullish(), item_type: z.string(), max_cents: Cents.nullish() }),
+  scope: RuleScope.default({}),
   mode: RuleMode,
   confidence_floor: z.number().nullish(),
-  outcome_metric: z.enum(['paid_30d', 'accepted', 'balanced', 'none']).nullish(),
-  reverses_in: z.enum(['until_file_leaves', 'until_day_close', 'void_only', 'none']),
-  requires_owner_signoff: z.boolean(),
+  outcome_metric: OutcomeMetric.default('none'),
+  reverses_in: ReversesIn.default('none'),
+  requires_owner_signoff: z.boolean().default(false),
   signed_by: z.string().nullish(),
   signed_at: IsoDateTime.nullish(),
   changed_by: z.string(),
   changed_at: IsoDateTime,
-  ran_without_review_7d: z.number().int(),
-  base_rate: z.object({ n: z.number().int(), k: z.number().int() }),
-  label: z.string().nullish(),
-  agent: AgentKind.nullish(),
-  description: z.string().nullish(),
+  base_rate: BaseRate.default({ n: 0, k: 0 }),
+  sort: z.number().int().default(0),
+  description: z.string().default(''),
 })
 export type Rule = z.infer<typeof Rule>
+
+/** One row of the rules table: the rule plus what the server counted for it this week. */
+export const RuleRow = z.object({
+  rule: Rule,
+  ran_without_review_7d: z.number().int(),
+  waiting: z.number().int(),
+  confidence: Confidence.nullish(),
+  signed_by_name: z.string().nullish(),
+  locked: z.boolean(),
+})
+export type RuleRow = z.infer<typeof RuleRow>
+export const TierGroup = z.object({ tier: Tier, label: z.string(), description: z.string(), rows: z.array(RuleRow) })
+export type TierGroup = z.infer<typeof TierGroup>
+
+/** GET /rules */
+export const RulesOut = z.object({
+  tiers: z.array(TierGroup),
+  practice_cap_cents: Cents,
+  this_week: z.object({ total: z.number().int(), ran: z.number().int(), to_you: z.number().int() }),
+  changes_count: z.number().int(),
+  proposals_open: z.number().int(),
+})
+export type RulesOut = z.infer<typeof RulesOut>
+
+/** PATCH /rules/{id} body. Tier 2 by a non-owner → 409 owner_signoff_required {inbox_item_id, rule_id}; tier 3 → 403 human_only. */
+export interface RulePatch {
+  mode?: RuleMode
+  max_cents?: number
+  confidence_floor?: number
+}
+
 export const RuleChange = z.object({
   id: z.string(),
   rule_id: z.string(),
   at: IsoDateTime,
   by: z.string(),
-  before: z.unknown(),
-  after: z.unknown(),
-  items_affected_since: z.number().int(),
-  summary: z.string().nullish(),
+  before: z.record(z.string(), z.unknown()),
+  after: z.record(z.string(), z.unknown()),
+  items_affected_since: z.number().int().default(0),
+  summary: z.string().default(''),
 })
 export type RuleChange = z.infer<typeof RuleChange>
+export const RuleChangeList = z.object({ items: z.array(RuleChange), total: z.number().int() })
+export const RulePatchResponse = z.object({ rule: Rule, change: RuleChange, meta: MutationMeta.nullish() })
 
-export const ActivityRow = z
-  .object({
-    id: z.string(),
-    at: IsoDateTime,
-    agent: AgentKind,
-    action: z.string(),
-    subject: z.string(),
-    outcome: z.string(),
-    status: RunStatus,
-    claim_id: z.string().nullish(),
-    evidence_count: z.number().int().default(0),
-  })
-  .passthrough()
-export type ActivityRow = z.infer<typeof ActivityRow>
+/**
+ * GET /settings/preview?rule_id&mode&max_cents — this week's decisions replayed under the change.
+ * `would_run` is net of holds; "by scope" = would_run + Σ held_by_root_cause (e.g. `{ours: 3}`).
+ */
+export const Preview = z.object({
+  rule_id: z.string(),
+  mode: RuleMode,
+  max_cents: Cents.nullable(),
+  would_run: z.number().int(),
+  total: z.number().int(),
+  baseline_would_run: z.number().int(),
+  held_by_root_cause: z.record(z.string(), z.number().int()),
+})
+export type Preview = z.infer<typeof Preview>
 
-export const LedgerRow = z
-  .object({ claim_id: z.string(), number: z.number().int(), patient_name: z.string(), payer_key: PayerKey, billed_cents: Cents, label: z.string() })
-  .passthrough()
+export const RuleProposal = z.object({
+  id: z.string(),
+  title: z.string(),
+  rule_draft: z.record(z.string(), z.unknown()),
+  evidence: z.object({ approved: z.number().int(), total: z.number().int(), outcome_k: z.number().int(), outcome_n: z.number().int() }),
+  root_cause_guard: z.boolean(),
+  state: z.enum(['open', 'accepted', 'dismissed']),
+  created_at: IsoDateTime,
+  watching: z.boolean().default(false),
+  source_item_id: z.string().nullish(),
+  note: z.string().default(''),
+})
+export type RuleProposal = z.infer<typeof RuleProposal>
+export const ProposalList = z.object({ items: z.array(RuleProposal), total: z.number().int() })
+/** POST /proposals/{id}:accept|dismiss and POST /inbox/{id}:always-auto-run. Accept returns the new learned rule. */
+export const ProposalResponse = z.object({ proposal: RuleProposal, rule: Rule.nullish(), meta: MutationMeta.nullish() })
+
+/** assumed: PATCH /settings/practice {practice_cap_cents} (owner) — not in openapi.snapshot.json yet; see web-s2.md. */
+export const PracticeSettings = z.object({ practice_cap_cents: Cents, meta: MutationMeta.nullish() })
+
+// ── Today's claims (GET /ledger/today) ────────────────────────────────────────
+export const HoldReason = z.enum([
+  'note_unsigned',
+  'procs_not_in_note',
+  'rendering_mismatch',
+  'awaiting_primary_eob',
+  'missing_image',
+  'subscriber_id_invalid',
+  'other_documented',
+  'reprocessing_requested',
+])
+export type HoldReason = z.infer<typeof HoldReason>
+export const Hold = z.object({
+  id: z.string(),
+  subject: z.enum(['claim', 'patient_balance']),
+  subject_id: z.string(),
+  reason: HoldReason,
+  detail: z.string(),
+  held_since: IsoDateTime,
+  clears_when: z.string(),
+  owner_user_id: z.string().nullish(),
+  timely_due: IsoDate.nullish(),
+  cleared_at: IsoDateTime.nullish(),
+})
+export type Hold = z.infer<typeof Hold>
+
+export const LedgerRow = z.object({
+  claim: ClaimSummary,
+  built_at: IsoDateTime,
+  file_time: IsoDateTime.nullish(),
+  editable_until: IsoDateTime.nullish(),
+  ack_stage: z.string(),
+  acks: z.array(AckEvent).default([]),
+  checks_passed: z.number().int(),
+  checks_total: z.number().int(),
+  agent_text: z.boolean(),
+  note: z.string().nullish(),
+})
+export type LedgerRow = z.infer<typeof LedgerRow>
+export const HeldRow = z.object({ claim: ClaimSummary, hold: Hold, timely_days_left: z.number().int().nullish(), owner_name: z.string().nullish() })
+export type HeldRow = z.infer<typeof HeldRow>
+export const NotBillableRow = z.object({ patient: PatientRef, cdt: z.string(), quadrant: z.string().nullish(), fee_cents: Cents, reason: z.string() })
+export type NotBillableRow = z.infer<typeof NotBillableRow>
 export const Ledger = z.object({
+  date: IsoDate,
   sent: z.array(LedgerRow),
-  leaving_next_file: z.array(LedgerRow.extend({ file_time: z.string(), editable_until: z.string().nullish() })),
-  held: z.array(LedgerRow.extend({ reason: z.string(), held_since: IsoDateTime, timely_due: IsoDate.nullish(), owner: z.string() })),
-  not_billable: z.array(LedgerRow),
+  leaving_next_file: z.array(LedgerRow),
+  held: z.array(HeldRow),
+  not_billable: z.array(NotBillableRow),
+  next_file_time: IsoDateTime.nullish(),
+  last_file_time: IsoDateTime.nullish(),
 })
 export type Ledger = z.infer<typeof Ledger>
 
-export const EligibilityRow = z
-  .object({
-    appointment_id: z.string(),
-    start: IsoDateTime,
-    patient_name: z.string(),
-    provider_name: z.string(),
-    payer_key: PayerKey,
-    planned_label: z.string(),
-    max_left_cents: Cents.nullish(),
-    eligibility_status: z.enum(['verified', 'issue', 'unverified', 'checking']),
-    basis: z.string().nullish(),
-  })
-  .passthrough()
-
-export const Kpi = z.object({ value: z.union([z.number(), z.string()]), formula: z.string().nullish(), basis: z.string().nullish() })
-export const CashSummary = z
-  .object({
-    kpis: z.record(z.string(), Kpi),
-    aging: z.array(z.object({ bucket: z.string(), cents: Cents })),
-    by_payer: z.array(z.object({ payer_key: PayerKey, cents: Cents })),
-  })
-  .passthrough()
-
-export const DenialGroup = z.object({
-  next_action: z.enum(['reconsideration', 'corrected', 'formal_appeal', 'bill_patient_link', 'write_off']),
-  items: z.array(ClaimRow.extend({ next_step: z.string().nullish() }).passthrough()),
+// ── Activity (GET /activity?day&agent&outcome) ────────────────────────────────
+export const ActivityOutcome = z.enum(['ran', 'awaiting', 'would_have_run'])
+export type ActivityOutcome = z.infer<typeof ActivityOutcome>
+export const ActivityRow = z.object({
+  run_id: z.string(),
+  at: IsoDateTime,
+  agent: AgentKind.nullable(), // null = a person's action (AuditEvent)
+  actor: z.string().nullish(),
+  action: z.string(),
+  subject: z.string(),
+  claim_id: z.string().nullish(),
+  outcome: z.string(),
+  would_have_run: z.boolean(),
+  awaiting_you: z.boolean(),
+  evidence_kinds: z.array(z.string()).default([]),
+  audit_line: z.string().default(''),
+  tier: Tier.nullish(),
 })
+export type ActivityRow = z.infer<typeof ActivityRow>
+export const ActivitySummary = z.object({
+  ran_without_you: z.number().int(),
+  awaiting_you: z.number().int(),
+  decisions: z.number().int(),
+  status_checks: z.number().int(),
+  payer_calls: z.number().int(),
+  claims_sent: z.number().int(),
+  remittances_posted: z.number().int(),
+})
+export type ActivitySummary = z.infer<typeof ActivitySummary>
+const RanToYou = z.record(z.string(), z.record(z.string(), z.number().int()))
+export const ActivityOut = z.object({ rows: z.array(ActivityRow), summary: ActivitySummary, by_agent: RanToYou, by_tier: RanToYou })
+export type ActivityOut = z.infer<typeof ActivityOut>
+
+// ── Eligibility (GET /eligibility?date, GET /eligibility/{appointment_id}) ────
+export const EligibilityStatus = z.enum(['verified', 'issue', 'unverified', 'checking'])
+export type EligibilityStatus = z.infer<typeof EligibilityStatus>
+export const PlannedProcedure = z.object({ cdt: z.string(), tooth: z.string().nullish(), fee_cents: Cents })
+export type PlannedProcedure = z.infer<typeof PlannedProcedure>
+export const EligibilityRow = z.object({
+  appointment_id: z.string(),
+  start: IsoDateTime,
+  patient: PatientRef,
+  provider_name: z.string(),
+  payer: PayerRef.nullable(),
+  planned: z.array(PlannedProcedure),
+  planned_fee_cents: Cents,
+  remaining_max_cents: Cents.nullable(),
+  status: EligibilityStatus,
+  note: z.string().nullish(),
+  inbox_item_id: z.string().nullish(),
+})
+export type EligibilityRow = z.infer<typeof EligibilityRow>
+export const EligibilityOut = z.object({ date: IsoDate, rows: z.array(EligibilityRow), need_human: z.number().int() })
+export type EligibilityOut = z.infer<typeof EligibilityOut>
+export const Coverage = z.object({
+  id: z.string(),
+  payer_key: PayerKey,
+  plan_name: z.string(),
+  subscriber_id: z.string(),
+  group_no: z.string(),
+  order: z.string(),
+  self_funded: z.boolean(),
+  annual_max_cents: Cents,
+  used_cents: Cents,
+  remaining_max_cents: Cents,
+  deductible_cents: Cents,
+  deductible_met_cents: Cents,
+  pct_preventive: z.number().int(),
+  pct_basic: z.number().int(),
+  pct_major: z.number().int(),
+  verified_at: IsoDateTime.nullish(),
+  verified_via: z.string().nullish(),
+})
+export type Coverage = z.infer<typeof Coverage>
+export const FrequencyRow = z.object({ cdt: z.string(), rule: z.string(), last_done: IsoDate.nullish(), ok_from: IsoDate.nullish() })
+export type FrequencyRow = z.infer<typeof FrequencyRow>
+export const BenefitsPanel = z.object({
+  appointment_id: z.string(),
+  patient: PatientRef,
+  coverage: Coverage,
+  frequencies: z.array(FrequencyRow),
+  planned: z.array(PlannedProcedure),
+  planned_fee_cents: Cents,
+  insurance_est_cents: Cents.nullish(),
+  patient_est_cents: Cents.nullish(),
+  basis: z.string(),
+  agent_note: z.string().nullish(),
+  inbox_item_id: z.string().nullish(),
+})
+export type BenefitsPanel = z.infer<typeof BenefitsPanel>
+
+// ── Cash (GET /cash, owner) ───────────────────────────────────────────────────
+export const Kpi = z.object({
+  key: z.string(),
+  label: z.string(),
+  value: z.number(),
+  unit: z.enum(['cents', 'days', 'pct', 'count']),
+  formula: z.string(),
+  basis: z.string(),
+})
+export type Kpi = z.infer<typeof Kpi>
+export const AgingBucket = z.object({ bucket: z.string(), cents: Cents, count: z.number().int(), pct: z.number() })
+export type AgingBucket = z.infer<typeof AgingBucket>
+export const Breakdown = z.object({ key: z.string(), label: z.string(), cents: Cents, count: z.number().int() })
+export type Breakdown = z.infer<typeof Breakdown>
+export const CashSummary = z.object({
+  kpis: z.array(Kpi),
+  aging: z.array(AgingBucket),
+  by_payer: z.array(Breakdown),
+  by_provider: z.array(Breakdown),
+  writeoffs_by_type: z.array(Breakdown),
+  patient_aging: z.array(AgingBucket),
+  agent_impact: z.object({ items_auto: z.number().int(), items_to_you: z.number().int(), hours_saved_est: Kpi }),
+  appeals_12mo: z.record(z.string(), z.number().int()),
+})
+export type CashSummary = z.infer<typeof CashSummary>
+
+// ── Denials (GET /denials) ────────────────────────────────────────────────────
+export const NextAction = z.enum(['reconsideration', 'corrected', 'formal_appeal', 'bill_patient_link', 'write_off'])
+export type NextAction = z.infer<typeof NextAction>
+export const DenialRow = z.object({
+  claim: ClaimSummary,
+  carc: z.string(),
+  rarc: z.string().nullish(),
+  decoded: z.string(),
+  root_cause: RootCause,
+  next_action: NextAction,
+  agent: AgentKind,
+  signer: z.string().nullish(),
+  deadline: Deadline,
+  patient_billable_if_lost: z.boolean().nullable(),
+  erisa: z.boolean(),
+  checklist: z.array(z.string()).default([]),
+  inbox_item_id: z.string().nullish(),
+})
+export type DenialRow = z.infer<typeof DenialRow>
+export const DenialGroup = z.object({ next_action: NextAction, label: z.string(), count: z.number().int(), cents: Cents, rows: z.array(DenialRow) })
+export type DenialGroup = z.infer<typeof DenialGroup>
+export const DenialsOut = z.object({ groups: z.array(DenialGroup), total: z.number().int(), in_flight: z.array(ClaimSummary) })
+export type DenialsOut = z.infer<typeof DenialsOut>
 
 export const listOf = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), total: z.number().int(), next_cursor: z.string().nullish() })

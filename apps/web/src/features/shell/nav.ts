@@ -25,7 +25,8 @@ export const NAV: readonly NavItem[] = [
   { to: '/eligibility', label: 'Eligibility', roles: ['owner', 'billing', 'front_desk'], badge: 'eligibility', status: 'static' },
   { to: '/activity', label: 'Activity', roles: ['owner', 'billing', 'front_desk'], badge: 'activity', status: 'static' },
   { to: '/cash', label: 'Cash', roles: ['owner'], status: 'static' },
-  { to: '/settings/agents', label: 'Settings', roles: ['owner'], status: 'interactive' },
+  // Billing reads and proposes (a tier-2 change becomes Dr. Morgan's sign-off item); the owner signs. Mocks, eng note 8.
+  { to: '/settings/agents', label: 'Settings', roles: ['owner', 'billing'], status: 'interactive' },
 ]
 
 export const navFor = (role: Role) => NAV.filter((n) => n.roles.includes(role))

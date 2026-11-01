@@ -6,9 +6,9 @@ import { session } from '@/state/session'
 import { toast } from '@/state/toast'
 import { allowed, type NavItem } from './nav'
 
-export function deniedWithToast(path: NavItem['to'], label: string): boolean {
+export function deniedWithToast(path: NavItem['to'], label: string, why?: string): boolean {
   const user = session.user()
   if (allowed(path, user.role)) return false
-  toast(`${label} is owner-only. Switch to Dr. Morgan in the sidebar to see it.`, { tone: 'warn' })
+  toast(`${why ?? `${label} is owner-only.`} Switch to Dr. Morgan in the sidebar to see it.`, { tone: 'warn' })
   return true
 }

@@ -1,13 +1,20 @@
 /**
- * Demo script steps 1–5 (+3b) from docs/spec/06-demo-script.md, as one story: each step starts where the
+ * Demo script steps 1–10 (+3b) from docs/spec/06-demo-script.md, as one story: each step starts where the
  * previous one left the practice. Tagged @demo; runs against MSW by default and against the real API
- * with E2E_TARGET=real (after `make seed`).
+ * with E2E_TARGET=real (after `make seed`). Steps 6–10 select by labels and the ids the mock and the API seed
+ * share (rule ids, claim numbers), never by mock-only ids.
  */
 import { expect, test, type Page } from '@playwright/test'
 
 const real = process.env.E2E_TARGET === 'real'
 
 test.describe.configure({ mode: 'serial' })
+
+async function switchUser(page: Page, id: 'usr_dana' | 'usr_morgan') {
+  await page.getByLabel('Switch user').selectOption(id)
+}
+
+const nav = (page: Page, name: RegExp) => page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name })
 
 async function freshDemo(page: Page) {
   if (real) {
@@ -21,7 +28,8 @@ async function freshDemo(page: Page) {
   await page.goto('/inbox')
 }
 
-test('demo steps 1–5 @demo', async ({ page }) => {
+test('demo steps 1–10 @demo', async ({ page }) => {
+  test.setTimeout(240_000)
   await freshDemo(page)
   const badge = page.getByTestId('badge-inbox')
   const strip = page.getByRole('region', { name: 'Claim pipeline' })
@@ -117,6 +125,140 @@ test('demo steps 1–5 @demo', async ({ page }) => {
     await page.goBack()
     await expect(page).toHaveURL(/\/claims\?status=denied/)
   })
+
+  let morganInbox = 0
+
+  await test.step('6 · Settings › Agents as Dr. Morgan: tiers, live preview 41 → 44 of 54, accept the Delta proposal; the ours sibling is guarded', async () => {
+    await switchUser(page, 'usr_morgan')
+    await expect(badge).not.toHaveText('')
+    morganInbox = Number(await badge.textContent())
+    await nav(page, /Settings/).click()
+    await expect(page).toHaveURL(/\/settings\/agents/)
+    const table = page.getByRole('table', { name: 'Agent rules' })
+    for (const tier of ['Tier 1 · Talks to payers', 'Tier 2 · Touches the ledger or patients', 'Tier 3 · Commits the practice']) {
+      await expect(table.getByRole('rowgroup', { name: tier })).toBeVisible()
+    }
+    await expect(table.locator('tbody[data-tier="3"] [data-testid="human-only"]')).toHaveCount(3)
+    await expect(table.locator('tbody[data-tier="3"] [role="radiogroup"]')).toHaveCount(0)
+
+    const delta = table.locator('tr[data-rule-id="rule_t1_delta_pa"]')
+    await delta.getByRole('radio', { name: 'Runs without review' }).hover()
+    const preview = page.getByRole('region', { name: 'Live preview' })
+    await expect(preview.getByTestId('preview-numbers')).toHaveText('41 → 44')
+    await expect(preview).toContainText('of this week’s 54 would have run')
+    await expect(preview.getByTestId('preview-held')).toContainText('root cause: ours')
+    await expect(preview.getByTestId('preview-held')).toContainText('net 41')
+
+    await page.getByRole('tab', { name: /Proposals/ }).click()
+    await expect(page).toHaveURL(/tab=proposals/)
+    const ours = page.locator('[data-proposal-id="prop_delta_pa_ours"]')
+    await expect(ours.getByRole('button', { name: 'Accept' })).toBeDisabled()
+    await expect(ours.getByTestId('proposal-blocked')).toContainText('root cause: ours')
+    const proposal = page.locator('[data-proposal-id="prop_delta_pa"]')
+    await expect(proposal.getByTestId('proposal-evidence')).toContainText('23 of 25')
+    await proposal.getByRole('button', { name: 'Accept' }).click()
+    await expect(page.getByText(/New rule: /)).toBeVisible()
+
+    await page.getByRole('tab', { name: /Rules/ }).click()
+    const learned = table.locator('tr[data-rule-id^="rule_t1_delta_pa_learned"]')
+    await expect(learned).toContainText('learned')
+    await expect(learned).toContainText('signed by Dr. Morgan')
+    await expect(learned).toContainText('paid ≤ 30 d')
+  })
+
+  await test.step('7 · a tier-2 flip applies for Dr. Morgan and is logged; for Dana it is sent to Dr. Morgan, whose badge bumps', async () => {
+    const table = page.getByRole('table', { name: 'Agent rules' })
+    const era = table.locator('tr[data-rule-id="rule_t2_post_era"]')
+    await era.getByRole('radio', { name: 'Ask Dana' }).click()
+    await expect(era.getByRole('radio', { name: 'Ask Dana' })).toHaveAttribute('aria-checked', 'true')
+    await page.getByRole('tab', { name: /Changes/ }).click()
+    const changes = page.getByRole('table', { name: 'Rule changes' })
+    await expect(changes.getByRole('row').filter({ hasText: 'Post ERA line' }).first()).toContainText('Dr. Morgan')
+    await expect(changes).toContainText('mode: Runs without review → Ask Dana')
+    await expect(page.getByTestId('owner-digest')).toContainText('Mon digest to Dr. Morgan')
+
+    await switchUser(page, 'usr_dana')
+    await nav(page, /Settings/).click()
+    await page.getByRole('tab', { name: /Rules/ }).click()
+    const eraAsDana = page.getByRole('table', { name: 'Agent rules' }).locator('tr[data-rule-id="rule_t2_post_era"]')
+    await expect(eraAsDana).toContainText('Needs Dr. Morgan')
+    await eraAsDana.getByRole('radio', { name: 'Runs without review' }).click()
+    await expect(page.getByText('Sent to Dr. Morgan for sign-off')).toBeVisible()
+    await expect(eraAsDana.getByRole('radio', { name: 'Ask Dana' })).toHaveAttribute('aria-checked', 'true') // reverted
+
+    await switchUser(page, 'usr_morgan')
+    await expect(badge).toHaveText(String(morganInbox + 1))
+  })
+
+  await test.step('8 · ⏭ Skip to Thu 7:10 AM: async progress, then Inbox 16 (Dana) and Denied 9', async () => {
+    const clock = page.getByTestId('clock-control')
+    await clock.getByRole('button', { name: /Skip to Thu 7:10 AM/ }).click()
+    await expect(clock.getByRole('button', { name: /Skip to/ })).toBeDisabled()
+    await expect(clock.getByTestId('advance-progress')).toBeVisible()
+    await expect(clock.getByTestId('advance-progress')).toBeHidden({ timeout: 60_000 })
+    await expect(clock).toContainText('Thu Oct 29 · 7:10 AM')
+    await switchUser(page, 'usr_dana')
+    await nav(page, /Inbox/).click()
+    await expect(badge).toHaveText('16')
+    await expect(strip.getByRole('link', { name: 'Denied 9', exact: true })).toBeVisible()
+  })
+
+  await test.step('9 · Activity → Follow-up rows with evidence; Observe-mode preview styles them “would have run”', async () => {
+    await nav(page, /Activity/).click()
+    await page.getByLabel('Agent').selectOption('followup')
+    await expect(page).toHaveURL(/agent=followup/)
+    const log = page.getByRole('table', { name: 'Activity' })
+    await expect(log.locator('tr[data-run-id]').filter({ hasText: 'IVR transcript' }).first()).toBeVisible()
+    await expect(log.locator('tr[data-run-id]').filter({ hasText: 'DD-1027-88412' }).first()).toContainText('rep call')
+    await page.getByLabel('Observe mode preview').check()
+    await expect(page).toHaveURL(/observe=true/)
+    await expect(log.locator('tr[data-style="observe_preview"]').first()).toContainText('would have run')
+  })
+
+  await test.step('10 · Cash as Dr. Morgan (days in A/R 27 with its formula, write-offs, estimate); Denials by next action, Ito’s formal appeal', async () => {
+    await switchUser(page, 'usr_morgan')
+    await nav(page, /Cash/).click()
+    const days = page.locator('[data-kpi="days_in_ar"]')
+    await expect(days).toContainText('27')
+    await expect(days).toContainText('= (insurance A/R + patient A/R) ÷ average daily net production (90 d)')
+    await expect(page.getByRole('region', { name: 'Write-offs by type' })).toBeVisible()
+    await expect(page.getByTestId('agent-impact')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Agent impact' })).toContainText('estimate')
+
+    await nav(page, /Denials/).click()
+    const list = page.getByRole('table', { name: 'Denials worklist' })
+    const formal = list.getByRole('rowgroup', { name: /Formal appeal/ })
+    const ito = formal.locator('tr[data-claim-number="4796"]')
+    await expect(ito).toContainText('Formal appeal')
+    await expect(ito).toContainText('Dr. Lee signs')
+    await expect(ito).toContainText('patient authorization required (ERISA)')
+    await expect(ito).toContainText('patient cannot be billed')
+    await expect(page.getByRole('complementary', { name: 'Payer × reason' })).toBeVisible()
+    await ito.getByRole('link', { name: 'Appeal workbench →' }).click()
+    await expect(page).toHaveURL(/\/denials\/clm_4796/)
+    await expect(page.getByText('Designed, not built in this demo.')).toBeVisible()
+  })
+})
+
+test('static screens read seed data: Today’s claims, Eligibility (J. Chen) @demo', async ({ page }) => {
+  await freshDemo(page)
+  await nav(page, /Today’s claims/).click()
+  await expect(page.getByTestId('ledger-summary')).toContainText('Sent today 5 · $1,320')
+  await expect(page.getByTestId('ledger-leaving').first()).toContainText('Leaving in the 10:45 AM file')
+  await expect(page.getByTestId('ledger-leaving').first()).toContainText('#4859')
+  const held = page.getByRole('table', { name: 'Held' })
+  await expect(held.locator('tr[data-claim-number]')).toHaveCount(3)
+  await expect(page.getByTestId('ledger-not-billable')).toContainText('J. Ortega')
+
+  await nav(page, /Eligibility/).click()
+  await page.getByRole('table', { name: 'Appointments' }).getByRole('row').filter({ hasText: 'J. Chen' }).click()
+  await expect(page).toHaveURL(/appt=/)
+  const card = page.getByRole('complementary', { name: /Benefits · J. Chen/ })
+  await expect(card.getByTestId('max-left')).toHaveText('$180')
+  await expect(card.getByTestId('insurance-est')).toHaveText('$180')
+  await expect(card.getByTestId('patient-est')).toHaveText('$470')
+  await page.reload()
+  await expect(page.getByRole('complementary', { name: /Benefits · J. Chen/ })).toBeVisible()
 })
 
 test('reload mid-run resubscribes and finishes @demo', async ({ page }) => {

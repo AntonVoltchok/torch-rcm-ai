@@ -8,6 +8,17 @@ import { session } from '@/state/session'
 import { http } from './client'
 import * as S from './schema'
 
+export interface PreviewParams {
+  rule_id: string
+  mode?: S.RuleMode | undefined
+  max_cents?: number | undefined
+}
+export interface ActivityParams {
+  day?: string | undefined
+  agent?: S.AgentKind | undefined
+  outcome?: S.ActivityOutcome | undefined
+}
+
 const loc = () => ({ location_id: session.locationParam() })
 const Ok = z.object({ meta: S.MutationMeta.nullish() }).passthrough()
 const enc = encodeURIComponent
@@ -54,15 +65,23 @@ export const api = {
   // runs
   run: (id: string) => http.get(`/runs/${enc(id)}`, S.Run),
 
-  // static screens
-  activity: (p: Record<string, string | undefined>) => http.get('/activity', S.listOf(S.ActivityRow), { ...p, ...loc() }),
-  ledger: () => http.get('/ledger/today', S.Ledger, loc()),
-  eligibility: (p: { date?: string | undefined }) => http.get('/eligibility', S.listOf(S.EligibilityRow), { ...p, ...loc() }),
+  // Settings › Agents
+  rules: () => http.get('/rules', S.RulesOut),
+  ruleChanges: () => http.get('/rules/changes', S.RuleChangeList),
+  patchRule: (id: string, patch: S.RulePatch) => http.patch(`/rules/${enc(id)}`, S.RulePatchResponse, patch),
+  preview: (p: PreviewParams, signal?: AbortSignal) => http.get('/settings/preview', S.Preview, { ...p }, signal),
+  setPracticeCap: (cents: number) => http.patch('/settings/practice', S.PracticeSettings, { practice_cap_cents: cents }),
+  proposals: () => http.get('/proposals', S.ProposalList),
+  acceptProposal: (id: string) => http.post(`/proposals/${enc(id)}:accept`, S.ProposalResponse, undefined, { idempotencyKey: `accept:${id}` }),
+  dismissProposal: (id: string) => http.post(`/proposals/${enc(id)}:dismiss`, S.ProposalResponse, undefined, { idempotencyKey: `dismiss:${id}` }),
+
+  // static screens (the API scopes /cash by location; the others are practice-wide)
+  activity: (p: ActivityParams) => http.get('/activity', S.ActivityOut, { ...p }),
+  ledger: () => http.get('/ledger/today', S.Ledger),
+  eligibility: (p: { date?: string | undefined }) => http.get('/eligibility', S.EligibilityOut, { ...p }),
+  benefits: (appointmentId: string) => http.get(`/eligibility/${enc(appointmentId)}`, S.BenefitsPanel),
   cash: () => http.get('/cash', S.CashSummary, loc()),
-  denials: () => http.get('/denials', z.object({ groups: z.array(S.DenialGroup) })),
-  rules: () => http.get('/rules', S.listOf(S.Rule)),
-  ruleChanges: () => http.get('/rules/changes', S.listOf(S.RuleChange)),
-  proposals: () => http.get('/proposals', S.listOf(S.RuleProposal)),
+  denials: () => http.get('/denials', S.DenialsOut),
 }
 
 export const sseUrl = {

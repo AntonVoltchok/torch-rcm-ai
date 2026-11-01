@@ -4,10 +4,9 @@
  */
 import { delay, http, HttpResponse } from 'msw'
 import { API_BASE } from '@/env'
-import { ClaimStatus, PayerKey } from '@/api/schema'
+import { ActivityOutcome, AgentKind, ClaimStatus, PayerKey, RuleMode, type RulePatch } from '@/api/schema'
 import { AgeBucket, SortParam } from '@/features/claims/search'
 import { MockDb, MockError, type SseRecord, type UserId } from './db'
-import { buildDenials, CASH, ELIGIBILITY, LEDGER, RULE_CHANGES, RULES } from './fixtures/static'
 
 type Ctx = { db: MockDb; url: URL; user: UserId; body: Record<string, unknown>; m: RegExpMatchArray; request: Request }
 type Route = [method: string, pattern: RegExp, handle: (ctx: Ctx) => unknown]
@@ -19,6 +18,16 @@ const frame = (r: SseRecord) => enc.encode(`id: ${r.id}\nevent: ${r.event}\ndata
 const q = (url: URL, key: string) => url.searchParams.get(key)
 const qa = (url: URL, key: string) => url.searchParams.getAll(key)
 const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
+const int = (v: string | null) => (v === null || v === '' || !Number.isFinite(Number(v)) ? undefined : Math.round(Number(v)))
+
+function rulePatch(body: Record<string, unknown>): RulePatch {
+  const out: RulePatch = {}
+  const mode = RuleMode.safeParse(body.mode)
+  if (mode.success) out.mode = mode.data
+  if (typeof body.max_cents === 'number') out.max_cents = body.max_cents
+  if (typeof body.confidence_floor === 'number') out.confidence_floor = body.confidence_floor
+  return out
+}
 
 function runEvents(db: MockDb, runId: string, lastEventId: number | null): Response {
   let unsubscribe = () => undefined as void
@@ -77,16 +86,16 @@ const routes: Route[] = [
   ['POST', /^\/agents:pause$/, ({ db, user }) => db.pause(user)],
   ['POST', /^\/agents:resume$/, ({ db, user }) => db.resume(user)],
   ['GET', /^\/_world\/status$/, () => ({ outages: [] })],
-  ['GET', /^\/summary\/strip$/, ({ db, url }) => db.strip(q(url, 'location_id') ?? undefined)],
+  ['GET', /^\/summary\/strip$/, ({ db, url, user }) => db.strip(q(url, 'location_id') ?? undefined, user)],
 
-  ['GET', /^\/inbox$/, ({ db, url }) => db.inbox({ state: q(url, 'state'), kind: q(url, 'kind'), agent: q(url, 'agent') })],
+  ['GET', /^\/inbox$/, ({ db, url, user }) => db.inbox({ state: q(url, 'state'), kind: q(url, 'kind'), agent: q(url, 'agent') }, user)],
   ['POST', /^\/inbox:approve-group$/, ({ db, body, user }) => HttpResponse.json(db.approveGroup(str(body.group_key), user), { status: 202 })],
   ['GET', new RegExp(`^/inbox/${ID}$`), ({ db, m }) => db.inboxItem(m[1] ?? '')],
   ['POST', new RegExp(`^/inbox/${ID}:approve$`), ({ db, m, user }) => HttpResponse.json(db.approve(m[1] ?? '', user), { status: 202 })],
   ['POST', new RegExp(`^/inbox/${ID}:reject$`), ({ db, m, user, body }) => db.reject(m[1] ?? '', user, str(body.reason, 'no reason'))],
   ['POST', new RegExp(`^/inbox/${ID}:snooze$`), ({ db, m, user, body }) => db.snooze(m[1] ?? '', user, str(body.until, db.now))],
-  ['POST', new RegExp(`^/inbox/${ID}:reopen$`), ({ db, m }) => db.reopen(m[1] ?? '')],
-  ['POST', new RegExp(`^/inbox/${ID}:always-auto-run$`), ({ db, m }) => HttpResponse.json(db.alwaysAutoRun(m[1] ?? ''), { status: 201 })],
+  ['POST', new RegExp(`^/inbox/${ID}:reopen$`), ({ db, m, user }) => db.reopen(m[1] ?? '', user)],
+  ['POST', new RegExp(`^/inbox/${ID}:always-auto-run$`), ({ db, m, user }) => HttpResponse.json(db.alwaysAutoRun(m[1] ?? '', user), { status: 201 })],
 
   ['GET', /^\/claims$/, ({ db, url }) =>
     db.claims({
@@ -114,17 +123,22 @@ const routes: Route[] = [
   }],
   ['GET', new RegExp(`^/runs/${ID}$`), ({ db, m }) => db.run(m[1] ?? '')],
 
-  ['GET', /^\/activity$/, ({ db, url }) => db.activity({ agent: q(url, 'agent') })],
-  ['GET', /^\/ledger\/today$/, () => LEDGER],
-  ['GET', /^\/eligibility$/, () => ({ items: ELIGIBILITY, total: ELIGIBILITY.length, next_cursor: null })],
-  ['GET', /^\/cash$/, ({ user }) => {
-    if (user !== 'usr_morgan') throw new MockError(403, 'owner_only', 'Cash is owner-only.')
-    return CASH
-  }],
-  ['GET', /^\/denials$/, ({ db }) => ({ groups: buildDenials(db.claims({ status: ['denied'] }).items) })],
-  ['GET', /^\/rules$/, () => ({ items: RULES, total: RULES.length, next_cursor: null })],
-  ['GET', /^\/rules\/changes$/, () => ({ items: RULE_CHANGES, total: RULE_CHANGES.length, next_cursor: null })],
+  ['GET', /^\/activity$/, ({ db, url, user }) =>
+    db.activity({ day: q(url, 'day'), agent: AgentKind.safeParse(q(url, 'agent')).data ?? null, outcome: ActivityOutcome.safeParse(q(url, 'outcome')).data ?? null }, user)],
+  ['GET', /^\/ledger\/today$/, ({ db }) => db.ledger()],
+  ['GET', /^\/eligibility$/, ({ db, url }) => db.eligibility(q(url, 'date'))],
+  ['GET', new RegExp(`^/eligibility/${ID}$`), ({ db, m }) => db.benefits(m[1] ?? '')],
+  ['GET', /^\/cash$/, ({ db, user }) => db.cash(user)],
+  ['GET', /^\/denials$/, ({ db, user }) => db.denials(user)],
+
+  ['GET', /^\/rules$/, ({ db }) => db.rules()],
+  ['GET', /^\/rules\/changes$/, ({ db }) => db.ruleChanges()],
+  ['PATCH', new RegExp(`^/rules/${ID}$`), ({ db, m, body, user }) => db.patchRule(m[1] ?? '', rulePatch(body), user)],
+  ['GET', /^\/settings\/preview$/, ({ db, url }) => db.preview(q(url, 'rule_id') ?? '', RuleMode.safeParse(q(url, 'mode')).data ?? null, int(q(url, 'max_cents')) ?? null)],
+  ['PATCH', /^\/settings\/practice$/, ({ db, body, user }) => db.setPracticeCap(typeof body.practice_cap_cents === 'number' ? body.practice_cap_cents : -1, user)],
   ['GET', /^\/proposals$/, ({ db }) => db.proposals()],
+  ['POST', new RegExp(`^/proposals/${ID}:accept$`), ({ db, m, user }) => db.acceptProposal(m[1] ?? '', user)],
+  ['POST', new RegExp(`^/proposals/${ID}:dismiss$`), ({ db, m, user }) => db.dismissProposal(m[1] ?? '', user)],
 ]
 
 /** Static-screen routes are registered separately so they can read fixtures lazily. */

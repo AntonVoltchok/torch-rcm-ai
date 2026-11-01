@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { CashPage } from '@/features/static/pages'
+import { CashPage } from '@/features/cash/CashPage'
 import { deniedWithToast } from '@/features/shell/guards'
 
 export const Route = createFileRoute('/cash')({

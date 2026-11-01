@@ -12,7 +12,7 @@ export function AgentsIndicator() {
   return (
     <div className="flex flex-col gap-1" data-testid="agents-indicator">
       <span className="font-semibold text-acc">
-        ✦ {AGENT_COUNT} agents · {s ? `${s.running} running` : '…'}
+        ✦ {s?.agents ?? AGENT_COUNT} agents · {s ? `${s.running} running` : '…'}
         {s && s.queued > 0 ? ` · ${s.queued} queued` : ''}
       </span>
       {s?.paused && (

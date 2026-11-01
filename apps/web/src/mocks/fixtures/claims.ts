@@ -11,6 +11,9 @@ import type {
   ClaimDetail,
   ClaimLine,
   ClaimStatus,
+  Deadline,
+  Denial,
+  Hold,
   PayerKey,
   ReadinessCheck,
   TimelineEntry,
@@ -25,6 +28,10 @@ export interface MockClaim extends Omit<ClaimDetail, 'open_inbox_items' | 'needs
   procedures_label: string
   agent_chip: { agent: AgentKind; label: string } | null
   last_activity: { at: string; label: string } | null
+  /** A queued payer-file entry (API `FileEntry` state=queued): the claim is editable until the file leaves. */
+  queued_file?: { at: string; kind: 'original' | 'resubmit' | 'corrected' } | null
+  /** An open hold (API `Hold`): the claim is on Today's claims under "Held". */
+  hold?: Hold | null
 }
 
 // ── tiny deterministic PRNG ──────────────────────────────────────────────────
@@ -115,30 +122,71 @@ interface Pin {
   agent?: { agent: AgentKind; label: string }
   last?: { at: string; label: string }
   provider?: string
+  /** Today's claims (10/28): built at checkout hh:mm, left (or leaves) in the hh:mm file. */
+  built?: string
+  file?: string
+  /** Vyne A7 that the Claims agent fixed and resent (Iqbal). */
+  a7Fixed?: boolean
+  denial?: Denial
+  deadline?: Deadline
+  hold?: Omit<Hold, 'id' | 'subject' | 'subject_id'>
+  queued?: string
 }
+
+const DELTA_PA_DENIAL: Denial = { carc: 'CO-16', rarc: 'N29', decoded: 'Missing documentation: pre-operative radiograph required', root_cause: 'ours' }
+const DELTA_PA_DEADLINE: Deadline = { kind: 'appeal', due_on: '2027-04-24', basis: 'Delta: 180 days from the 10/26 ERA' }
 
 /** The named records the demo and mocks reference. Amounts in dollars for readability. */
 const PINS: Pin[] = [
   { number: 4821, patient: 'K. Owens', payer: 'delta_ny', status: 'denied', ageDays: 16, billed: 1240, procs: 'D2740 #19 +2', reason: 'CO-16 · N29', agent: { agent: 'followup', label: 'fix proposed · group' }, last: { at: at('2026-10-28', '06:15'), label: 'proposal' } },
-  { number: 4836, patient: 'L. Grant', payer: 'delta_ny', status: 'denied', ageDays: 13, billed: 1180, procs: 'D2750 #3 +1', reason: 'CO-16 · N29', agent: { agent: 'followup', label: 'fix proposed · group' }, last: { at: at('2026-10-28', '06:15'), label: 'proposal' } },
-  { number: 4840, patient: 'F. Diaz', payer: 'delta_ny', status: 'denied', ageDays: 8, billed: 1310, procs: 'D2740 #14 +2', reason: 'CO-16 · N29', agent: { agent: 'followup', label: 'fix proposed · group' }, last: { at: at('2026-10-28', '06:15'), label: 'proposal' } },
-  { number: 4733, patient: 'J. Webb', payer: 'delta_ny', status: 'denied', ageDays: 37, billed: 1240, procs: 'D2740 #30', reason: 'CO-119 · freq.', agent: { agent: 'appeals', label: 'inquiry drafted' }, last: { at: at('2026-10-28', '06:40'), label: 'draft' } },
-  { number: 4611, patient: 'R. Diaz', payer: 'delta_ny', status: 'denied', ageDays: 82, billed: 1240, procs: 'D2740 #30', reason: 'PR-119 · max met', agent: { agent: 'posting', label: 'pt. transfer proposed' }, last: { at: at('2026-10-27', '15:10'), label: 'portal: max met' } },
+  { number: 4836, patient: 'L. Grant', payer: 'delta_ny', status: 'denied', ageDays: 13, billed: 1180, procs: 'D2750 #3 +1', reason: 'CO-16 · N29', denial: DELTA_PA_DENIAL, deadline: DELTA_PA_DEADLINE, agent: { agent: 'followup', label: 'fix proposed · group' }, last: { at: at('2026-10-28', '06:15'), label: 'proposal' } },
+  { number: 4840, patient: 'F. Diaz', payer: 'delta_ny', status: 'denied', ageDays: 8, billed: 1310, procs: 'D2740 #14 +2', reason: 'CO-16 · N29', denial: DELTA_PA_DENIAL, deadline: DELTA_PA_DEADLINE, agent: { agent: 'followup', label: 'fix proposed · group' }, last: { at: at('2026-10-28', '06:15'), label: 'proposal' } },
+  {
+    number: 4733, patient: 'J. Webb', payer: 'delta_ny', status: 'denied', ageDays: 37, billed: 1240, procs: 'D2740 #30', reason: 'CO-119 · freq.',
+    denial: { carc: 'CO-119', rarc: null, decoded: 'Benefit maximum or frequency for this period has been reached', root_cause: 'payer' },
+    deadline: { kind: 'appeal', due_on: '2027-04-20', basis: 'Delta: 180 days from the 10/22 ERA' },
+    agent: { agent: 'appeals', label: 'inquiry drafted' }, last: { at: at('2026-10-28', '06:40'), label: 'draft' } },
+  {
+    number: 4611, patient: 'R. Diaz', payer: 'delta_ny', status: 'denied', ageDays: 82, billed: 1240, procs: 'D2740 #30', reason: 'PR-119 · max met',
+    denial: { carc: 'PR-119', rarc: null, decoded: 'Annual maximum met: patient responsibility', root_cause: 'payer' },
+    deadline: { kind: 'none', due_on: null, basis: 'closes in Payments' },
+    agent: { agent: 'posting', label: 'pt. transfer proposed' }, last: { at: at('2026-10-27', '15:10'), label: 'portal: max met' } },
   { number: 4705, patient: 'T. Brooks', payer: 'metlife', status: 'pending', ageDays: 64, billed: 1150, procs: 'D3330 #3', reason: 'clean · no RFI', agent: { agent: 'followup', label: 'prompt-pay req. proposed' }, last: { at: at('2026-10-27', '14:30'), label: 'ref # ML-58213' } },
   { number: 4512, patient: 'G. Hill', payer: 'aetna', status: 'pending', ageDays: 104, billed: 2290, procs: 'D3310 #8, D2740 #8', reason: 'in process', agent: { agent: 'followup', label: 'rep call · on hold' }, last: { at: at('2026-10-28', '10:31'), label: 'rep call' } },
   { number: 4744, patient: 'P. Hale', payer: 'metlife', status: 'pending', ageDays: 42, billed: 3450, procs: 'D6240 #14, D6750 #13 #15', reason: 'pended for info', last: { at: at('2026-10-22', '09:12'), label: 'portal correspondence' } },
   { number: 4709, patient: 'S. Brandt', payer: 'cigna', status: 'pending', ageDays: 52, billed: 1365, procs: 'D2950 #3, D2740 #3', reason: 'consultant review', last: { at: at('2026-10-27', '11:05'), label: 'IVR status check' } },
   { number: 4731, patient: 'E. Corwin', payer: 'guardian', status: 'pending', ageDays: 47, billed: 410, procs: 'D7210 #17', reason: 'adjusted · no 835', last: { at: at('2026-10-26', '08:40'), label: 'portal status' } },
-  { number: 4796, patient: 'L. Ito', payer: 'guardian', status: 'pending', ageDays: 19, billed: 520, procs: 'D4341 UR, UL', provider: 'Dr. Lee' },
-  { number: 4797, patient: 'M. Castillo', payer: 'guardian', status: 'pending', ageDays: 19, billed: 1310, procs: 'D2740 #19 +1' },
-  { number: 4800, patient: 'A. Moreno', payer: 'metlife', status: 'pending', ageDays: 16, billed: 640, procs: 'D2392 #12, D0274' },
+  // The overnight 835s of demo step 8 deny these four (Ito CO-50·N10, Castillo CO-16·M127, Moreno CO-22, Morris CO-29).
+  { number: 4796, patient: 'L. Ito', payer: 'guardian', status: 'pending', ageDays: 19, billed: 480, procs: 'D4341 UR, UL', provider: 'Dr. Lee' },
+  { number: 4797, patient: 'A. Castillo', payer: 'guardian', status: 'pending', ageDays: 19, billed: 390, procs: 'D4341 LR, D4342 LL', provider: 'Dr. Lee' },
+  { number: 4800, patient: 'S. Moreno', payer: 'aetna', status: 'pending', ageDays: 15, billed: 340, procs: 'D2393 #30 +1' },
+  { number: 3561, patient: 'G. Morris', payer: 'metlife', status: 'pending', ageDays: 363, billed: 1210, procs: 'D2740 #3 +1', reason: 'payer reprocessing after lost claim', provider: 'Dr. Morgan' },
   { number: 4851, patient: 'I. Moreau', payer: 'cigna', status: 'rejected', ageDays: 2, billed: 395, procs: 'D0150 D0210 D1110', reason: 'subscriber ID', agent: { agent: 'claims', label: 'fix proposed · 84%' }, last: { at: at('2026-10-28', '07:02'), label: '277CA' } },
-  { number: 4854, patient: 'Y. Haddad', payer: 'metlife', status: 'rejected', ageDays: 1, billed: 435, procs: 'D2392 #4', reason: 'rendering NPI', agent: { agent: 'claims', label: 'auto-fixing' }, last: { at: at('2026-10-28', '07:02'), label: 'resend' } },
+  { number: 4854, patient: 'Y. Haddad', payer: 'metlife', status: 'rejected', ageDays: 1, billed: 435, procs: 'D2392 #4 +1', reason: 'rendering NPI', queued: '10:45', agent: { agent: 'claims', label: 'NPI fixed · resend 10:45' }, last: { at: at('2026-10-28', '07:02'), label: 'resend' } },
   { number: 4772, patient: 'D. Foster', payer: 'cigna', status: 'partial', ageDays: 12, billed: 255, procs: 'D2392 #19', reason: 'underpaid $32 · PR-1', agent: { agent: 'posting', label: 'held from posting' }, last: { at: at('2026-10-28', '06:20'), label: 'ERA' } },
   { number: 4748, patient: 'L. Osei', payer: 'aetna', status: 'paid', ageDays: 8, billed: 255, procs: 'D2392 #14 DO', reason: 'alt. benefit D2140', agent: { agent: 'posting', label: 'pt. balance' }, last: { at: at('2026-10-27', '09:00'), label: 'ERA posted' } },
-  { number: 4849, patient: 'R. Singh', payer: 'aetna', status: 'accepted', ageDays: 2, billed: 1020, procs: 'D2740 #14', agent: { agent: 'followup', label: 'status check 11/25' }, last: { at: at('2026-10-28', '09:58'), label: '277CA' } },
-  { number: 4853, patient: 'M. Alvarez', payer: 'delta_ny', status: 'sent', ageDays: 1, billed: 198, procs: 'D0120 D0274 D1110', last: { at: at('2026-10-27', '15:45'), label: '3:45 file' } },
-  { number: 4859, patient: 'K. Owens', payer: 'delta_ny', status: 'ready', ageDays: 0, billed: 1240, procs: 'D2740 #30 +2', agent: { agent: 'claims', label: '10:45 file' }, last: { at: at('2026-10-28', '10:38'), label: '12 of 12 checks' } },
+  { number: 4848, patient: 'R. Singh', payer: 'aetna', status: 'accepted', ageDays: 2, billed: 1020, procs: 'D2740 #14', agent: { agent: 'followup', label: 'status check 11/25' }, last: { at: at('2026-10-28', '09:58'), label: '277CA' } },
+  // Today's claims (10/28), as the API seed builds them: Sent 5 · $1,320 and Ready 6 · $3,210 are all pinned.
+  { number: 4857, patient: 'P. Okafor', payer: 'cigna', status: 'sent', ageDays: 0, billed: 230, procs: 'D0120 +3', built: '09:23', file: '09:45' },
+  { number: 4864, patient: 'A. Russo', payer: 'metlife', status: 'sent', ageDays: 0, billed: 200, procs: 'D0120 +2', built: '09:23', file: '09:45', reason: 'D0274 will deny PR-frequency · acknowledgment on file 03/11' },
+  { number: 4860, patient: 'H. Iqbal', payer: 'metlife', status: 'sent', ageDays: 0, billed: 395, procs: 'D0150 +2', built: '09:23', file: '10:15', a7Fixed: true, agent: { agent: 'claims', label: 'ID fixed · resent' } },
+  { number: 4863, patient: 'J. Ortega', payer: 'cigna', status: 'sent', ageDays: 0, billed: 240, procs: 'D4341 LR', built: '09:53', file: '10:15', reason: 'LR only · UR not billable (no pocket depths charted)' },
+  { number: 4866, patient: 'S. Brennan', payer: 'aetna', status: 'sent', ageDays: 0, billed: 255, procs: 'D2392 #3', built: '09:53', file: '10:15', reason: 'alternate benefit expected · pt est $71.60' },
+  { number: 4855, patient: 'E. Novak', payer: 'delta_ny', status: 'ready', ageDays: 0, billed: 915, procs: 'D3320 #13', built: '10:21', file: '10:45', agent: { agent: 'claims', label: '10:45 file' } },
+  { number: 4856, patient: 'B. Tran', payer: 'metlife', status: 'ready', ageDays: 0, billed: 395, procs: 'D0150 +2', built: '10:31', file: '10:45', agent: { agent: 'claims', label: '10:45 file' } },
+  { number: 4859, patient: 'K. Owens', payer: 'delta_ny', status: 'ready', ageDays: 0, billed: 1240, procs: 'D2740 #30 +2', built: '10:38', file: '10:45', agent: { agent: 'claims', label: '10:45 file' }, last: { at: at('2026-10-28', '10:38'), label: '13 of 13 checks' } },
+  {
+    number: 4847, patient: 'F. Nwosu', payer: 'guardian', status: 'ready', ageDays: 1, billed: 200, procs: 'D0120 +2', reason: 'held',
+    hold: { reason: 'other_documented', detail: 'No payer ID on file for the plan administrator (TPA)', held_since: at('2026-10-27', '11:24'), clears_when: 'TPA payer ID confirmed · paper claim 11/04 if none', owner_user_id: 'usr_dana', timely_due: '2027-01-25', cleared_at: null },
+  },
+  {
+    number: 4842, patient: 'D. Akers', payer: 'guardian', status: 'ready', ageDays: 6, billed: 200, procs: 'D0120 +2', reason: 'held',
+    hold: { reason: 'awaiting_primary_eob', detail: 'Secondary waits for Delta’s 835 on #4841 (accepted 10/23)', held_since: at('2026-10-22', '11:53'), clears_when: 'Delta 835 for #4841 posted', owner_user_id: 'usr_dana', timely_due: '2027-04-20', cleared_at: null },
+  },
+  {
+    number: 4849, patient: 'L. Marsh', payer: 'aetna', status: 'ready', ageDays: 1, billed: 260, procs: 'D4910 +1', reason: 'held', provider: 'Dr. Lee',
+    hold: { reason: 'note_unsigned', detail: 'Perio maintenance note not signed by the supervising dentist', held_since: at('2026-10-27', '16:10'), clears_when: 'Note signed in the PMS', owner_user_id: 'usr_lee', timely_due: '2027-04-25', cleared_at: null },
+  },
   { number: 4801, patient: 'C. Ruiz', payer: 'metlife', status: 'appealed', ageDays: 58, billed: 960, procs: 'D4341 LL, LR', reason: 'reconsideration' },
   { number: 4688, patient: 'H. Lund', payer: 'cigna', status: 'appealed', ageDays: 71, billed: 320, procs: 'D2391 #20' },
   { number: 4702, patient: 'T. Varga', payer: 'guardian', status: 'appealed', ageDays: 44, billed: 640, procs: 'D3310 #9' },
@@ -189,6 +237,8 @@ function build(pin: Pin, idx: number, rand: () => number): MockClaim {
   const dos = daysAgo(pin.ageDays)
   const sentDate = dos
   const billed = pin.billed * 100
+  const built = at(dos, pin.built ?? '10:43')
+  const sentAt = pin.status === 'ready' ? null : at(sentDate, pin.file ?? '10:45')
   const icn = ['ready', 'sent', 'rejected'].includes(pin.status) ? null : `26${String(200 + (pin.number % 97)).padStart(3, '0')}-0${String(10000 + pin.number * 7).slice(-5)}`
   return {
     id,
@@ -199,9 +249,9 @@ function build(pin: Pin, idx: number, rand: () => number): MockClaim {
     payer_key: pin.payer,
     status: pin.status,
     dos,
-    built_at: at(dos, '10:43'),
-    sent_at: pin.status === 'ready' ? null : at(sentDate, '10:45'),
-    file_time: pin.status === 'ready' ? '10:45' : null,
+    built_at: built,
+    sent_at: sentAt,
+    file_time: pin.status === 'ready' && !pin.hold ? (pin.file ?? '10:45') : null,
     icn,
     ack_stage: ackStage(pin.status),
     billed_cents: billed,
@@ -209,8 +259,8 @@ function build(pin: Pin, idx: number, rand: () => number): MockClaim {
     paid_cents: pin.status === 'paid' ? Math.round(billed * 0.62) : pin.status === 'partial' ? Math.round(billed * 0.45) : null,
     writeoff_cents: null,
     patient_resp_cents: null,
-    denial: null,
-    deadline: { kind: 'timely_filing', due_on: daysAgo(pin.ageDays - 365), basis: 'payer timely filing · 12 months from DOS' },
+    denial: pin.denial ?? null,
+    deadline: pin.deadline ?? { kind: 'timely_filing', due_on: daysAgo(pin.ageDays - 365), basis: 'payer timely filing · 12 months from DOS' },
     parent_claim_id: null,
     frequency_code: 1,
     readiness: ALL_PASS,
@@ -227,10 +277,32 @@ function build(pin: Pin, idx: number, rand: () => number): MockClaim {
     last_activity: pin.last ?? null,
     lines: lineFromProcs(id, pin.procs, billed),
     attachments: [],
-    acks: acksFor(pin.status, id, sentDate, icn),
+    acks: pin.file ? todaysAcks(pin, id) : acksFor(pin.status, id, sentDate, icn),
     timeline: genericTimeline({ id, status: pin.status, dos, sentDate, payer: pin.payer }),
     in_flight: null,
+    hold: pin.hold ? { id: `hld_${pin.number}`, subject: 'claim', subject_id: id, ...pin.hold } : null,
+    queued_file: pin.queued ? { at: at(FROZEN_NOW.slice(0, 10), pin.queued), kind: 'original' } : null,
   }
+}
+
+/** A file today leaves at hh:mm: 999 a minute later, Vyne's 277CA four minutes later; the payer's 277CA overnight. */
+function todaysAcks(pin: Pin, id: string): AckEvent[] {
+  if (pin.status === 'ready' || !pin.file) return []
+  const day = FROZEN_NOW.slice(0, 10)
+  const plus = (m: number) => {
+    const [h, mm] = (pin.file ?? '10:45').split(':').map(Number)
+    const total = (h ?? 0) * 60 + (mm ?? 0) + m
+    return at(day, `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`)
+  }
+  const out: AckEvent[] = [{ id: `${id}_ack1`, claim_id: id, stage: 'file_999_ok', code: null, message: 'File accepted (999)', at: plus(1) }]
+  if (pin.a7Fixed) {
+    out.unshift(
+      { id: `${id}_ack0a`, claim_id: id, stage: 'file_999_ok', code: null, message: 'File accepted (999)', at: at(day, '09:46') },
+      { id: `${id}_ack0b`, claim_id: id, stage: 'ch_277ca_a7', code: 'A7:164', message: 'Vyne 277CA rejected · subscriber id 8 digits, payer expects 9', at: at(day, '09:49') },
+    )
+  }
+  out.push({ id: `${id}_ack2`, claim_id: id, stage: 'ch_277ca_a1', code: 'A1', message: 'Vyne 277CA accepted, forwarded to payer', at: plus(4) })
+  return out
 }
 
 function generated(status: ClaimStatus, n: number, dollars: number, rand: () => number, startNumber: number): Pin[] {
