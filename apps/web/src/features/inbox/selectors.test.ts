@@ -1,0 +1,41 @@
+import { describe, expect, it } from 'vitest'
+import { MockDb } from '@/mocks/db'
+import { GROUP_DELTA_PA } from '@/mocks/fixtures/inbox'
+import { entries, itemOrder, keyOrder, nextSelection, withoutItems } from './selectors'
+
+const list = () => new MockDb({ stepDelayMs: 0, schedule: () => undefined }).inbox({})
+
+describe('inbox selectors', () => {
+  it('shows the Delta group once, first, with its three members', () => {
+    const e = entries(list())
+    expect(e).toHaveLength(10)
+    const first = e[0]
+    expect(first?.type).toBe('group')
+    if (first?.type === 'group') {
+      expect(first.group.count).toBe(3)
+      expect(first.group.cents).toBe(373_000)
+      expect(first.members.map((m) => m.id)).toEqual(['inb_4821', 'inb_4836', 'inb_4840'])
+    }
+  })
+
+  it('treats a collapsed group as one keyboard stop and an expanded one as its members', () => {
+    expect(keyOrder(list(), undefined).slice(0, 2)).toEqual([`group:${GROUP_DELTA_PA}`, 'inb_4733'])
+    expect(keyOrder(list(), GROUP_DELTA_PA).slice(0, 4)).toEqual(['inb_4821', 'inb_4836', 'inb_4840', 'inb_4733'])
+  })
+
+  it('moves the selection to the next item after a group leaves', () => {
+    const order = itemOrder(list())
+    expect(nextSelection(order, ['inb_4821', 'inb_4836', 'inb_4840'], 'inb_4821')).toBe('inb_4733')
+    expect(nextSelection(order, ['inb_elig_park'], 'inb_elig_park')).toBe('inb_elig_kim')
+    expect(nextSelection(['a'], ['a'], 'a')).toBeUndefined()
+  })
+
+  it('projects the optimistic removal: the group shrinks, then vanishes', () => {
+    const one = withoutItems(list(), ['inb_4821'])
+    expect(one.total).toBe(11)
+    expect(one.groups[0]).toMatchObject({ count: 2, cents: 249_000 })
+    const all = withoutItems(list(), ['inb_4821', 'inb_4836', 'inb_4840'])
+    expect(all.total).toBe(9)
+    expect(all.groups).toHaveLength(0)
+  })
+})

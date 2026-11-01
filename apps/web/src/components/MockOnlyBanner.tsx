@@ -1,0 +1,18 @@
+/**
+ * Mock-only routes: the designed screen from docs/design/mocks.html (copied to public/design/) with an
+ * honest banner. No dead links: the route exists, and it says what it is.
+ */
+export function MockOnlyBanner({ title, anchor, note }: { title: string; anchor: string; note?: string }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div role="note" className="flex items-center gap-3 border-b border-warn-line bg-warn-bg px-4 py-2 text-sm text-warn">
+        <b>Designed, not built in this demo.</b>
+        <span>{note ?? `${title} is shown as the reviewed design. The interactive screens are Inbox, Claims, Claim detail and Settings.`}</span>
+        <a href={`/design/mocks.html#${anchor}`} target="_blank" rel="noreferrer" className="ml-auto font-semibold text-acc underline">
+          Open the design ↗
+        </a>
+      </div>
+      <iframe title={`${title} — design`} src={`/design/mocks.html#${anchor}`} className="min-h-0 w-full flex-1 border-0 bg-[#eceef0]" />
+    </div>
+  )
+}

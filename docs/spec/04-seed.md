@@ -27,7 +27,7 @@ Practice size: ~600 active patients, 2 locations, providers Dr. Morgan, Dr. Lee,
 ## Pinned records (ids are stable; see `docs/design/mocks.html` for every detail)
 
 **Claims**
-- `clm_4821` K. Owens · Delta · DOS 10/12 · D2740 #30 $1,090 + D2950 $120 + D0220 $30 = $1,240 · allowed $986 · built at checkout 10/12 10:43, left in 10:45 file · payer 277CA A1 10/13, ICN `26299-041833` · **denied 10/26 CO-16·N29** (PA missing: our claims agent attached a BWX instead of the PA — `root_cause=ours`) · rule update 10/26 "Delta D27xx → attach PA, not BWX" by Dana surfaced 2 more → group of 3 · open inbox item: attach PA (NEA#) and resubmit in the 11:15 file · confidence 92% (23/25 paid) · status-check day 30 scheduled 11/11
+- `clm_4821` K. Owens · Delta · DOS 10/12 · D2740 #19 $1,090 + D2950 $120 + D0220 $30 = $1,240 · allowed $986 · built at checkout 10/12 10:43, left in 10:45 file · payer 277CA A1 10/13, ICN `26299-041833` · **denied 10/26 CO-16·N29** (PA missing: our claims agent attached a BWX instead of the PA — `root_cause=ours`) · rule update 10/26 "Delta D27xx → attach PA, not BWX" by Dana surfaced 2 more → group of 3 · open inbox item: attach PA (NEA#) and resubmit in the 11:15 file · confidence 92% (23/25 paid) · status-check day 30 scheduled 11/11
 - `clm_4733` J. Webb · Delta · D2740 #30 · **CO-119** frequency (Delta's tooth history has a 2022 crown on #30 that was really #31; real prior #30 crown seated 2019-08-14, replaced for fracture) → reconsideration: claim inquiry with Delta's own 03/2022 EOB (tier 1)
 - `clm_4611` R. Diaz · Delta · D2740 · **PR-119** annual max met → bill patient allowed $1,012, write off $228 (closes in Payments)
 - `clm_4705` T. Brooks · MetLife · pending 64 d → NY prompt-pay reprocessing request

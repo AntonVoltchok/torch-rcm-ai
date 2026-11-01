@@ -1,0 +1,86 @@
+import { describe, expect, it } from 'vitest'
+import { CLAIM_STATUSES } from '@/api/schema'
+import { MockDb, MockError } from './db'
+import { GROUP_DELTA_PA } from './fixtures/inbox'
+
+/** The mock must obey the same invariants as the API (docs/spec/01-domain-model.md "Invariants"), or the demo lies. */
+function setup() {
+  const queue: (() => void)[] = []
+  const db = new MockDb({ stepDelayMs: 0, schedule: (fn) => queue.push(fn) })
+  const drain = () => {
+    for (let n = 0; queue.length && n < 10_000; n++) queue.shift()?.()
+  }
+  return { db, drain }
+}
+
+function invariants(db: MockDb) {
+  const strip = db.strip()
+  const claims = db.claims({ limit: 10_000 }).items
+  for (const s of CLAIM_STATUSES) {
+    const group = claims.filter((c) => c.status === s)
+    const tile = strip.tiles.find((t) => t.status === s)
+    expect(tile).toMatchObject({ count: group.length, cents: group.reduce((a, c) => a + c.billed_cents, 0), flagged: group.filter((c) => c.needs_action).length })
+  }
+  const open = db.inbox({}).items
+  expect(strip.inbox_open).toBe(open.length)
+  for (const c of claims) expect(c.needs_action).toBe(open.some((i) => i.claim_id === c.id))
+}
+
+describe('mock API', () => {
+  it('holds the invariants at 10:40', () => {
+    invariants(setup().db)
+  })
+
+  it('demo step 3: Approve 3 → inbox 9, Denied stays 5, runs stream four steps and an audit line', () => {
+    const { db, drain } = setup()
+    const res = db.approveGroup(GROUP_DELTA_PA, 'usr_dana')
+    expect(res.meta.counts.inbox_open).toBe(9)
+    expect(res.meta.counts.tiles.find((t) => t.status === 'denied')).toMatchObject({ count: 5, flagged: 2 })
+    drain()
+    const run = db.run(res.runs[0]?.id ?? '')
+    expect(run.status).toBe('succeeded')
+    expect(run.steps.map((s) => s.name)).toEqual(['fetch_pa_from_pms_imaging', 'upload_to_nea', 'write_nea_to_remarks', 'queue_for_delta_file'])
+    expect(run.evidence[0]?.kind).toBe('nea_attachment')
+    expect(run.audit_line).toContain('11:15 Delta file')
+    expect(db.claim('clm_4821')).toMatchObject({ open_inbox_items: [], in_flight: 'resubmit queued · leaves 11:15' })
+    invariants(db)
+  })
+
+  it('replays only events after Last-Event-ID', () => {
+    const { db, drain } = setup()
+    const { run } = db.approve('inb_4705', 'usr_dana')
+    drain()
+    const all = db.subscribeRun(run.id, null, () => undefined).replay
+    const after = db.subscribeRun(run.id, all[2]?.id ?? 0, () => undefined).replay
+    expect(after.map((e) => e.id)).toEqual(all.slice(3).map((e) => e.id))
+    expect(all.at(-1)?.event).toBe('done')
+  })
+
+  it('demo step 3b: triage on #4744 proposes, never runs, and adds exactly one item', () => {
+    const { db, drain } = setup()
+    const { run } = db.triage('clm_4744', 'usr_dana')
+    drain()
+    const done = db.run(run.id)
+    expect(done.planner).toBe('recorded_plan')
+    expect(done.model_situation_label).toBe('payer asks for missing-tooth history')
+    expect(done.steps.find((s) => s.name === 'decide')?.policy_verdict).toBe('propose')
+    expect(done.steps.find((s) => s.name === 'investigate')?.progress_lines).toContain('read portal correspondence 10/22')
+    expect(db.strip().inbox_open).toBe(13)
+    expect(() => db.triage('clm_4744', 'usr_dana')).toThrow(MockError)
+  })
+
+  it('refuses what the server refuses', () => {
+    const { db } = setup()
+    expect(() => db.alwaysAutoRun('inb_4821')).toThrow(/Root cause is ours/)
+    db.approve('inb_4705', 'usr_dana')
+    expect(() => db.approve('inb_4705', 'usr_dana')).toThrow(/Already/)
+    db.departFile('inb_4851', '10:45')
+    try {
+      db.approve('inb_4851', 'usr_dana')
+    } catch (e) {
+      expect((e as MockError).code).toBe('file_departed')
+      expect((e as MockError).alternatives).toEqual(['corrected_claim'])
+    }
+    expect(() => db.pause('usr_dana')).toThrow(/owner/)
+  })
+})

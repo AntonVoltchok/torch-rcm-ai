@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest'
+import { MockDb } from '@/mocks/db'
+import { arTotals, flaggedTotal, navBadge, openTotals, stripTiles } from './strip'
+
+/** The strip as the canonical seed must produce it at Wed 10/28 10:40 (docs/spec/04-seed.md). */
+describe('strip selectors', () => {
+  const strip = new MockDb({ stepDelayMs: 0, schedule: () => undefined }).strip()
+
+  it('reads the tiles in lifecycle order with the month label on Paid', () => {
+    expect(stripTiles(strip).map((t) => `${t.label} ${t.count} ${t.cents / 100}`)).toEqual([
+      'Ready 6 3210',
+      'Sent 5 1320',
+      'Rejected 2 830',
+      'Accepted 24 17640',
+      'Pending 57 46520',
+      'Denied 5 6210',
+      'Partial 5 1060',
+      'Appealed 3 1920',
+      'Paid · Oct 118 61300',
+    ])
+  })
+
+  it('derives the header totals from server tiles', () => {
+    expect(openTotals(strip)).toEqual({ count: 107, cents: 7_871_000 })
+    expect(arTotals(strip)).toEqual({ count: 101, cents: 7_550_000 })
+  })
+
+  it('flags 9 claims, which with 3 eligibility items make the Inbox 12', () => {
+    expect(flaggedTotal(strip)).toBe(9)
+    expect(navBadge(strip, 'inbox')).toBe(12)
+    expect(navBadge(strip, 'eligibility')).toBe(3)
+    expect(navBadge(undefined, 'inbox')).toBeNull()
+  })
+})

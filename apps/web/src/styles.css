@@ -1,0 +1,82 @@
+/* Scan src/ only: public/design/mocks.html would otherwise flood the build with its class names. */
+@import 'tailwindcss' source('../src');
+
+/* Palette and type from docs/design/mocks.html: neutral grays, one accent, semantic green/amber/red. */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
+
+  --color-ink: #1d1f23;
+  --color-mid: #5b6068;
+  --color-soft: #8b9098;
+  --color-line: #d5d8dc;
+  --color-light: #ebedef;
+  --color-fill: #f5f6f7;
+  --color-paper: #ffffff;
+
+  --color-acc: #2f5bd8;
+  --color-acc-dark: #1a43b3;
+  --color-acc-bg: #edf2fe;
+  --color-acc-line: #c5d3f7;
+
+  --color-ok: #1b7f46;
+  --color-ok-bg: #e6f4ec;
+  --color-ok-line: #b9e0c8;
+  --color-warn: #9a6200;
+  --color-warn-bg: #fdf1d6;
+  --color-warn-line: #ecd49b;
+  --color-bad: #c0392b;
+  --color-bad-bg: #fce9e6;
+  --color-bad-line: #f2bdb6;
+  --color-dark: #7a1f16;
+
+  --color-age-ok: #2e9e5e;
+  --color-age-warn: #d9a21b;
+  --color-age-bad: #d9534f;
+  --color-age-dark: #7a1f16;
+
+  --text-2xs: 11px;
+  --text-xs: 11.5px;
+  --text-sm: 12.5px;
+  --text-base: 13px;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    min-width: 1280px;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-acc);
+    outline-offset: 1px;
+  }
+}
+
+@keyframes torch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes torch-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.animate-torch-spin {
+  animation: torch-spin 0.9s linear infinite;
+}
+.animate-torch-pulse {
+  animation: torch-pulse 1.4s ease-in-out infinite;
+}
