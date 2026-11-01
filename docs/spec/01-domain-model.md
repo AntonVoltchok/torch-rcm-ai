@@ -12,12 +12,14 @@ ClaimStatus      = ready | sent | rejected | accepted | pending | denied | parti
 AckStage         = none | file_999_ok | file_999_reject | ch_277ca_a1 | ch_277ca_a7 | payer_277ca_a1 | payer_277ca_a7
 Tier             = 1 | 2 | 3
 RuleMode         = observe | ask | auto | human_only
-RuleTier1Actions = status_check | records_request | resubmit_with_attachment | reprocessing_request | request_835 | send_claim_pms_codes | fix_demographics_resend | eligibility_check
+RuleTier1Actions = status_check | payer_rep_call | records_request | resubmit_with_attachment | reprocessing_request | request_835 | send_claim_pms_codes | fix_demographics_resend | eligibility_check
 RuleTier2Actions = post_era_line | update_pms_benefits | send_claim_agent_text | corrected_claim | patient_transfer | send_statement | mechanical_refund | cob_order_change
 RuleTier3Actions = write_off | formal_appeal | void_claim | discretionary_refund | collections_referral | waiver
 InboxItemKind    = approve_action | review_draft | eligibility_flag | variance | run_failed | rule_proposal | owner_signoff
 InboxItemState   = open | approved | edited | rejected | snoozed | expired | done
-RunStatus        = queued | running | succeeded | failed | cancelled | would_have_run
+RunStatus        = queued | running | paused | succeeded | failed | cancelled | would_have_run
+AgentMode        = deterministic | live
+PlannerKind      = live | scripted | recorded_plan | scripted_fallback
 AgentKind        = eligibility | claims | followup | appeals | posting
 RootCause        = ours | payer | patient | unknown
 DeadlineKind     = timely_filing | appeal | none
@@ -46,7 +48,7 @@ Status-check cadence: **day 30** from send, then every 15 days.
 
 ## Entities (fields that matter; add what you need, don't rename these)
 
-- **Practice** `id, name, locations[], prompt_pay_days_electronic=30, prompt_pay_days_paper=45`
+- **Practice** `id, name, locations[], prompt_pay_days_electronic=30, prompt_pay_days_paper=45, agents_paused (bool), agents_paused_by?, agents_paused_at?`
 - **Location** `id, practice_id, name`
 - **User** `id, name, role, location_ids[], npi?`
 - **Payer** `key, name, payer_id, type (ppo|self_funded_erisa|medicaid), timely_filing_days, appeal_window_days, appeal_levels, file_times[] (e.g. ["10:45","11:15"] for Delta), rules (see 03-mock-world)`
@@ -61,13 +63,13 @@ Status-check cadence: **day 30** from send, then every 15 days.
 - **Attachment** `id, claim_id, kind (pa|bwx|fmx|perio_chart|narrative|eob), nea_number?, source (pms_imaging|agent|user), created_at`
 - **ReadinessCheck** `key (note_signed|procs_match_note|fee_schedule|subscriber_id_format|eligibility_fresh|remaining_max|frequency|tooth_validity|attachment_rule|narrative|cob_order|duplicate|timely_filing), status (pass|warn|fail|na), detail`
 - **AckEvent** `id, claim_id, stage, code?, message, at`
-- **Rule** `id, tier, action, scope {payer_key?, item_type, max_cents?}, mode, confidence_floor?, outcome_metric? (paid_30d|accepted|balanced|none), reverses_in (until_file_leaves|until_day_close|void_only|none), requires_owner_signoff, signed_by?, signed_at?, changed_by, changed_at, ran_without_review_7d, base_rate {n, k}`
+- **Rule** `id, version, origin (authored|learned), tier, action, scope {payer_key?, item_type, max_cents?}, mode, confidence_floor?, outcome_metric? (paid_30d|accepted|balanced|none), reverses_in (until_file_leaves|until_day_close|void_only|none), requires_owner_signoff, signed_by?, signed_at?, changed_by, changed_at, ran_without_review_7d, base_rate {n, k}`
 - **RuleChange** `id, rule_id, at, by, before, after, items_affected_since`
 - **RuleProposal** `id, rule_draft, evidence {approved, total, outcome_k, outcome_n}, root_cause_guard (bool), state (open|accepted|dismissed)`
 - **InboxItem** `id, kind, state, claim_id?, patient_id?, appointment_id?, agent, title, recommendation, confidence {pct, basis}, evidence[] (Evidence ids), proposed_action (action enum + params), tier, group_key? (payer×item_type for batch), created_at, snoozed_until?, resolved_by?, resolved_at?, run_id?`
-- **Evidence** `id, kind, title, excerpt, uri?, captured_at, reference? (ICN, call ref, NEA#)`
-- **Run** `id, agent, trigger (rule|approval|schedule|manual), rule_id?, inbox_item_id?, claim_id?, status, started_at, finished_at?, steps[], result_summary, audit_line`
-- **RunStep** `idx, name, status (pending|running|ok|failed|skipped), started_at?, finished_at?, tool, input_summary, output_summary, evidence_ids[]`
+- **Evidence** `id, kind, title, excerpt, uri?, captured_at, reference? (ICN, call ref, NEA#), suspicious (bool; instructions detected in world content), gathered_by (agent|code)`
+- **Run** `id, agent, trigger (rule|approval|schedule|manual), actor? (user id for manual/approval), rule_id?, inbox_item_id?, claim_id?, parent_run_id?, idempotency_key (unique), status, mode (AgentMode), planner (PlannerKind), situation_key?, model_situation_label?, plan?, started_at, finished_at?, steps[], result_summary, audit_line, usage {model_calls, input, output, cache_read, cache_write, cost_usd_micros}` (agent internals: `docs/spec/07-agents.md`)
+- **RunStep** `idx, name, status (pending|running|ok|failed|skipped), started_at?, finished_at?, tool, input_summary, output_summary, progress_lines[], policy_verdict? (observe|propose|execute|refuse|park), evidence_ids[]`
 - **Remittance** `id, payer_key, kind (835|paper_eob), trace, amount_cents, received_at, deposit_status, lines[] RemitLine, status (auto_posted|needs_review|unmatched)`
 - **RemitLine** `id, remittance_id, claim_id, claim_line_id, billed, allowed, paid, adj[], patient_cents, match (auto|review|unmatched), variance_cents?`
 - **Hold** `id, subject (claim|patient_balance), subject_id, reason, held_since, clears_when, owner_user_id`
@@ -90,3 +92,7 @@ Status-check cadence: **day 30** from send, then every 15 days.
 - A Run with `status=would_have_run` exists iff the governing rule was in `observe`.
 - No Rule with `action ∈ Tier3Actions` has `mode ≠ human_only`.
 - No RuleProposal with `root_cause_guard=true` can be accepted.
+- No tier-2 Rule in `auto` lacks an owner `signed_by`; no Rule with `origin=learned` has `outcome_metric=none`.
+- No action executed (WorldCallLog mutation by an agent run) while `practice.agents_paused`.
+- No agent-triggered Run executed a Tier3 action; no triage Run whose classifier key was `unknown` executed an action itself (its proposals execute only via a later approval run).
+- `WorldCallLog.idempotency_key` and `Run.idempotency_key` are unique.

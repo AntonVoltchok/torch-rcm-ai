@@ -6,8 +6,9 @@ JSON over HTTP; SSE for run progress. All list endpoints accept `?location_id` a
 
 The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 America/New_York). Everything that would be "now" reads `clock.now()`.
 
-- `GET /clock` → `{now, frozen: true}`
-- `POST /clock/advance {minutes | to}` → runs the scheduler for the elapsed interval (files leave, acks arrive, status checks fire, ERAs arrive, holds age) and returns `{now, events_fired}`. Owner-only in the UI (a "⏭ Skip to tomorrow 7:10 AM" control in the sidebar footer, demo-only).
+- `GET /clock` → `{now, frozen: true, advancing?: {advance_id, to}}`
+- `POST /clock/advance {minutes | to}` → **async**: `202 {advance_id, from, to}`. A background task runs the scheduler for the interval (files leave, acks arrive, status checks fire, ERAs arrive, holds age), one due job at a time, draining the agent runs each job spawns before the next (causal barrier). Progress is published on `GET /runs/stream` as `event: advance` `{advance_id, now, events_fired, runs_started, live_runs, done}` after every handler; the last one has `done: true` and the full `events_fired[]`. Errors: `409 advance_in_progress`. Live mode: at most 2 concurrent model calls and `TORCH_ADVANCE_LIVE_RUN_CAP` (default 8) live runs per advance; runs beyond the cap use the scripted planner, labeled. Approvals made during an advance are accepted; their runs queue until it finishes. Owner-only in the UI (a "⏭ Skip to tomorrow 7:10 AM" control in the sidebar footer, demo-only), which shows progress until `done`.
+- `GET /clock/advance/{advance_id}` → the latest `advance` snapshot (polling fallback when SSE is blocked).
 - `POST /clock/reset` → re-seeds the database to the canonical state.
 
 ## Inbox
@@ -35,9 +36,16 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 ## Runs (agents)
 
 - `GET /runs?agent&status&since` · `GET /runs/{id}` → steps, evidence, audit_line.
-- `GET /runs/{id}/events` → **SSE**: `event: step` `{idx, name, status, output_summary, evidence?}`, `event: status` `{status}`, `event: counts` `{...}`, `event: done`. Honors `Last-Event-ID` for reconnect; the server replays missed steps from the stored run.
-- `GET /runs/stream` → SSE firehose of all run status changes (sidebar "5 agents active").
+- `GET /runs/{id}/events` → **SSE**: `event: step` `{idx, name, phase (started|progress|completed|failed), status, output_summary, progress_line?, evidence?}` (`progress` lines carry the reads a live model chose inside `investigate`), `event: status` `{status}` (includes `paused`), `event: counts` `{...}`, `event: done`. Honors `Last-Event-ID` for reconnect; the server replays missed events from the stored `run_events` log.
+- `GET /runs/stream` → SSE firehose of all run status changes (sidebar "5 agents active") plus `event: advance` (see Clock) and `event: agents` `{paused, by, at}`.
 - `POST /runs/{id}:cancel` (only while `queued`).
+
+## Agents (runtime control)
+
+- `GET /agents/status` → `{paused, paused_by?, paused_at?, mode: deterministic|live, live_agents[], running, queued, paused_runs}`.
+- `POST /agents:pause` (owner) → sets `practice.agents_paused`; queued agent jobs are parked (not re-polled), running runs stop at the next step boundary with status `paused`; the simulated world keeps running. Writes an AuditEvent. `403` for non-owners.
+- `POST /agents:resume` (owner) → re-queues parked jobs; paused runs continue from their last completed step.
+- `POST /claims/{id}:triage {agent?: claims|followup}` → `202 {run}`: starts a manual triage run (trigger `manual`, actor = caller) on the claim; defaults to the agent the Router assigns. Errors: `409 run_in_progress` (a run on this claim is queued/running), `409 agents_paused`.
 
 ## Settings › Agents
 
