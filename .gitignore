@@ -1,0 +1,27 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+# node
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+# data / secrets
+*.db
+*.db-journal
+*.sqlite
+.env
+.env.*
+!.env.example
+apps/api/cassettes/live/*.jsonl
+# os / editor
+.DS_Store
+.idea/
+.vscode/

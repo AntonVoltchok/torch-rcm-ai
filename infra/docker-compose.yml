@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: ../../infra/api.Dockerfile
+    environment:
+      - TORCH_AGENT_MODE=${TORCH_AGENT_MODE:-deterministic}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - TORCH_DB_URL=sqlite:////data/torch.db
+      - TORCH_CLOCK_START=${TORCH_CLOCK_START:-2026-10-28T10:40:00-04:00}
+    volumes:
+      - torch-data:/data
+    ports: ["8000:8000"]
+    command: sh -c "torch seed --if-missing && uvicorn torch.api.app:app --host 0.0.0.0 --port 8000"
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: ../../infra/web.Dockerfile
+      args:
+        VITE_API_BASE: http://localhost:8000/api/v1
+    ports: ["5173:80"]
+    depends_on: [api]
+volumes:
+  torch-data:
