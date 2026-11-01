@@ -23,6 +23,7 @@ VISIT_CHECKED_OUT = "visit.checked_out"  # {visit_id, appointment_id}
 HOLD_ESCALATE = "hold.escalate"  # {hold_id, threshold_days}
 ELIGIBILITY_SWEEP = "eligibility.sweep"  # {for_date}
 PROMPT_PAY_DUE = "prompt_pay.due"  # {claim_id}
+TRIAGE = "triage"  # {claim_id, agent?, parent_run_id?}: agent-started triage (overnight 835 denials, retries)
 
 AGENT_KINDS = frozenset(
     {
@@ -35,6 +36,7 @@ AGENT_KINDS = frozenset(
         HOLD_ESCALATE,
         ELIGIBILITY_SWEEP,
         PROMPT_PAY_DUE,
+        TRIAGE,
     }
 )
 

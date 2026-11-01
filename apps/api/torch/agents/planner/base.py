@@ -71,7 +71,8 @@ class EvidenceSet:
     def ids(self, *kinds: EvidenceKind) -> list[str]:
         return [e.id for e in self.of(*kinds)]
 
-    def first(self, kind: EvidenceKind, **data: JsonValue) -> Evidence | None:
+    def first(self, kind: EvidenceKind, /, **data: JsonValue) -> Evidence | None:
+        # positional-only: scripts filter on `data["kind"]` (image kind), e.g. first("pms_record", kind="pa")
         return next((e for e in self.of(kind) if all(e.data.get(k) == v for k, v in data.items())), None)
 
     def by_id(self) -> dict[str, Evidence]:

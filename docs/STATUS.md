@@ -74,3 +74,46 @@ _Updated by whoever ends a session. Newest first._
 - Fix whatever the first lint/typecheck reports; run e2e against mocks, then `E2E_TARGET=real` once torch.agents creates the overnight items.
 - Migrate the S1 shapes (Inbox, ClaimRow, ClaimDetail, RunDetail, `itm_` ids) to the API via `pnpm gen:api` (web-s2.md §3).
 - Coordinator: spec edits (06 step 6 + step 8 wording, 05 Settings guard, 02 `PATCH /settings/practice`); api-core: practice-cap endpoint, typed deadlines on overnight denials, benefits `last_done`, `nav_badges`.
+
+### agents (slice C)
+
+**Done**
+- `torch/agents/definitions/` — declarative `AgentDefinition` per agent (07 §2) + `registry()`; proposable tiers derived from the catalog; `assert_definition()` refuses a proposable tier-3 action (Appeals lists `formal_appeal` under `prepares_only`).
+- `torch/agents/learning.py` — pure `proposal_eligible` (exact-fraction edges, `ours` → eligible-but-guarded), `acceptable`, `draft_rule` (auto, floor 0.90, p95 cap rounded up to $500), `demotion_due`.
+- Additive: `guardrails.terminal_protocol_violation()`, `AgentConfig.budget_stop()`.
+- Tests: `tests/agents/` (policy table every row + invariants + seeded-loop properties, catalog closure, definitions, learning, guardrails, strict schemas, scripted/recorded planner on the pinned cases after the Thursday advance) and `tests/adversarial/` (prompt injection, tier-3 proposals, budgets, terminal-with-reads). Helpers in `tests/agent_world.py`. 195 new tests green, 1 strict xfail.
+- Fixes in core: `EvidenceSet.first()` `kind` param made positional-only (the PA/records scripts crashed on `kind="pa"`); Appeals given the claim reads in `AGENT_READS` (07 §2 "all claim reads"; its packet reads were all refused).
+
+**Open / gaps**
+- xfail `test_foster_remittance_is_a_variance`: `case._remittance_case` classifies by arithmetic balance only, so Foster's PR-1 "deductible applied though met" line posts as `era:balanced`; 04-seed expects a `variance`.
+- `clm_4800` (Moreno CO-22): only one coverage is seeded, so the COB script ends "needs a person" rather than proposing `cob_order_change` (tier 2 → no rule → Dana) as 04-seed describes; tested both ways.
+
+### agents (slice A)
+
+**Done**
+- `torch/agents/executor/` — `Executor.run(run_id)`: fixed pipeline `gather_case → investigate → decide → act:* (recipe) → report`; every world step keyed `{run_id}:{step_idx}:{op}`; RunSteps pending→running→ok/failed/skipped with progress lines, evidence ids and policy verdict; checkpoint after every step pinned to `{model, effort, thinking, system_sha, tools_sha}` (scripted: `system_sha=planner=scripted`), resume from the last ok step (a step left `running` re-executes and gets the stored world result); seeded step delays (`delay_scale`, 0 in tests); world evidence candidates → Evidence rows (`ev_ + sha256(run, idx, seq)`, `world_call_id` provenance); code-built audit line (07 §5.5); `WorldUnavailable` → `world_retry_backoff_s` retries → run failed, `run_failed` item only when a file time or a deadline (≤ `decision_risk_days`) is at risk; triage `propose` reuses or opens one item per (claim, action); `cannot_decide` → one "Needs a person" item.
+- `torch/agents/runtime.py` — `RunStore`, `EventBus` (persisted via `torch.events`, in-process fan-out + store polling fallback, Last-Event-ID replay, seeded runs replay their steps), `AdvanceLimits` (live concurrency / per-advance cap; no-ops deterministic), `AgentRuntime` (`start_run`, `triage`, `pause`/`resume`, `recover`, `status`, outage reschedule +2 h for non-approval runs, LivePlanner slot).
+- `torch/agents/handlers.py` — `register(reg, cfg)`: `run.start`, `triage` (new kind in `scheduler/kinds.py`, in `AGENT_KINDS`), `era.arrived` → one Follow-up `triage` job per denied claim. `torch/agents/api_hooks.py` — `include_agents(app)` (adds only missing routes). `torch/agents/cli.py` — `register(cli)`: `eval` (if absent), `cassette record`.
+- Config: `AgentConfig.world_retry_backoff_s`, `outage_reschedule_minutes`, `decision_risk_days`.
+- Tests: `tests/agents/test_executor.py`, `tests/agents/test_runtime.py` (19).
+
+**Open / next**
+- Wiring into the API app: two lines in `docs/plans/agents-integration.md` (not applied; no extension point).
+- Not in slice A: `claim.rejected`, `claim.status_check_due`, `prompt_pay.due`, `visit.checked_out`, `hold.escalate`, `eligibility.sweep` handlers; posting runs on `era.arrived`; alternate channel on outage (portal → IVR → 276); `required_evidence` back-fill ("added by Torch"); `run_checkpoints`-based re-plan on pin mismatch for live runs (state is kept, messages dropped).
+- `api_hooks` / `cli` are untested here (fastapi, typer not importable).
+
+### agents (slice B)
+
+**Done**
+- `torch/agents/prompts/{claims,followup,appeals}.md` + `prompts/__init__.py`: static system prompts (role, tier policy, closed action list, may/may-not, situation catalog, untrusted `<world_content>` rule, terminal-tool protocol, drafting rules); `load()`, `system_sha`, `tools_for(agent, plan|draft)`, `tools_sha_for`, `plans_live()` (Appeals: scripted plan, live drafting only).
+- `torch/agents/llm/client.py`: pure `build_request(agent, messages, *, model_role)` from the capability table (no sampling params; exec = Sonnet `between_tools`/medium/auto; draft = Opus adaptive/high/auto; fast = Haiku disabled + forced tool, no effort; top-level automatic `cache_control` + one marker on the last system block; strict linted tools; `max_tokens` from config). `LlmClient.messages_create(meta, **body)`: lazy `anthropic` import (`SdkTransport`, `max_retries=0`, non-SDK keys via `extra_body`), retries 429/5xx/529/connection with 1 s·2ⁿ ±25 % (honours `retry-after`, ≤ 30 s), 400 → `LlmBadRequest`, 401/403 → `LiveModeDisabled`, `stop_reason` mapping incl. `refusal`, one `LlmCallRecord` per call (→ `LlmCall` entity; `purpose` field added). `llm/pricing.toml` (cache write 1.25×, read 0.05× Sonnet/Opus, 0.1× Haiku; list prices to re-check before quoting).
+- `torch/agents/llm/cassette.py`: JSONL cassettes (header with `synthetic`, `recorded_at`, `hash_mode`, key {agent, situation_key, system_sha, tools_sha, model, effort, thinking}; one line per call). `CassetteClient` (strict: key mismatch, missing call or request-hash drift → `CassetteMiss`), `RecordingClient`, `synthetic_cassette()`, `restamp_synthetic()` (synthetic only), `record_canonical()` / `record()` for `torch cassette record`.
+- `torch/agents/planner/live.py`: `LivePlanner` (plan loop, one repair turn shared by terminal-with-reads / wrong terminal / schema violation, end_turn nudge, max_tokens retry at 2×, budget check before each call, refusal / API error / `CassetteMiss` → `PlannerFallback(reason)`, thinking blocks passed back unmodified, pin + checkpoint hook, Opus `draft()` with `submit_draft` + text guard + one repair). Code rejects confidence/tier/root cause/amounts, tier-3 or off-list actions, out-of-scope ids and unknown evidence. Evidence is shown under run-local handles `E1…` so messages replay byte-identically. `registry_reader()` for recording/tests.
+- `cassettes/canonical/{clm_4821_group,clm_4744,clm_4709,clm_4731,clm_4796_appeal}.jsonl`: hand-authored, `synthetic: true`, structural hash. They replay against the seeded world and reproduce the reviewed plans.
+- `torch/agents/testing/fakes.py`; tests `tests/agents/test_llm_client.py`, `test_live_planner.py`, `test_cassette.py` (48).
+- `llm/models.py`: Haiku 5.5 accepts effort (default medium) per the red-team facts; the fast profile still omits it.
+
+**Open / next**
+- Re-record the canonical cassettes with a key (`torch cassette record`), then switch them to `hash_mode: full`. The appeal cassette assumes the draft run has ≥ 2 evidence items (E1, E2).
+- Live `submit_result` turn not used: `result()` is the code-built text. No mid-conversation resume (`pin_matches()` exists; on a mismatch, re-plan).
+- Wire `AgentRuntime.llm_client` (`LlmClient(cfg, sink=…, clock=…)` or `CassetteClient(Path("cassettes/canonical"), …)` per `TORCH_CASSETTE_MODE`), and persist `LlmCallRecord.to_entity()` from the sink.

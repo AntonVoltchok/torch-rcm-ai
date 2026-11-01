@@ -18,10 +18,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from torch.domain.enums import NextAction
-from torch.domain.enums import PayerKey as DomainPayerKey
-from torch.domain.enums import RootCause as DomainRootCause
-from torch.domain.routing import route_denial
 from torch.agents.types import (
     UNKNOWN,
     AgentKind,
@@ -34,6 +30,10 @@ from torch.agents.types import (
     Provenance,
     RootCause,
 )
+from torch.domain.enums import NextAction
+from torch.domain.enums import PayerKey as DomainPayerKey
+from torch.domain.enums import RootCause as DomainRootCause
+from torch.domain.routing import route_denial
 
 STALE_ATTACHMENT = timedelta(days=183)
 

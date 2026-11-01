@@ -50,6 +50,12 @@ class AgentConfig(BaseModel):
     scenario: str = "canonical"
     db_path: Path = Path("var/torch.db")
     practice_id: str = "prc_harbor"
+    # 07 §9: WorldUnavailable → retries at these delays (seconds, scaled by `delay_scale`), then the run fails
+    # and a triage run is rescheduled `outage_reschedule_minutes` of sim time later (never an approval run).
+    world_retry_backoff_s: tuple[float, ...] = (2.0, 8.0, 30.0)
+    outage_reschedule_minutes: int = 120
+    # a deadline due within this many days means a person has a decision to make when a run fails
+    decision_risk_days: int = 14
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> AgentConfig:
@@ -61,6 +67,10 @@ class AgentConfig(BaseModel):
                 raw[name] = e[key]
         if isinstance(raw.get("live_agents"), str):
             raw["live_agents"] = frozenset(a.strip() for a in str(raw["live_agents"]).split(",") if a.strip())
+        if isinstance(raw.get("world_retry_backoff_s"), str):
+            raw["world_retry_backoff_s"] = tuple(
+                float(x) for x in str(raw["world_retry_backoff_s"]).split(",") if x.strip()
+            )
         cfg = cls.model_validate(raw)
         cfg.validate_startup()
         return cfg
@@ -81,3 +91,17 @@ class AgentConfig(BaseModel):
             raise ConfigError(f"unknown TORCH_LIVE_AGENTS: {sorted(unknown)}")
         if self.live_agents & {"eligibility", "posting"}:
             raise ConfigError("eligibility and posting are always scripted (07 §2)")
+
+    def budget_stop(self, *, turns: int, reads: int, total_tokens: int, cost_usd_micros: int) -> str | None:
+        """Pure budget check (07 §3.3 "budget stop"): the reason a run must stop, or None while within budget.
+
+        Limits are inclusive (exactly `run_max_reads` reads is allowed; one more stops the run)."""
+        if reads > self.run_max_reads:
+            return f"read budget: {reads} reads > {self.run_max_reads}"
+        if turns > self.run_max_turns:
+            return f"turn budget: {turns} turns > {self.run_max_turns}"
+        if total_tokens > self.run_token_budget:
+            return f"token budget: {total_tokens} > {self.run_token_budget}"
+        if cost_usd_micros > round(self.run_cost_cap_usd * 1_000_000):
+            return f"cost cap: ${cost_usd_micros / 1_000_000:.2f} > ${self.run_cost_cap_usd:.2f}"
+        return None

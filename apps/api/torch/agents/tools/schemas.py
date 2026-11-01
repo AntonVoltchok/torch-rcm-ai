@@ -127,7 +127,9 @@ READ_TOOLS: dict[str, JsonSchema] = {
 AGENT_READS: dict[AgentKind, tuple[str, ...]] = {
     "followup": ("pms_get_visit", "pms_find_images", "pms_get_coverage", "payer_rulebook_lookup", "claim_get_history"),
     "claims": ("pms_get_visit", "pms_find_images", "pms_get_coverage", "payer_rulebook_lookup", "claim_get_history"),
-    "appeals": (),
+    # Appeals reads every claim read (07 §2: "all claim reads"); its scripts gather the packet through this
+    # registry. It is still never a live planner (drafting only), so these never reach a plan conversation.
+    "appeals": ("pms_get_visit", "pms_find_images", "pms_get_coverage", "payer_rulebook_lookup", "claim_get_history"),
     "eligibility": ("pms_get_coverage", "payer_rulebook_lookup", "claim_get_history"),
     "posting": ("era_get_remittance", "claim_get_history", "pms_get_coverage"),
 }

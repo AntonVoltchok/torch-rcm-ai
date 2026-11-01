@@ -55,8 +55,8 @@ from torch.domain.entities import (
     FileEntry,
     Hold,
     Image,
-    PatientLedgerEntry,
     Patient,
+    PatientLedgerEntry,
     PayerClaim,
     Practice,
     ProcedureLine,
@@ -247,7 +247,7 @@ class SimWorld:
         except WorldUnavailableError as exc:
             raise WorldUnavailable(str(exc), exc.retry_after) from exc
 
-    def _read(self, op: str, args: Mapping[str, JsonValue], run_id: str | None) -> WorldRead:  # noqa: PLR0912
+    def _read(self, op: str, args: Mapping[str, JsonValue], run_id: str | None) -> WorldRead:
         now = self.clock.now()
         if op == "pms.get_visit":
             resp = self.world.pms.get_visit(_s(args, "visit_id"), run_id=run_id)
@@ -524,7 +524,7 @@ class SimWorld:
             ]
         return []
 
-    def _act(self, op: str, args: Mapping[str, JsonValue], key: str, run_id: str) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
+    def _act(self, op: str, args: Mapping[str, JsonValue], key: str, run_id: str) -> dict[str, Any]:  # noqa: PLR0912, PLR0915
         w = self.world
         now = self.clock.now()
         claim_id = args.get("claim_id")

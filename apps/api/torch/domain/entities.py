@@ -656,6 +656,7 @@ class LlmCall(Entity):
     seq: int
     model: str
     at: datetime
+    purpose: str = ""  # plan | draft (07 §7)
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0

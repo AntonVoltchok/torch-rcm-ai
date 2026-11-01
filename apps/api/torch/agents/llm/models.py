@@ -58,8 +58,10 @@ CAPABILITIES: dict[str, Capability] = {
     "claude-haiku-5-5": Capability(
         family="claude-haiku-5-5",
         thinking=frozenset({"disabled", "adaptive"}),
-        tool_choice=frozenset({"auto", "any", "tool", "none"}),
-        efforts=frozenset(),
+        tool_choice=frozenset(
+            {"auto", "any", "tool", "none"}
+        ),  # forced choice accepted; with thinking it skips thinking
+        efforts=frozenset({"low", "medium", "high"}),  # accepted (default medium); the fast profile omits it
         cache_read_multiplier=0.1,
     ),
 }
@@ -98,9 +100,7 @@ def capability(model: str) -> Capability:
     return CAPABILITIES[family]
 
 
-def make_profile(
-    role: Role, model: str, effort: Effort | None, *, forced_tool: str | None = None
-) -> ModelProfile:
+def make_profile(role: Role, model: str, effort: Effort | None, *, forced_tool: str | None = None) -> ModelProfile:
     cap = capability(model)
     thinking: ThinkingType = {"exec": "between_tools", "draft": "adaptive", "fast": "disabled"}[role]  # type: ignore[assignment]
     if thinking not in cap.thinking:
@@ -126,7 +126,9 @@ def make_profile(
     )
 
 
-def profiles(model_exec: str, model_draft: str, model_fast: str, effort_exec: Effort, effort_draft: Effort) -> dict[Role, ModelProfile]:
+def profiles(
+    model_exec: str, model_draft: str, model_fast: str, effort_exec: Effort, effort_draft: Effort
+) -> dict[Role, ModelProfile]:
     return {
         "exec": make_profile("exec", model_exec, effort_exec),
         "draft": make_profile("draft", model_draft, effort_draft),

@@ -139,3 +139,27 @@ def guard_draft(
         if others:
             errors.append(f"segment {i}: mentions another patient ({', '.join(sorted(others))})")
     return GuardResult(ok=not errors, errors=tuple(errors))
+
+
+# ---------------------------------------------------------------- terminal-tool protocol (07 §3.3)
+
+TERMINAL_TOOL_NAMES: frozenset[str] = frozenset({"submit_plan", "submit_result", "submit_draft"})
+
+
+def _tool_name(use: object) -> str:
+    if isinstance(use, str):
+        return use
+    if isinstance(use, dict):
+        return str(use.get("name", ""))
+    return str(getattr(use, "name", ""))
+
+
+def terminal_protocol_violation(tool_uses: Sequence[object]) -> bool:
+    """True when one assistant turn sends a terminal tool alongside any other tool use (reads, or a second
+    terminal). The loop answers every tool_use in that turn with `is_error` and asks for a repair.
+
+    Accepts tool names, `{"name": ...}` dicts (API content blocks) or objects with `.name`.
+    """
+    names = [_tool_name(u) for u in tool_uses]
+    terminals = [n for n in names if n in TERMINAL_TOOL_NAMES]
+    return bool(terminals) and len(names) > 1
