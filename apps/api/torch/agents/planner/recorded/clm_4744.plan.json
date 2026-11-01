@@ -1,0 +1,23 @@
+{
+  "claim_id": "clm_4744",
+  "agent": "followup",
+  "recorded_from": "live triage (claude-sonnet-5-5, effort medium) replayed from cassettes/canonical/followup/unknown/clm_4744.jsonl",
+  "reviewed_by": "usr_dana",
+  "reviewed_on": "2026-11-01",
+  "situation_description": "payer asks for missing-tooth history",
+  "reads": [
+    {"tool": "claim_get_history", "args": {"claim_id": "clm_4744", "include": ["correspondence"]}},
+    {"tool": "pms_get_visit", "args": {"visit_id": "vis_0302_hale"}}
+  ],
+  "actions": [
+    {
+      "action": "records_request",
+      "params": {"claim_id": "clm_4744", "image_ids": [], "note_visit_ids": ["vis_0302_hale"]},
+      "evidence": ["read:0", "read:1:note_excerpt"],
+      "rationale": "MetLife asks for the extraction date of #14 and whether the bridge is an initial placement; the signed 2019-03-02 note documents the extraction, so send it."
+    }
+  ],
+  "no_action_reason": null,
+  "reviewer_summary": "MetLife's 10/22 correspondence asks when #14 was extracted and whether this is an initial placement. The PMS has a signed extraction note for #14 dated 2019-03-02; send it as a records request.",
+  "injection_suspected": false
+}

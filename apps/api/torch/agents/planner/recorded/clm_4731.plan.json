@@ -1,0 +1,22 @@
+{
+  "claim_id": "clm_4731",
+  "agent": "followup",
+  "recorded_from": "live triage (claude-sonnet-5-5, effort medium) replayed from cassettes/canonical/followup/unknown/clm_4731.jsonl",
+  "reviewed_by": "usr_dana",
+  "reviewed_on": "2026-11-01",
+  "situation_description": "adjudicated per the portal but no 835 on file",
+  "reads": [
+    {"tool": "claim_get_history", "args": {"claim_id": "clm_4731", "include": ["correspondence", "remits"]}}
+  ],
+  "actions": [
+    {
+      "action": "request_835",
+      "params": {"claim_id": "clm_4731"},
+      "evidence": ["read:0"],
+      "rationale": "Guardian's portal says the claim was adjusted on an EOB dated 10/20, and no remittance for it is on file; request the 835 so it can be posted."
+    }
+  ],
+  "no_action_reason": null,
+  "reviewer_summary": "Guardian's portal shows the claim adjusted (EOB 10/20) but no 835 is on file. Request the 835.",
+  "injection_suspected": false
+}

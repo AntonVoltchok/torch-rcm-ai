@@ -1,0 +1,23 @@
+{
+  "claim_id": "clm_4709",
+  "agent": "followup",
+  "recorded_from": "live triage (claude-sonnet-5-5, effort medium) replayed from cassettes/canonical/followup/unknown/clm_4709.jsonl",
+  "reviewed_by": "usr_dana",
+  "reviewed_on": "2026-11-01",
+  "situation_description": "consultant cannot read the narrative and asks for it again",
+  "reads": [
+    {"tool": "claim_get_history", "args": {"claim_id": "clm_4709", "include": ["correspondence", "attachments"]}},
+    {"tool": "pms_get_visit", "args": {"visit_id": "vis_0904_nakamura"}}
+  ],
+  "actions": [
+    {
+      "action": "records_request",
+      "params": {"claim_id": "clm_4709", "image_ids": [], "note_visit_ids": ["vis_0904_nakamura"]},
+      "evidence": ["read:0", "read:1"],
+      "rationale": "Cigna's consultant has the x-rays but cannot read the narrative; resend the clinical note for the 09/04 visit through NEA."
+    }
+  ],
+  "no_action_reason": null,
+  "reviewer_summary": "Cigna says the claim is with the dental consultant, x-rays received, narrative illegible. Resend the visit's clinical note as records.",
+  "injection_suspected": false
+}
