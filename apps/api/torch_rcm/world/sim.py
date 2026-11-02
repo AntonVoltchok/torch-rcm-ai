@@ -531,11 +531,12 @@ class PayerSim:
         claim.paid_cents, claim.patient_resp_cents, claim.paid_at = result.paid, result.patient, now
         claim.in_flight = None
         if result.denial_carc:
+            ours = claim.denial is not None and claim.denial.root_cause is RootCause.OURS  # outlives a re-adjudication
             claim.denial = Denial(
                 carc=result.denial_carc,
                 rarc=result.denial_rarc,
                 decoded=decode(result.denial_carc, result.denial_rarc),
-                root_cause=RootCause.PAYER,
+                root_cause=RootCause.OURS if ours else RootCause.PAYER,
             )
             claim.reason_text = (
                 f"{result.denial_carc} · {result.denial_rarc}" if result.denial_rarc else result.denial_carc

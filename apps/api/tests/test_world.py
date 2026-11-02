@@ -7,8 +7,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from torch_rcm.domain.entities import Claim, Coverage, Visit, WorldCallLog
-from torch_rcm.domain.enums import ClaimStatus, PayerKey
+from torch_rcm.domain.entities import Claim, Coverage, PayerClaim, Visit, WorldCallLog
+from torch_rcm.domain.enums import ClaimStatus, PayerKey, RootCause
 from torch_rcm.runtime import Runtime
 from torch_rcm.world.calendar import FILE_TIMES, is_business_day, next_file_time
 from torch_rcm.world.calllog import WorldUnavailableError
@@ -91,3 +91,21 @@ def test_file_times_and_business_days() -> None:
 def test_keyed_rng_is_stable() -> None:
     assert keyed_int(1, 0, 10**6, "clm_4821") == keyed_int(1, 0, 10**6, "clm_4821")
     assert keyed_int(1, 0, 10**6, "clm_4821") != keyed_int(1, 0, 10**6, "clm_4822")
+
+
+@pytest.mark.parametrize(("stored", "kept"), [(RootCause.OURS, RootCause.OURS), (RootCause.PAYER, RootCause.PAYER)])
+def test_a_second_denial_keeps_a_recorded_ours(rt: Runtime, stored: RootCause, kept: RootCause) -> None:
+    """Re-adjudication replaces the denial, and that must never loosen the `ours` guard."""
+    claim = rt.store.require(Claim, "clm_4821")
+    assert claim.denial is not None
+    claim.denial = claim.denial.model_copy(update={"root_cause": stored})
+    claim.status = ClaimStatus.PENDING
+    rt.store.update(claim)
+    pc = rt.store.require(PayerClaim, claim.id)
+    pc.outcome = "CO-16:N29"
+    rt.store.update(pc)
+
+    rt.world.payer(PayerKey.DELTA_NY)._adjudicate(pc, rt.clock.now(), "rem_again", 0)
+
+    denial = rt.store.require(Claim, claim.id).denial
+    assert denial is not None and denial.carc == "CO-16" and denial.root_cause is kept
