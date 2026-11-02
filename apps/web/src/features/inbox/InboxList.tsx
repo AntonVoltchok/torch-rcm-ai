@@ -69,9 +69,7 @@ function GroupBlock(props: {
         <button type="button" onClick={props.onOpen} aria-expanded={expanded} className="block w-full text-left" data-item-id={groupRowId(group.group_key)}>
           <span className="flex items-center gap-1.5">
             <span className="w-[76px] flex-none text-[10px] font-extrabold uppercase tracking-[.04em] text-bad">Denial ×{group.count}</span>
-            <span className="truncate font-bold">
-              {group.title} ({group.count})
-            </span>
+            <span className="truncate font-bold">{group.title}</span>
             <span className="ml-auto font-bold">{money(group.cents)}</span>
           </span>
         </button>

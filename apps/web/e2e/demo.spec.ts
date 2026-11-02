@@ -48,7 +48,7 @@ test('demo steps 1–10 @demo', async ({ page }) => {
     const group = page.locator('[data-group-key]').filter({ hasText: 'missing PA x-ray (3)' })
     await expect(group).toContainText('$3,730')
     await group.getByRole('button', { name: /missing PA x-ray \(3\)/ }).click()
-    await expect(page).toHaveURL(/item=inb_4821/)
+    await expect(page).toHaveURL(/item=itm_4821/)
     const detail = page.getByRole('article', { name: /#4821/ })
     await expect(detail.getByRole('heading', { name: '#4821 · K. Owens' })).toBeVisible()
     await expect(detail.getByText(/Why 92%:/)).toBeVisible()
@@ -102,9 +102,10 @@ test('demo steps 1–10 @demo', async ({ page }) => {
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: '‹ Inbox' })).toBeVisible()
     await expect(page.getByTestId('no-open-items')).toContainText('resubmit queued · leaves 11:15')
     const timeline = page.getByRole('region', { name: 'Timeline' })
-    await expect(timeline).toContainText('Built claim at checkout with BWX')
+    await expect(timeline).toContainText('built claim #4821 at checkout')
+    await expect(timeline).toContainText('BWX NEA# 47720913')
     await expect(timeline).toContainText('root cause: ours')
-    await expect(timeline.locator('li[data-lane]').last()).toContainText('Resubmitted with PA')
+    await expect(timeline.locator('li[data-lane]').last()).toContainText('resubmit with the NEA#')
   })
 
   await test.step('5 · Denied 5 tile → /claims?status=denied; refresh keeps it; j j enter opens Webb; back', async () => {
@@ -269,7 +270,7 @@ test('static screens read seed data: Today’s claims, Eligibility (J. Chen) @de
 
 test('reload mid-run resubscribes and finishes @demo', async ({ page }) => {
   await freshDemo(page)
-  await page.goto('/inbox?item=inb_4705')
+  await page.goto('/inbox?item=itm_4705')
   await page.getByRole('button', { name: /Approve & run/ }).click()
   const panel = page.getByRole('region', { name: 'Agent progress' })
   await expect(panel).toBeVisible()

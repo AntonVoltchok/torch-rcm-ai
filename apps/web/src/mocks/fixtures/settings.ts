@@ -128,11 +128,11 @@ export function buildProposals(): RuleProposal[] {
 
 /** Which rule each of the 12 seeded inbox items was proposed under (API: InboxItem.rule_id). */
 export const ITEM_RULE: Record<string, string> = {
-  inb_4821: 'rule_t1_delta_pa',
-  inb_4836: 'rule_t1_delta_pa',
-  inb_4840: 'rule_t1_delta_pa',
-  inb_4705: 'rule_t1_reprocessing',
-  inb_4851: 'rule_t1_fix_demographics',
-  inb_4772: 'rule_t2_post_era',
-  inb_4748: 'rule_t2_patient_transfer',
+  itm_4821: 'rule_t1_delta_pa',
+  itm_4836: 'rule_t1_delta_pa',
+  itm_4840: 'rule_t1_delta_pa',
+  itm_4705: 'rule_t1_reprocessing',
+  itm_4851: 'rule_t1_fix_demographics',
+  itm_4772: 'rule_t2_post_era',
+  itm_4748: 'rule_t2_patient_transfer',
 }

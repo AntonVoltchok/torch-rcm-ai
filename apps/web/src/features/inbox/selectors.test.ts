@@ -15,27 +15,27 @@ describe('inbox selectors', () => {
     if (first?.type === 'group') {
       expect(first.group.count).toBe(3)
       expect(first.group.cents).toBe(373_000)
-      expect(first.members.map((m) => m.id)).toEqual(['inb_4821', 'inb_4836', 'inb_4840'])
+      expect(first.members.map((m) => m.id)).toEqual(['itm_4821', 'itm_4836', 'itm_4840'])
     }
   })
 
   it('treats a collapsed group as one keyboard stop and an expanded one as its members', () => {
-    expect(keyOrder(list(), undefined).slice(0, 2)).toEqual([`group:${GROUP_DELTA_PA}`, 'inb_4733'])
-    expect(keyOrder(list(), GROUP_DELTA_PA).slice(0, 4)).toEqual(['inb_4821', 'inb_4836', 'inb_4840', 'inb_4733'])
+    expect(keyOrder(list(), undefined).slice(0, 2)).toEqual([`group:${GROUP_DELTA_PA}`, 'itm_4733'])
+    expect(keyOrder(list(), GROUP_DELTA_PA).slice(0, 4)).toEqual(['itm_4821', 'itm_4836', 'itm_4840', 'itm_4733'])
   })
 
   it('moves the selection to the next item after a group leaves', () => {
     const order = itemOrder(list())
-    expect(nextSelection(order, ['inb_4821', 'inb_4836', 'inb_4840'], 'inb_4821')).toBe('inb_4733')
-    expect(nextSelection(order, ['inb_elig_park'], 'inb_elig_park')).toBe('inb_elig_kim')
+    expect(nextSelection(order, ['itm_4821', 'itm_4836', 'itm_4840'], 'itm_4821')).toBe('itm_4733')
+    expect(nextSelection(order, ['itm_elig_park'], 'itm_elig_park')).toBe('itm_elig_kim')
     expect(nextSelection(['a'], ['a'], 'a')).toBeUndefined()
   })
 
   it('projects the optimistic removal: the group shrinks, then vanishes', () => {
-    const one = withoutItems(list(), ['inb_4821'])
+    const one = withoutItems(list(), ['itm_4821'])
     expect(one.total).toBe(11)
     expect(inboxGroups(one)[0]).toMatchObject({ count: 2, cents: 249_000 })
-    const all = withoutItems(list(), ['inb_4821', 'inb_4836', 'inb_4840'])
+    const all = withoutItems(list(), ['itm_4821', 'itm_4836', 'itm_4840'])
     expect(all.total).toBe(9)
     expect(inboxGroups(all)).toHaveLength(0)
   })

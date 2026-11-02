@@ -197,12 +197,12 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
       db
         .inbox({})
         .items.map((i) => i.id)
-        .filter((id) => !id.startsWith('inb_elig_'))
+        .filter((id) => !id.startsWith('itm_elig_'))
         .sort(),
-    ).toEqual(['inb_3561', 'inb_4611', 'inb_4690', 'inb_4705', 'inb_4733', 'inb_4744', 'inb_4748', 'inb_4760', 'inb_4764', 'inb_4772', 'inb_4796', 'inb_4797', 'inb_4800', 'inb_4851'])
-    expect(db.inbox({}).items.find((i) => i.id === 'inb_4690')).toMatchObject({ agent: 'followup', tier: 1, proposed_action: { action: 'status_check' }, rule_id: 'rule_t1_status_check' })
-    expect(db.inbox({}).items.find((i) => i.id === 'inb_4800')).toMatchObject({ tier: 2, rule_id: null })
-    expect(db.inbox({}).items.find((i) => i.id === 'inb_4797')).toMatchObject({ tier: 1, root_cause: 'ours' })
+    ).toEqual(['itm_3561', 'itm_4611', 'itm_4690', 'itm_4705', 'itm_4733', 'itm_4744', 'itm_4748', 'itm_4760', 'itm_4764', 'itm_4772', 'itm_4796', 'itm_4797', 'itm_4800', 'itm_4851'])
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4690')).toMatchObject({ agent: 'followup', tier: 1, proposed_action: { action: 'status_check' }, rule_id: 'rule_t1_status_check' })
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4800')).toMatchObject({ tier: 2, rule_id: null })
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4797')).toMatchObject({ tier: 1, root_cause: 'ours' })
     for (const id of ['clm_4821', 'clm_4836', 'clm_4840']) {
       const { claim: c } = db.claim(id)
       expect(c.status).toBe('denied')

@@ -7,7 +7,13 @@ import { cn } from '@/lib/cn'
 import { AGE_BUCKETS, AGE_LABEL, AgeBucket, type ClaimsSearch } from './search'
 
 const route = getRouteApi('/claims/')
-const PROVIDERS = ['Dr. Morgan', 'Dr. Lee', 'RDH M. Cole']
+/** GET /claims filters on `provider_id`; the API has no provider list, and the demo practice's four do not change. */
+const PROVIDERS = [
+  { id: 'prv_morgan', name: 'Dr. Morgan' },
+  { id: 'prv_lee', name: 'Dr. Lee' },
+  { id: 'prv_cole', name: 'RDH M. Cole' },
+  { id: 'prv_baptiste', name: 'RDH J. Baptiste' },
+]
 
 /** Every control writes the URL (replace, so typing doesn't flood history); nothing is held locally but the search box draft. */
 export function ClaimsFilters() {
@@ -42,7 +48,9 @@ export function ClaimsFilters() {
       <select aria-label="Provider" className={select} value={search.provider ?? ''} onChange={(e) => set({ provider: e.target.value || undefined })}>
         <option value="">Provider: All</option>
         {PROVIDERS.map((p) => (
-          <option key={p}>{p}</option>
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
         ))}
       </select>
       <select aria-label="Age" className={select} value={search.age ?? ''} onChange={(e) => set({ age: AgeBucket.safeParse(e.target.value).data })}>

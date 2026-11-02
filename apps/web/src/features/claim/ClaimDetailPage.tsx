@@ -93,7 +93,7 @@ export function ClaimDetailPage() {
   const tone = ageTone(c.age_days)
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title={`Claim #${c.number}`} sub={`${d.patient.name} · ${payerName}`}>
+      <PageHeader title={`Claim #${c.number}`} sub={`${d.patient.display_name} · ${payerName}`}>
         <TriageButton claim={d} onLaunched={(l) => openLaunch(l.id)} />
       </PageHeader>
       <nav aria-label="Breadcrumb" className="flex flex-none items-center gap-2 border-b border-line bg-fill px-[18px] py-1.5 text-sm text-mid">
@@ -119,7 +119,7 @@ export function ClaimDetailPage() {
           {launch && <ProgressPanel launch={launch} fromInbox={false} onClose={() => void navigate({ search: (s) => ({ ...s, launch: undefined }), replace: true })} />}
           <OpenItemsPanel claim={d} onLaunched={(l) => openLaunch(l.id)} />
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="m-0 text-[18px] font-bold">{d.patient.name}</h2>
+            <h2 className="m-0 text-[18px] font-bold">{d.patient.display_name}</h2>
             <span className="text-sm text-mid">
               {[d.patient.dob ? `DOB ${longDate(d.patient.dob)}` : null, d.coverage.plan_name, `DOS ${longDate(c.dos)}`, d.provider_name].filter(Boolean).join(' · ')}
             </span>

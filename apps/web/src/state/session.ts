@@ -63,7 +63,7 @@ export const session = {
       l()
     })
   },
-  subscribe(listener: () => void): () => void {
+  subscribe: (listener: () => void): (() => void) => {
     listeners.add(listener)
     return () => listeners.delete(listener)
   },

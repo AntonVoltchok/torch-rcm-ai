@@ -67,7 +67,7 @@ export function toApiParams(s: ClaimsSearch): ClaimsApiParams {
 /** The filter part of the search, as stored in a saved view. */
 export function filtersOf(s: ClaimsSearch): Omit<ClaimsSearch, 'view' | 'row'> {
   const { view: _view, row: _row, ...rest } = s
-  return Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)) as Omit<ClaimsSearch, 'view' | 'row'>
+  return Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined))
 }
 
 export function parseSort(sort: SortParam): { field: SortField; desc: boolean } {

@@ -49,7 +49,7 @@ export const launchStore = {
     commit([])
   },
   find: (id: string | undefined) => (id ? launches.find((l) => l.id === id) : undefined),
-  subscribe(l: () => void) {
+  subscribe: (l: () => void) => {
     listeners.add(l)
     return () => listeners.delete(l)
   },

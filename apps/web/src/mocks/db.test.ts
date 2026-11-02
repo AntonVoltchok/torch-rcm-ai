@@ -48,7 +48,7 @@ describe('mock API', () => {
 
   it('replays only events after Last-Event-ID', () => {
     const { db, drain } = setup()
-    const { run } = db.approve('inb_4705', 'usr_dana')
+    const { run } = db.approve('itm_4705', 'usr_dana')
     if (!run) throw new Error('approving a claim item starts a run')
     drain()
     const all = db.subscribeRun(run.id, null, () => undefined).replay
@@ -73,14 +73,14 @@ describe('mock API', () => {
   it('speaks the API’s wire shapes: InboxItemOut, InboxItemDetail, RunDetail (strict Zod parses)', () => {
     const { db, drain } = setup()
     const list = InboxList.parse(db.inbox({}))
-    const pa = list.items.find((i) => i.id === 'inb_4821')
+    const pa = list.items.find((i) => i.id === 'itm_4821')
     expect(pa).toMatchObject({ claim: { id: 'clm_4821', number: 4821, payer: { key: 'delta_ny' } }, patient: { display_name: 'K. Owens' }, evidence_ids: ['ev_4821_portal', 'ev_4821_pms', 'ev_4821_era'] })
     expect(pa).not.toHaveProperty('evidence')
-    expect(list.items.find((i) => i.id === 'inb_elig_chen')).toMatchObject({ claim: null, patient: { id: 'pat_chen_j' } })
-    const detail = InboxItemDetail.parse(db.inboxItem('inb_4821'))
+    expect(list.items.find((i) => i.id === 'itm_elig_chen')).toMatchObject({ claim: null, patient: { id: 'pat_chen_j' } })
+    const detail = InboxItemDetail.parse(db.inboxItem('itm_4821'))
     expect(detail.evidence.map((e) => e.id)).toEqual(['ev_4821_portal', 'ev_4821_pms', 'ev_4821_era'])
     expect(detail.plan_steps).toHaveLength(4)
-    const { run } = db.approve('inb_4705', 'usr_dana')
+    const { run } = db.approve('itm_4705', 'usr_dana')
     drain()
     const rd = RunDetail.parse(db.run(run?.id ?? ''))
     expect(rd.run.status).toBe('succeeded')
@@ -91,12 +91,12 @@ describe('mock API', () => {
 
   it('refuses what the server refuses', () => {
     const { db } = setup()
-    expect(() => db.alwaysAutoRun('inb_4821')).toThrow(/Root cause is ours/)
-    db.approve('inb_4705', 'usr_dana')
-    expect(() => db.approve('inb_4705', 'usr_dana')).toThrow(/Already/)
-    db.departFile('inb_4851', '10:45')
+    expect(() => db.alwaysAutoRun('itm_4821')).toThrow(/Root cause is ours/)
+    db.approve('itm_4705', 'usr_dana')
+    expect(() => db.approve('itm_4705', 'usr_dana')).toThrow(/Already/)
+    db.departFile('itm_4851', '10:45')
     try {
-      db.approve('inb_4851', 'usr_dana')
+      db.approve('itm_4851', 'usr_dana')
     } catch (e) {
       expect((e as MockError).code).toBe('file_departed')
       expect((e as MockError).alternatives).toEqual(['corrected_claim'])

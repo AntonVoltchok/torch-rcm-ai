@@ -166,7 +166,7 @@ const base = {
 function paItem(n: number, patient: string, tooth: string, cents: number, pct: number, created: string): MockInboxItem {
   return {
     ...base,
-    id: `inb_${n}`,
+    id: `itm_${n}`,
     kind: 'approve_action',
     claim_id: `clm_${n}`,
     agent: 'followup',
@@ -198,7 +198,7 @@ export function buildInbox(): MockInboxItem[] {
     paItem(4840, 'F. Diaz', '14', 131000, 93, '10/19'),
     {
       ...base,
-      id: 'inb_4733',
+      id: 'itm_4733',
       kind: 'review_draft',
       claim_id: 'clm_4733',
       agent: 'appeals',
@@ -216,7 +216,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_4611',
+      id: 'itm_4611',
       kind: 'approve_action',
       claim_id: 'clm_4611',
       agent: 'posting',
@@ -234,7 +234,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_4705',
+      id: 'itm_4705',
       kind: 'approve_action',
       claim_id: 'clm_4705',
       agent: 'followup',
@@ -251,7 +251,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_4851',
+      id: 'itm_4851',
       kind: 'approve_action',
       claim_id: 'clm_4851',
       agent: 'claims',
@@ -268,7 +268,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_4772',
+      id: 'itm_4772',
       kind: 'variance',
       claim_id: 'clm_4772',
       agent: 'posting',
@@ -285,7 +285,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_4748',
+      id: 'itm_4748',
       kind: 'approve_action',
       claim_id: 'clm_4748',
       agent: 'posting',
@@ -302,7 +302,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_elig_chen',
+      id: 'itm_elig_chen',
       kind: 'eligibility_flag',
       claim_id: null,
       appointment_id: 'appt_chen_1029',
@@ -319,7 +319,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_elig_kim',
+      id: 'itm_elig_kim',
       kind: 'eligibility_flag',
       claim_id: null,
       appointment_id: 'appt_kim_1029',
@@ -336,7 +336,7 @@ export function buildInbox(): MockInboxItem[] {
     },
     {
       ...base,
-      id: 'inb_elig_park',
+      id: 'itm_elig_park',
       kind: 'eligibility_flag',
       claim_id: null,
       appointment_id: 'appt_park_1030',

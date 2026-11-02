@@ -53,7 +53,7 @@ import type {
 } from './wire'
 import { CLAIM_STATUSES, Evidence as EvidenceSchema } from '@/api/schema'
 import type { ClaimsApiParams } from '@/features/claims/search'
-import { at, buildClaims, FROZEN_NOW, OWENS_RUNS, paidTileCents, STATUS_CHECK_CLAIMS, type MockClaim, type MockTimelineEntry } from './fixtures/claims'
+import { at, buildClaims, FROZEN_NOW, OWENS_RUNS, paidTileCents, PROVIDER_ID, STATUS_CHECK_CLAIMS, type MockClaim, type MockTimelineEntry } from './fixtures/claims'
 import { buildInbox, EVIDENCE, GROUP_META, type MockInboxItem } from './fixtures/inbox'
 import { buildProposals, buildRuleChanges, buildRules, ITEM_RULE, PRACTICE_CAP_CENTS, TIER_TEXT } from './fixtures/settings'
 import {
@@ -435,7 +435,8 @@ export class MockDb {
       total: items.length,
       total_cents: items.reduce((a, i) => a + i.cents, 0),
       next_cursor: null,
-      groups: groups.filter((g) => g.count > 1),
+      // As the API titles a group: the count is in the string.
+      groups: groups.filter((g) => g.count > 1).map((g) => ({ ...g, title: `${g.title} (${g.count})` })),
     }
   }
 
@@ -448,7 +449,7 @@ export class MockDb {
   private row(c: MockClaim): ClaimRow {
     return {
       ...this.summary(c),
-      provider_id: `prv_${c.provider_name.replace(/\W+/g, '_').toLowerCase()}`,
+      provider_id: PROVIDER_ID[c.provider_name] ?? 'prv_morgan',
       provider_name: c.provider_name,
       location_id: c.location_id,
       agent_note: this.openItems().find((i) => i.claim_id === c.id)?.title ?? c.in_flight ?? c.agent_note,
@@ -462,7 +463,7 @@ export class MockDb {
     if (p.status?.length) rows = rows.filter((c) => p.status?.includes(c.status))
     if (p.needs_action) rows = rows.filter((c) => this.needsAction(c.id))
     if (p.payer) rows = rows.filter((c) => c.payer_key === p.payer)
-    if (p.provider) rows = rows.filter((c) => c.provider_name === p.provider)
+    if (p.provider) rows = rows.filter((c) => PROVIDER_ID[c.provider_name] === p.provider)
     if (p.age_bucket) {
       const bounds: Record<string, [number, number]> = { '0_30': [0, 30], '31_60': [31, 60], '61_90': [61, 90], '90_plus': [91, 99999] }
       const [lo, hi] = bounds[p.age_bucket] ?? [0, 99999]
@@ -523,11 +524,11 @@ export class MockDb {
         allowed_cents: allowed,
         contractual_cents: allowed === null ? null : c.billed_cents - allowed,
         insurance_est_cents: null,
-        patient_est_cents: null,
+        patient_est_cents: c.patient_resp_cents,
         paid_cents: c.paid_cents,
         writeoff_cents: c.writeoff_cents,
         patient_resp_cents: c.patient_resp_cents,
-        basis: c.status === 'paid' || c.status === 'partial' ? 'per 835' : 'no 835 yet',
+        basis: c.status === 'paid' || c.status === 'partial' ? 'per 835' : `estimate from contract allowed · ${coverageFor(c).plan_name}`,
       },
       timeline: c.timeline.map((e) => ({ ...e, kind: e.lane })),
       timeline_next_cursor: null,
@@ -752,7 +753,7 @@ export class MockDb {
     const claim = this.s.claims.find((c) => c.id === claimId)
     if (!claim) throw new MockError(404, 'not_found', `Claim ${claimId} not found`)
     const item: MockInboxItem = {
-      id: this.id('inb'),
+      id: this.id('itm'),
       kind: 'review_draft',
       state: 'open',
       claim_id: claimId,
@@ -938,7 +939,7 @@ export class MockDb {
       c.reason_text = `${d.carc}${d.rarc ? ` · ${d.rarc}` : ''}`
       c.agent_note = d.item.tier === 3 ? 'appeal drafted · person signs' : d.root_cause === 'ours' ? 'held · root cause ours' : 'fix proposed'
       this.pushTimelineAt(c, at('2026-10-29', '05:40'), { lane: 'payer', title: `Denied ${c.reason_text} · ${d.decoded}` })
-      this.addItem({ id: `inb_${d.number}`, kind: d.item.tier === 3 ? 'review_draft' : 'approve_action', claim: c, agent: d.item.agent, tier: d.item.tier, title: d.item.title, recommendation: d.item.recommendation, summary: d.item.summary, action: d.item.action, ruleId: d.item.rule_id, rootCause: d.root_cause, created: at('2026-10-29', '06:05'), requiredRole: d.item.required_role ?? null })
+      this.addItem({ id: `itm_${d.number}`, kind: d.item.tier === 3 ? 'review_draft' : 'approve_action', claim: c, agent: d.item.agent, tier: d.item.tier, title: d.item.title, recommendation: d.item.recommendation, summary: d.item.summary, action: d.item.action, ruleId: d.item.rule_id, rootCause: d.root_cause, created: at('2026-10-29', '06:05'), requiredRole: d.item.required_role ?? null })
       out.push(this.event('claim_denied', `#${c.number} ${c.patient_name} denied ${c.reason_text}`, { claim_id: c.id, carc: d.carc, rarc: d.rarc }))
     }
     // Six paid on contract.
@@ -969,7 +970,7 @@ export class MockDb {
       const c = this.s.claims.find((x) => x.number === k.number)
       if (!c) continue
       const payer = PAYER_REF[c.payer_key].short_name
-      this.addItem({ id: `inb_${c.number}`, kind: 'approve_action', claim: c, agent: 'followup', tier: 1, title: `#${c.number} · ${c.patient_name} · ${payer} · status check due`, recommendation: `Check #${c.number} with ${payer} (portal, then IVR). The Status check rule is Ask, so nothing contacts the payer until you approve.`, summary: `Day ${c.age_days ?? 30} with no 835: the status-check cadence came due at 07:00.`, action: 'status_check', ruleId: 'rule_t1_status_check', rootCause: 'unknown', created: at('2026-10-29', '07:00') })
+      this.addItem({ id: `itm_${c.number}`, kind: 'approve_action', claim: c, agent: 'followup', tier: 1, title: `#${c.number} · ${c.patient_name} · ${payer} · status check due`, recommendation: `Check #${c.number} with ${payer} (portal, then IVR). The Status check rule is Ask, so nothing contacts the payer until you approve.`, summary: `Day ${c.age_days ?? 30} with no 835: the status-check cadence came due at 07:00.`, action: 'status_check', ruleId: 'rule_t1_status_check', rootCause: 'unknown', created: at('2026-10-29', '07:00') })
       out.push(this.event('run.followup', `#${c.number} status check due · proposed → Inbox`, { claim_id: c.id }))
     }
     return out
@@ -1117,7 +1118,7 @@ export class MockDb {
     if (pending) return pending
     const preview = this.preview(rule.id, change.mode ?? rule.mode, change.max_cents ?? rule.scope?.max_cents ?? null)
     const item: MockInboxItem = {
-      id: this.id('inb_signoff'),
+      id: this.id('itm_signoff'),
       kind: 'owner_signoff',
       state: 'open',
       claim_id: null,
@@ -1611,7 +1612,8 @@ export class MockDb {
     const claim = this.s.claims.find((c) => c.id === item.claim_id)
     const action = item.proposed_action?.action ?? 'status_check'
     if (action === 'resubmit_with_attachment' && claim) {
-      const tooth = String(item.proposed_action?.params?.tooth ?? '')
+      const tooth = item.proposed_action?.params?.tooth
+      if (typeof tooth !== 'string') throw new MockError(422, 'invalid_params', `${item.id} names no tooth`)
       const nea = String(47731820 + (claim.number % 97))
       const neaEvidence: Evidence = { id: `ev_${claim.number}_nea`, kind: 'nea_attachment', title: `PA #${tooth} uploaded to NEA FastAttach`, excerpt: `NEA# ${nea} · periapical #${tooth} · from PMS imaging`, captured_at: this.s.now, reference: nea, gathered_by: 'code' }
       return {
@@ -1628,7 +1630,7 @@ export class MockDb {
           claim.in_flight = 'resubmit queued · leaves 11:15'
           claim.queued_file = { at: at(db.now.slice(0, 10), '11:15'), kind: 'resubmit' }
           claim.agent_note = 'resubmit queued · 11:15'
-          db.pushTimeline(claim.id, { lane: 'agent', run_id: run.id, title: `Resubmitted with PA #${tooth} (NEA# ${nea}) · queued for the 11:15 Delta file`, evidence_ids: [neaEvidence.id] })
+          db.pushTimeline(claim.id, { lane: 'agent', run_id: run.id, title: item.recommendation, detail: run.audit_line, evidence_ids: [neaEvidence.id] })
           db.addActivity(run, 'Resubmit with attachment', 'queued for 11:15 Delta file', user)
         },
       }
@@ -1668,7 +1670,7 @@ export class MockDb {
           db.s.items = [
             ...db.s.items,
             {
-              id: `inb_${claim.number}`,
+              id: `itm_${claim.number}`,
               kind: 'approve_action',
               state: 'open',
               claim_id: claim.id,
@@ -1701,7 +1703,7 @@ export class MockDb {
               subject: `#${claim.number} · ${claim.patient_name}`,
               claim_id: claim.id,
               outcome: 'Awaiting you',
-              inbox_item_id: `inb_${claim.number}`,
+              inbox_item_id: `itm_${claim.number}`,
               tier: 1,
               root_cause: 'unknown',
               cents: claim.billed_cents,

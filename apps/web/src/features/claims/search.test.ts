@@ -53,8 +53,8 @@ describe('claims search params', () => {
 
 describe('inbox and claim search params', () => {
   it('keeps the selected item, group and run panel in the URL', () => {
-    expect(inboxSearchSchema.parse(parseSearch('?item=inb_4821&group=delta_ny%3Aresubmit_with_attachment&launch=run_1'))).toEqual({
-      item: 'inb_4821',
+    expect(inboxSearchSchema.parse(parseSearch('?item=itm_4821&group=delta_ny%3Aresubmit_with_attachment&launch=run_1'))).toEqual({
+      item: 'itm_4821',
       group: 'delta_ny:resubmit_with_attachment',
       launch: 'run_1',
       state: undefined,
@@ -68,7 +68,7 @@ describe('inbox and claim search params', () => {
   })
 
   it('parses the breadcrumb origin', () => {
-    expect(parseFrom(claimSearchSchema.parse({ from: 'inbox:inb_4821' }).from)).toEqual({ kind: 'inbox', itemId: 'inb_4821' })
+    expect(parseFrom(claimSearchSchema.parse({ from: 'inbox:itm_4821' }).from)).toEqual({ kind: 'inbox', itemId: 'itm_4821' })
     expect(claimSearchSchema.parse({ from: 'javascript:alert(1)' }).from).toBeUndefined()
   })
 })

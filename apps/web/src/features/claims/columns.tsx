@@ -14,7 +14,7 @@ const muted = (v: string | null | undefined) => <span className="text-mid">{v ??
 
 export const claimColumns = [
   col.display({ id: 'number', header: 'Claim #', meta: { width: '74px', sortKey: 'number' }, cell: ({ row }) => <b>#{row.original.number}</b> }),
-  col.display({ id: 'patient', header: 'Patient', meta: { width: 'minmax(110px,1fr)', sortKey: 'patient' }, cell: ({ row }) => row.original.patient.name }),
+  col.display({ id: 'patient', header: 'Patient', meta: { width: 'minmax(110px,1fr)', sortKey: 'patient' }, cell: ({ row }) => row.original.patient.display_name }),
   col.display({ id: 'payer', header: 'Payer', meta: { width: '96px', sortKey: 'payer' }, cell: ({ row }) => PAYER_NAME[row.original.payer.key] }),
   col.display({ id: 'dos', header: 'DOS', meta: { width: '56px', sortKey: 'dos' }, cell: ({ row }) => shortDate(row.original.dos) }),
   col.display({ id: 'procedures', header: 'Procedures', meta: { width: 'minmax(120px,1.2fr)' }, cell: ({ row }) => muted(row.original.procedures) }),

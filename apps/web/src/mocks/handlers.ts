@@ -1,12 +1,12 @@
 /**
  * MSW adapter: HTTP in, MockDb call, HTTP out. One catch-all handler with a small route table, because
- * the API's `/{id}:verb` paths (`/inbox/inb_4821:approve`) collide with path-to-regexp's `:param` syntax.
+ * the API's `/{id}:verb` paths (`/inbox/itm_4821:approve`) collide with path-to-regexp's `:param` syntax.
  */
 import { delay, http, HttpResponse } from 'msw'
 import { API_BASE } from '@/env'
 import { ActivityOutcome, AgentKind, ClaimStatus, PayerKey, RuleMode, type RulePatch } from '@/api/schema'
 import { AgeBucket, SortParam } from '@/features/claims/search'
-import { MockDb, MockError, type SseRecord, type UserId } from './db'
+import { MockError, type MockDb, type SseRecord, type UserId } from './db'
 
 type Ctx = { db: MockDb; url: URL; user: UserId; body: Record<string, unknown>; m: RegExpMatchArray; request: Request }
 type Route = [method: string, pattern: RegExp, handle: (ctx: Ctx) => unknown]

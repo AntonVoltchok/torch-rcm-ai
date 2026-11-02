@@ -36,7 +36,7 @@ export function buildUrl(path: string, query: Query = {}): string {
   for (const [k, v] of Object.entries(query)) {
     if (v === undefined || v === null || v === '') continue
     if (Array.isArray(v)) v.forEach((x) => params.append(k, String(x)))
-    else params.set(k, String(v as string | number | boolean))
+    else params.set(k, String(v))
   }
   const qs = params.toString()
   return `${API_BASE}${path}${qs ? `?${qs}` : ''}`
@@ -112,9 +112,9 @@ function safeJson(text: string): unknown {
 
 function pushCounts(json: unknown): void {
   if (typeof json !== 'object' || json === null || !('meta' in json)) return
-  const meta = (json as { meta: unknown }).meta
+  const meta = json.meta
   if (typeof meta !== 'object' || meta === null || !('counts' in meta)) return
-  const counts = StripSummary.safeParse((meta as { counts: unknown }).counts)
+  const counts = StripSummary.safeParse(meta.counts)
   if (counts.success) onCounts(counts.data)
 }
 

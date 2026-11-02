@@ -19,7 +19,7 @@ export function TriageButton({ claim: detail, onLaunched }: { claim: ClaimDetail
         : null
   return (
     <Button
-      onClick={() => triage.mutate({ claimId: claim.id, number: claim.number, patient: patient.name })}
+      onClick={() => triage.mutate({ claimId: claim.id, number: claim.number, patient: patient.display_name })}
       disabled={Boolean(reason) || triage.isPending}
       title={reason ?? 'Starts a Follow-up triage run on this claim. Anything it proposes comes to the Inbox.'}
     >

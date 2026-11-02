@@ -15,8 +15,8 @@ const snapshot: RunDetail = {
   agent: 'followup',
   trigger: 'approval',
   claim_id: 'clm_4821',
-  inbox_item_id: 'inb_4821',
-  idempotency_key: 'approve:inb_4821',
+  inbox_item_id: 'itm_4821',
+  idempotency_key: 'approve:itm_4821',
   status: 'queued',
   planner: 'scripted',
   started_at: '2026-10-28T10:40:00-04:00',
@@ -72,7 +72,7 @@ const launch: Launch = {
   id: 'run_t',
   kind: 'approve',
   title: 'Approve #4821',
-  runs: [{ run_id: 'run_t', claim_id: 'clm_4821', item_id: 'inb_4821', label: '#4821 K. Owens' }],
+  runs: [{ run_id: 'run_t', claim_id: 'clm_4821', item_id: 'itm_4821', label: '#4821 K. Owens' }],
   started_at: '2026-10-28T10:40:00-04:00',
 }
 
@@ -85,7 +85,7 @@ describe('ProgressPanel', () => {
     expect([...steps].map((s) => s.getAttribute('data-status'))).toEqual(['ok', 'ok'])
     expect(within(panel).getByText('PA #30 · PMS imaging')).toBeInTheDocument()
     expect(within(panel).getAllByText('NEA# 47731888').length).toBeGreaterThan(0)
-    expect(within(panel).getByText('Open claim #4821 →')).toHaveAttribute('href', '/claims/clm_4821?from=inbox%3Ainb_4821')
+    expect(within(panel).getByText('Open claim #4821 →')).toHaveAttribute('href', '/claims/clm_4821?from=inbox%3Aitm_4821')
     expect(lastEventIdSeen).toBe('0') // resubscribed from the snapshot's cursor
   })
 })

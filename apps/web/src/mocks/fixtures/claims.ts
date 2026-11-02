@@ -112,6 +112,7 @@ const PROCS: { cdt: string; desc: string; tooth: boolean }[] = [
 ]
 const PAYERS: PayerKey[] = ['delta_ny', 'delta_ny', 'delta_ny', 'metlife', 'metlife', 'cigna', 'aetna', 'guardian']
 const PROVIDERS = ['Dr. Morgan', 'Dr. Lee', 'RDH M. Cole']
+export const PROVIDER_ID: Record<string, string> = { 'Dr. Morgan': 'prv_morgan', 'Dr. Lee': 'prv_lee', 'RDH M. Cole': 'prv_cole' }
 
 const ALL_PASS: ReadinessCheck[] = [
   { key: 'note_signed', status: 'pass', detail: 'Note signed at checkout' },
@@ -264,9 +265,9 @@ function lineFromProcs(id: string, procs: string, billedCents: number): ClaimLin
   return [{ id: `${id}_l1`, cdt: code, tooth, surface: null, fee_cents: billedCents, allowed_cents: null, paid_cents: null, adj: [], patient_adj: [], patient_cents: null }]
 }
 
-function genericTimeline(c: { id: string; status: ClaimStatus; dos: string; sentDate: string; payer: PayerKey }): MockTimelineEntry[] {
+function genericTimeline(c: { id: string; number: number; status: ClaimStatus; dos: string; sentDate: string; payer: PayerKey }): MockTimelineEntry[] {
   const t: MockTimelineEntry[] = [
-    { id: `${c.id}_t1`, at: at(c.dos, '10:43'), lane: 'agent', title: 'Built claim at checkout with PMS codes' },
+    { id: `${c.id}_t1`, at: at(c.dos, '10:43'), lane: 'agent', title: `Claims agent built claim #${c.number} at checkout` },
   ]
   if (c.status !== 'ready') t.push({ id: `${c.id}_t2`, at: at(c.sentDate, '10:45'), lane: 'system', title: 'Left in the payer file via Vyne · 999 accepted' })
   if (!['ready', 'sent', 'rejected'].includes(c.status)) t.push({ id: `${c.id}_t3`, at: at(c.sentDate, '23:10'), lane: 'payer', title: 'Payer 277CA accepted · day-30 status check booked' })
@@ -320,7 +321,7 @@ function build(pin: Pin, idx: number, rand: () => number): MockClaim {
     lines: lineFromProcs(id, pin.procs, billed),
     attachments: [],
     acks: pin.file ? todaysAcks(pin, id) : acksFor(pin.status, id, sentDate, icn),
-    timeline: genericTimeline({ id, status: pin.status, dos, sentDate, payer: pin.payer }),
+    timeline: genericTimeline({ id, number: pin.number, status: pin.status, dos, sentDate, payer: pin.payer }),
     in_flight: null,
     hold: pin.hold ? { id: `hld_${pin.number}`, subject: 'claim', subject_id: id, ...pin.hold } : null,
     queued_file: pin.queued ? { at: at(FROZEN_NOW.slice(0, 10), pin.queued), kind: 'original' } : null,
@@ -412,7 +413,7 @@ function owens4821(base: MockClaim): MockClaim {
     ],
     timeline: [
       { id: 't4821_01', at: at('2026-10-12', '10:41'), lane: 'system', title: 'Crown D2740 #19 completed; 3 lines posted to the ledger (PMS)' },
-      { id: 't4821_02', at: at('2026-10-12', '10:43'), lane: 'agent', title: 'Built claim at checkout with BWX D0274 (NEA# 47720913)', detail: 'The attachment rule picked the BWX, not the PA' },
+      { id: 't4821_02', at: at('2026-10-12', '10:43'), lane: 'agent', title: 'Claims agent built claim #4821 at checkout', detail: 'BWX NEA# 47720913' },
       { id: 't4821_03', at: at('2026-10-12', '10:45'), lane: 'system', title: 'Left in the 10:45 Delta file via Vyne · 999 accepted' },
       { id: 't4821_04', at: at('2026-10-13', '06:12'), lane: 'payer', title: 'Delta 277CA accepted · ICN 26299-041833 · day-30 status check booked 11/11' },
       { id: 't4821_05', at: at('2026-10-26', '06:05'), lane: 'payer', title: 'Denied CO-16 · N29 · pre-op radiograph required' },

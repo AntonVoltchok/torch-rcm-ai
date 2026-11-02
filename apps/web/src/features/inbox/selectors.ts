@@ -74,10 +74,12 @@ export function withoutItems(list: InboxList, ids: readonly string[]): InboxList
     groups: inboxGroups(list)
       .map((g) => {
         const gone = g.item_ids.filter((id) => drop.has(id))
+        const count = g.count - gone.length
         return {
           ...g,
+          title: g.title.replace(/\(\d+\)$/, `(${count})`), // the API's title carries the count
           item_ids: g.item_ids.filter((id) => !drop.has(id)),
-          count: g.count - gone.length,
+          count,
           cents: g.cents - gone.reduce((a, id) => a + (removedCents.get(id) ?? 0), 0),
         }
       })
