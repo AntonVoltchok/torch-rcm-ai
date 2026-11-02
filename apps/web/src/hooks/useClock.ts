@@ -31,7 +31,7 @@ export function useAdvanceProgress(advanceId: string | undefined) {
   const firehose = useFirehoseState()
   return useQuery({
     queryKey: qk.advance(advanceId ?? 'none'),
-    queryFn: () => api.advanceStatus(advanceId ?? ''),
+    queryFn: (): Promise<AdvanceSnapshot> => api.advanceStatus(advanceId ?? ''),
     enabled: Boolean(advanceId),
     refetchInterval: (q) => (q.state.data?.done || firehose === 'live' ? false : 1000),
   })

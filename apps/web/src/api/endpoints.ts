@@ -26,7 +26,7 @@ export const api = {
   // clock & agents runtime
   clock: () => http.get('/clock', S.Clock),
   advanceClock: (body: { to: string } | { minutes: number }) => http.post('/clock/advance', S.ClockAdvanceAccepted, body),
-  advanceStatus: (id: string) => http.get(`/clock/advance/${enc(id)}`, S.AdvanceSnapshot),
+  advanceStatus: (id: string) => http.get(`/clock/advance/${enc(id)}`, S.AdvanceOut),
   resetClock: () => http.post('/clock/reset', S.ClockReset),
   agentsStatus: () => http.get('/agents/status', S.AgentsStatus),
   pauseAgents: () => http.post('/agents:pause', S.AgentsStatus),

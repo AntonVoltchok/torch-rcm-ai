@@ -5,7 +5,9 @@ import type { Evidence, RunViewEvidence, TimelineEntry } from '@/api/schema'
 import { runQueryOptions } from '@/hooks/useRun'
 import { dateTime, plural } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { SkeletonBlock } from './ui/Skeleton'
 import { EvidenceCard } from './EvidenceCard'
+import { QueryError } from './QueryError'
 
 const DOT: Record<TimelineEntry['lane'], string> = {
   agent: 'border-acc bg-acc',
@@ -15,6 +17,7 @@ const DOT: Record<TimelineEntry['lane'], string> = {
 }
 
 const isHydrated = (e: RunViewEvidence): e is Evidence => e.excerpt !== undefined
+const EVIDENCE_LABEL = (n: number) => plural(n, 'evidence item')
 
 /** The timeline carries evidence ids; the run holds the objects, fetched when someone asks (no N+1 on the claim). */
 function RunEvidence({ runId, ids }: { runId: string; ids: string[] }) {
@@ -24,9 +27,11 @@ function RunEvidence({ runId, ids }: { runId: string; ids: string[] }) {
   return (
     <div className="mt-1">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="text-xs font-semibold text-acc hover:underline">
-        {open ? '▾' : '▸'} {plural(ids.length, 'evidence item')}
+        {open ? '▾' : '▸'} {EVIDENCE_LABEL(ids.length)}
       </button>
-      {open && run.isError && <p className="m-0 text-xs text-bad">Could not load the evidence.</p>}
+      {open && run.isPending && <SkeletonBlock className="mt-1 h-16 max-w-[180px]" />}
+      {open && run.isError && <QueryError error={run.error} what="the evidence" onRetry={() => void run.refetch()} />}
+      {open && run.isSuccess && evidence.length === 0 && <p className="m-0 mt-1 text-xs text-mid">This run holds none of this evidence any more.</p>}
       {open && evidence.length > 0 && (
         <div className="mt-1 flex max-w-[560px] gap-2">
           {evidence.map((ev) => (
@@ -67,7 +72,7 @@ export function Timeline({ entries, nowLabel }: { entries: TimelineEntry[]; nowL
               {e.root_cause === 'ours' && <span className="rounded border border-bad-line bg-bad-bg px-1 text-2xs font-bold text-bad">root cause: ours</span>}
             </div>
             {e.detail && <div className="text-sm text-mid">{e.detail}</div>}
-            {e.run_id && e.evidence_ids && e.evidence_ids.length > 0 && <RunEvidence runId={e.run_id} ids={e.evidence_ids} />}
+            {e.evidence_ids && e.evidence_ids.length > 0 && (e.run_id ? <RunEvidence runId={e.run_id} ids={e.evidence_ids} /> : <div className="mt-1 text-xs text-mid">{EVIDENCE_LABEL(e.evidence_ids.length)}</div>)}
           </li>
         ))}
         {nowLabel && (

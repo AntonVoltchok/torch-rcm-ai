@@ -39,7 +39,7 @@ const CDT_NAME: Record<string, string> = {
   D7140: 'Extraction, erupted tooth',
   D7210: 'Extraction, surgical',
   D9110: 'Palliative treatment',
-  D9941: 'Occlusal guard, fabrication',
+  D9941: 'Athletic mouthguard',
   D9944: 'Occlusal guard, hard, full arch',
   D9972: 'External bleaching, per arch',
 }

@@ -3,8 +3,10 @@
  * apps/api/openapi.snapshot.json: this file only names those schemas for the app. Objects are `.strict()`, so a
  * field the API adds or renames fails the parse loudly (`schema_mismatch`) instead of rendering empty.
  *
- * Hand-written below, each with its reason: what OpenAPI cannot describe (SSE payloads, the error envelope) and
- * the client-side RunView. Snake_case field names, integer cents, enums verbatim from the domain model.
+ * Hand-written below, each with its reason: what OpenAPI cannot describe (SSE payloads, the error envelope, a query
+ * enum the API leaves as a string) and the client-side RunView. Snake_case field names, integer cents, enums verbatim.
+ *
+ * Strictness follows how a failure shows (ADR-0005): a REST mismatch is loud, an SSE mismatch is a silently dropped frame.
  */
 import { z } from 'zod'
 import { schemas } from './generated'
@@ -111,7 +113,7 @@ export const ClockReset = schemas.ReseedOut
 export const Ledger = schemas.LedgerToday
 export const CashSummary = schemas.CashOut
 export const RunStepStatus = schemas.StepStatus
-/** The API's action enum; `hold_claim` is a domain step, never a rule action, so it does not appear here. */
+/** The API's rule action enum. */
 export const ActionKind = schemas.RuleAction
 
 export const CLAIM_STATUSES = ClaimStatus.options
@@ -202,7 +204,7 @@ export type TierGroup = z.infer<typeof TierGroup>
 export type TimelineEntry = z.infer<typeof TimelineEntry>
 export type WorldPayer = z.infer<typeof WorldPayer>
 
-/** `Run` filters /activity by these; the API takes them as a free string, so OpenAPI has no enum to generate. */
+/** GET /activity?outcome: the API takes a free string, so OpenAPI has no enum to generate. */
 export const ActivityOutcome = z.enum(['ran', 'awaiting', 'would_have_run'])
 export type ActivityOutcome = z.infer<typeof ActivityOutcome>
 
@@ -265,18 +267,18 @@ export const FirehoseStatusEvent = z.object({
 })
 export const FirehoseAgentsEvent = z.object({ paused: z.boolean(), by: z.string().nullish(), at: z.string().nullish() })
 
+/** GET /clock/advance/{id}. */
+export const AdvanceOut = schemas.AdvanceOut
+
 /**
- * Both `event: advance` on the firehose and GET /clock/advance/{id} (`AdvanceOut`) land in ['advance', id]. The
- * firehose sends `events_fired` as a count while running, the list on `done`, and none of the poll-only fields.
+ * `event: advance` on the firehose. It and the poll both land in ['advance', id]. It sends `events_fired` as a count while
+ * running, the list on `done`, and none of the poll-only fields. Lenient like every frame here, and more so: this frame
+ * is what ends an advance, and polling is off while the firehose is live, so dropping it would spin the sidebar forever.
  */
-export const AdvanceSnapshot = schemas.AdvanceOut.partial({
-  state: true,
-  from: true,
-  to: true,
-  skipped_unhandled: true,
-  error: true,
-  meta: true,
-}).extend({ events_fired: z.union([z.number().int(), z.array(EventFired)]) })
+export const AdvanceSnapshot = schemas.AdvanceOut.omit({ meta: true })
+  .partial({ state: true, from: true, to: true, skipped_unhandled: true, error: true })
+  .extend({ events_fired: z.union([z.number().int(), z.array(z.unknown())]) })
+  .strip()
 export type AdvanceSnapshot = z.infer<typeof AdvanceSnapshot>
 
 /** The API's exception handlers write this envelope; FastAPI's OpenAPI only knows its default 422 body. */

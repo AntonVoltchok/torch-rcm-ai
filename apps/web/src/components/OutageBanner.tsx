@@ -1,6 +1,6 @@
 import { useWorldPayers } from '@/hooks/useStatic'
 
-/** Driven by the world's payer state. Infrastructure failures are explained, not turned into work for Dana. */
+/** Driven by the world's payer state: says why that payer's steps came back, so Dana does not chase the portal herself. */
 export function OutageBanner() {
   const payers = useWorldPayers()
   const down = (payers.data ?? []).filter((p) => p.portal_down)

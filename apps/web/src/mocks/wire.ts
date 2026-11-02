@@ -1,6 +1,6 @@
 /**
- * The JSON side of the contract. The mock server writes what Pydantic would send and the client's parse reads it,
- * so its records are typed with `z.input`: fields with a schema default may be left out of a fixture.
+ * The JSON side of the contract. Mock records are typed with `z.input`: a field with a schema default may be left out,
+ * where Pydantic would send it, and the client's parse fills it in. wire.test.ts proves every response survives that parse.
  */
 import type { z } from 'zod'
 import type * as S from '@/api/schema'
@@ -8,6 +8,7 @@ import type * as S from '@/api/schema'
 export type * from '@/api/schema'
 
 export type AckEvent = z.input<typeof S.AckEvent>
+export type AdvanceSnapshot = Omit<S.AdvanceSnapshot, 'events_fired'> & { events_fired: number | EventFired[] }
 export type ClaimDetail = z.input<typeof S.ClaimDetail>
 export type ClaimRow = z.input<typeof S.ClaimRow>
 export type EventFired = z.input<typeof S.EventFired>

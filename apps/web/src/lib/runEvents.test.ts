@@ -49,6 +49,14 @@ describe('run event reducer', () => {
     expect(twice.steps[1]?.progress_lines).toEqual(['read PMS imaging'])
   })
 
+  it('a replayed `running` step does not resume a paused run: only a status event does', () => {
+    const running = applyStepEvent(base(), { idx: 0, name: 'fetch_pa_from_pms_imaging', status: 'running' }, 1)
+    const paused = applyStatusEvent(running, { status: 'paused' }, 2)
+    const replayed = applyStepEvent(paused, { idx: 0, name: 'fetch_pa_from_pms_imaging', status: 'running' }, 1)
+    expect(replayed.status).toBe('paused')
+    expect(applyStatusEvent(replayed, { status: 'running' }, 3).status).toBe('running')
+  })
+
   it('accepts a step it has not seen yet and keeps steps ordered', () => {
     const r = applyStepEvent(base(), { idx: 3, name: 'report', status: 'running' }, 9)
     expect(r.steps.map((s) => s.idx)).toEqual([0, 1, 3])

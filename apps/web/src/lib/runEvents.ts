@@ -86,8 +86,8 @@ export function applyStepEvent(run: RunView, ev: RunStepEvent, eventId: number |
     evidence_ids: addNew(base.evidence_ids, evidenceIds),
   }
   const steps = existing ? run.steps.map((s) => (s.idx === ev.idx ? step : s)) : [...run.steps, step].sort((a, b) => a.idx - b.idx)
-  // A step that is running implies the run is running.
-  const runStatus = ev.status === 'running' ? nextRunStatus(run.status, 'running') : run.status
+  // A running step starts a queued run. It never resumes a paused one: that takes a status event, and this may be a replay.
+  const runStatus = ev.status === 'running' && run.status === 'queued' ? 'running' : run.status
   const next: RunView = {
     ...run,
     steps,
