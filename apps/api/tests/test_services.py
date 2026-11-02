@@ -320,10 +320,10 @@ def test_world_inject_and_reseed(rt: Runtime) -> None:
     assert "down since 10:40" in out.detail
     assert any(p.portal_down for p in system.world_payers(ctx(rt)) if p.key.value == "delta_ny")
     inbox_svc.approve_group(ctx(rt), GROUP)
-    re = system.reseed(ctx(rt), "canonical")
+    re = asyncio.run(system.reseed(ctx(rt), "canonical"))
     assert re.meta.counts.inbox_open == 12 and re.now == datetime.fromisoformat("2026-10-28T10:40:00-04:00")
     with pytest.raises(ApiError) as exc:
-        system.reseed(ctx(rt), "nope")
+        asyncio.run(system.reseed(ctx(rt), "nope"))
     assert code(exc) == (422, "unknown_scenario")
 
 
@@ -386,7 +386,20 @@ def test_reset_refuses_while_a_job_runs(rt: Runtime) -> None:
     async def with_a_job_running() -> None:
         async with rt.scheduler.job_lock:
             with pytest.raises(ApiError) as exc:
-                system.reseed(ctx(rt, "usr_morgan"), None)
+                await system.reseed(ctx(rt, "usr_morgan"), None)
             assert code(exc) == (409, "run_in_progress")
 
     asyncio.run(with_a_job_running())
+
+
+def test_reset_keeps_the_worker_out_for_its_whole_length(rt: Runtime, monkeypatch: pytest.MonkeyPatch) -> None:
+    held: list[bool] = []
+
+    def persist(store: object, world: object) -> None:
+        held.append(rt.scheduler.job_lock.locked())
+
+    monkeypatch.setattr("torch_rcm.seed.persist.persist", persist)
+    asyncio.run(system.reseed(ctx(rt, "usr_morgan"), None))
+    assert held == [
+        True
+    ]  # a check before reseeding is not enough: seeding takes a second, and the worker would take a job

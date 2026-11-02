@@ -254,10 +254,13 @@ class Scheduler:
         while not stop.is_set():
             ran = False
             if not self.advance_lock.locked():
-                async with self.job_lock:
-                    job = self.queue.next_due(self.clock.now(), self.handled_kinds())
-                    if job is not None:
-                        ran = await self.run_one(job, None, None)
+                try:
+                    async with self.job_lock:
+                        job = self.queue.next_due(self.clock.now(), self.handled_kinds())
+                        if job is not None:
+                            ran = await self.run_one(job, None, None)
+                except Exception:  # nothing restarts this task: one bad job must not stop every job after it
+                    log.exception("worker.job_crashed")
             if not ran:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=poll_seconds)

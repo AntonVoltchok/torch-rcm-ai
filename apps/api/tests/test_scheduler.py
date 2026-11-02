@@ -303,3 +303,27 @@ def test_the_worker_leaves_a_due_job_alone_while_an_advance_holds_the_clock(rt: 
 
     asyncio.run(scenario())
     assert ran == ["test.queued"]
+
+
+def test_the_worker_survives_a_job_that_loses_its_own_row(rt: Runtime, world_only_registry) -> None:  # type: ignore[no-untyped-def]
+    ran: list[str] = []
+
+    async def scenario() -> None:
+        stop = asyncio.Event()
+
+        def vanish(ctx: JobContext) -> None:  # what a reseed under a running job does
+            rt.store.delete(Job, ctx.job.id)
+            raise RuntimeError("the run is gone")
+
+        def after(ctx: JobContext) -> None:
+            ran.append("after")
+            stop.set()
+
+        world_only_registry.register("test.vanish", vanish)
+        world_only_registry.register("test.after", after)
+        rt.scheduler.enqueue("test.vanish", rt.clock.now(), {}, "vanish", priority=0)
+        rt.scheduler.enqueue("test.after", rt.clock.now(), {}, "after", priority=1)
+        await asyncio.wait_for(rt.scheduler.worker_loop(stop, poll_seconds=0.01), 5)
+
+    asyncio.run(scenario())
+    assert ran == ["after"]

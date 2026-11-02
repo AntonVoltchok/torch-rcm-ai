@@ -67,8 +67,8 @@ def get_advance(ctx: CtxDep, advance_id: str) -> AdvanceOut:
 
 
 @router.post("/clock/reset", response_model=ReseedOut, tags=["clock"])
-def reset_clock(ctx: CtxDep) -> ReseedOut:
-    return svc.reseed(ctx, None)
+async def reset_clock(ctx: CtxDep) -> ReseedOut:
+    return await svc.reseed(ctx, None)
 
 
 # ── runs ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -188,8 +188,8 @@ def resume(ctx: CtxDep) -> AgentsStatus:
 
 
 @router.post("/_world/reseed", response_model=ReseedOut, tags=["_world"])
-def world_reseed(ctx: CtxDep, body: ReseedIn | None = None) -> ReseedOut:
-    return svc.reseed(ctx, body.scenario if body else None)
+async def world_reseed(ctx: CtxDep, body: ReseedIn | None = None) -> ReseedOut:
+    return await svc.reseed(ctx, body.scenario if body else None)
 
 
 @router.get("/_world/payers", response_model=list[WorldPayer], tags=["_world"])

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 
 from torch_rcm.api.errors import ApiError, conflict, not_found, unprocessable
@@ -251,18 +252,24 @@ def inject(ctx: Ctx, body: InjectIn) -> InjectOut:
     return InjectOut(ok=True, detail=detail, meta=ctx.meta())
 
 
-def reseed(ctx: Ctx, scenario: str | None) -> ReseedOut:
+async def reseed(ctx: Ctx, scenario: str | None) -> ReseedOut:
     from torch_rcm.world.scenarios import SCENARIOS, build_scenario
 
     name = scenario or ctx.rt.settings.scenario
     if name not in SCENARIOS:
         raise ApiError(422, "unknown_scenario", f"scenario {name!r} not in {sorted(SCENARIOS)}")
-    if ctx.rt.scheduler.advance_lock.locked():
+    scheduler = ctx.rt.scheduler
+    if scheduler.advance_lock.locked():
         raise conflict("advance_in_progress", "wait for the advance to finish")
-    if ctx.rt.scheduler.job_lock.locked():  # a running job would write onto the fresh seed
+    if scheduler.job_lock.locked():
         raise conflict("run_in_progress", "An agent run is finishing. Reset when it is done.")
     from torch_rcm.seed.persist import persist
 
-    persist(ctx.rt.store, build_scenario(name))
-    ctx.rt.reload_world()
+    def replace_the_world() -> None:
+        persist(ctx.rt.store, build_scenario(name))
+        ctx.rt.reload_world()
+
+    # Held for the whole reseed: a job taken mid-way would have its rows replaced under it.
+    async with scheduler.job_lock:
+        await asyncio.to_thread(replace_the_world)
     return ReseedOut(scenario=name, now=ctx.rt.clock.now(), meta=ctx.meta())
