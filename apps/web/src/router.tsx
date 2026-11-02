@@ -1,8 +1,9 @@
 /** Router + query client wiring. Readable search strings (lib/searchSerde.ts); context carries the QueryClient. */
-import { QueryClient } from '@tanstack/react-query'
+import { hashKey, QueryClient } from '@tanstack/react-query'
 import { createRouter, type RouterHistory } from '@tanstack/react-router'
 import { configureApi } from '@/api/client'
 import { qk } from '@/api/queryKeys'
+import type { StripSummary } from '@/api/schema'
 import { isApiError } from '@/api/client'
 import { parseSearch, stringifySearch } from '@/lib/searchSerde'
 import { session } from '@/state/session'
@@ -22,9 +23,19 @@ export function createQueryClient(opts: { retry?: boolean } = {}): QueryClient {
   })
 }
 
+/**
+ * A mutation's `meta.counts` is this viewer's strip across every location. That is the "All locations" strip, so badges
+ * move without a refetch; any other strip stays the server's to compute.
+ */
+function applyCounts(queryClient: QueryClient, counts: StripSummary) {
+  const allLocations = qk.strip(undefined)
+  const scoped = session.locationParam() !== undefined
+  if (!scoped) queryClient.setQueryData(allLocations, counts)
+  void queryClient.invalidateQueries({ queryKey: qk.stripAll, predicate: (q) => scoped || hashKey(q.queryKey) !== hashKey(allLocations) })
+}
+
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {
-  // Every mutation response's `meta.counts` lands here: badges and strip move without a refetch.
-  configureApi({ onCounts: (counts) => queryClient.setQueryData(qk.strip(session.locationParam()), counts) })
+  configureApi({ onCounts: (counts) => applyCounts(queryClient, counts) })
   return createRouter({
     routeTree,
     context: { queryClient },

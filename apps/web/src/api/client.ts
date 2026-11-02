@@ -1,8 +1,7 @@
 /**
  * The one fetch wrapper. Every response is parsed with its Zod schema (drift fails loudly as
  * `schema_mismatch`), every error envelope becomes a typed `ApiError`, every mutation carries an
- * `Idempotency-Key`, and any `meta.counts` in a response is handed to `onCounts` — wired in main.tsx to
- * `queryClient.setQueryData(['strip'])`, so badges move without a second round trip.
+ * `Idempotency-Key`, and any `meta.counts` in a response is handed to `onCounts` (router.tsx decides where it goes).
  */
 import type { z } from 'zod'
 import { API_BASE } from '@/env'
@@ -64,6 +63,7 @@ interface RequestOpts {
 
 async function request<S extends z.ZodTypeAny>(method: string, path: string, schema: S, opts: RequestOpts = {}): Promise<z.output<S>> {
   const headers: Record<string, string> = { Accept: 'application/json', ...authHeaders() }
+  const { userId } = session.get()
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
   if (method !== 'GET') headers['Idempotency-Key'] = opts.idempotencyKey ?? newIdempotencyKey()
 
@@ -93,7 +93,8 @@ async function request<S extends z.ZodTypeAny>(method: string, path: string, sch
     throw new ApiError(res.status, `http_${res.status}`, `${method} ${path} failed (${res.status})`)
   }
 
-  pushCounts(json)
+  // The counts are the requester's and the strip's key has no user in it, so a switch while this was in flight voids them.
+  if (session.get().userId === userId) pushCounts(json)
   const parsed = schema.safeParse(json)
   if (!parsed.success) {
     console.error(`[api] ${method} ${path} did not match its schema`, parsed.error.issues)

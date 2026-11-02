@@ -4,7 +4,7 @@
  * approve / approveGroup: optimistic removal from every cached ['inbox','list',…] (snapshot first),
  * rollback on error; on 202 the run snapshots are seeded into ['run', id] and a Launch is recorded so
  * the ProgressPanel can subscribe; onSettled invalidates inbox, claim(s), claims, activity, preview.
- * ['strip'] is never touched here: the API client writes it from `meta.counts`.
+ * ['strip'] is never touched here: `meta.counts` moves it (router.tsx).
  * The run itself is not optimistic — its steps stream in.
  */
 import { useMutation, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
