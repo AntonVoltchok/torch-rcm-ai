@@ -92,10 +92,24 @@ def _approval_run(ctx: Ctx, item: InboxItem, edits: dict[str, Any] | None) -> Ru
 
 
 def _check_can_approve(ctx: Ctx, item: InboxItem) -> None:
+    _check_authority(ctx, item)  # first: a replay is still an approval, so it needs the same authority
     if item.state in (InboxItemState.APPROVED, InboxItemState.EDITED):
         return  # idempotent replay handled by the caller
     if item.state is not InboxItemState.OPEN:
         raise conflict("already_resolved", f"{item.title} is {item.state.value}", state=item.state.value)
+    if item.proposed_action and item.proposed_action.requires_hold_window and item.claim_id:
+        try:
+            ctx.rt.world.vyne.assert_editable(item.claim_id)
+        except HoldWindowClosedError as exc:
+            raise conflict(
+                "file_departed",
+                str(exc),
+                alternatives=["corrected_claim"],
+                left_at=exc.left_at.isoformat() if exc.left_at else None,
+            ) from exc
+
+
+def _check_authority(ctx: Ctx, item: InboxItem) -> None:
     if item.tier is Tier.THREE:
         action = item.proposed_action.action.value if item.proposed_action else ""
         allowed = TIER3_ROLES.get(action, (Role.OWNER,))
@@ -110,16 +124,6 @@ def _check_can_approve(ctx: Ctx, item: InboxItem) -> None:
             )
     if item.kind is InboxItemKind.OWNER_SIGNOFF:
         ctx.require_role(Role.OWNER, code="tier_requires_owner", message="Only the owner signs tier-2 rules.")
-    if item.proposed_action and item.proposed_action.requires_hold_window and item.claim_id:
-        try:
-            ctx.rt.world.vyne.assert_editable(item.claim_id)
-        except HoldWindowClosedError as exc:
-            raise conflict(
-                "file_departed",
-                str(exc),
-                alternatives=["corrected_claim"],
-                left_at=exc.left_at.isoformat() if exc.left_at else None,
-            ) from exc
 
 
 def approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None, *, idempotency_key: str | None = None) -> ApproveOut:
@@ -132,12 +136,12 @@ def approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None, *, idempotency
 def _approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None) -> ApproveOut:
     item = _require_item(ctx, item_id)
     _check_can_approve(ctx, item)
+    replay = item.state in (InboxItemState.APPROVED, InboxItemState.EDITED)
     if item.kind is InboxItemKind.OWNER_SIGNOFF:
-        return _approve_signoff(ctx, item)
+        return _signoff_replay(ctx, item) if replay else _approve_signoff(ctx, item)
     if item.kind is InboxItemKind.ELIGIBILITY_FLAG:
         _resolve(ctx, item, InboxItemState.DONE, "flagged to the front desk")
         return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, meta=ctx.meta())
-    replay = item.state in (InboxItemState.APPROVED, InboxItemState.EDITED)
     run = _approval_run(ctx, item, edits)
     if not replay:
         item.run_id = run.id
@@ -151,6 +155,12 @@ def _approve_signoff(ctx: Ctx, item: InboxItem) -> ApproveOut:
         raise not_found("rule", item.rule_id or "")
     rule, _ = apply_rule_change(ctx, rule, item.payload.get("change", {}), sign=True)
     _resolve(ctx, item, InboxItemState.APPROVED, "signed")
+    return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, meta=ctx.meta())
+
+
+def _signoff_replay(ctx: Ctx, item: InboxItem) -> ApproveOut:
+    """Already signed: answer with the rule as it stands. Re-applying would undo any change made since."""
+    rule = ctx.rt.store.get(Rule, item.rule_id or "")
     return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, meta=ctx.meta())
 
 
