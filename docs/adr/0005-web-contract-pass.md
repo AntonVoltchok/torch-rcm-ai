@@ -37,7 +37,7 @@ The red team flagged a client-side `-0` printing `-$0.00`. `lib/format.ts` guard
 
 ## Consequences
 
-- `pnpm test:contract` needs `uv` and the API's environment, so it is separate from `pnpm test`. It is not yet in CI.
+- `pnpm test:contract` needs `uv` and the API's environment, so it is separate from `pnpm test`. CI runs it in its own `contract` job, with `pnpm check:api`.
 - Mock Thursday A/R reads $73,220 where the API reads $70,869. Both round to 26 days, so a basis line differs between modes on one screen.
 - **Recommended, not done (API):** `json_schema_serialization_defaults_required` would make the document true for `default_factory` fields. Its cost lands here: those fields become required, so every fixture that omits one stops compiling until `wire.ts` or the fixture changes.
 - Plan and full option lists: `docs/adr/worker-notes/web-contract.md`.

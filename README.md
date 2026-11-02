@@ -15,7 +15,7 @@ docker compose -f infra/docker-compose.yml up
 
 Open http://localhost:5173 as Dana (billing coordinator). The ten-minute demo script is in `docs/spec/06-demo-script.md`; the sidebar footer has a user switcher and a demo clock ("Skip to tomorrow 7:10 AM") that advances the simulated world.
 
-Set `TORCH_AGENT_MODE=live` and `ANTHROPIC_API_KEY` to have Claude triage ambiguous claims and draft appeal text; the run shape, tiers and guardrails are identical in both modes.
+Set `TORCH_AGENT_MODE=live` and `ANTHROPIC_API_KEY` to have Claude triage ambiguous claims and draft appeal text. Tiers and guardrails are the same code in both modes. Run shapes are compared by `make eval` against hand-authored cassettes; live mode has not yet been run against the real API.
 
 ## What's real, what's static, what's design-only
 
@@ -25,7 +25,7 @@ Set `TORCH_AGENT_MODE=live` and `ANTHROPIC_API_KEY` to have Claude triage ambigu
 
 ## Architecture in one paragraph
 
-FastAPI over a pydantic document store in SQLite serves a frozen, advanceable clock over a simulated world (PMS, clearinghouse, five payers with their real quirks). Agents never touch the internet: in `live` mode a Claude model reads world content through tools, classifies the situation and **proposes** an allowed action with evidence; a Policy layer (rules table × autonomy tier × caps × root cause) decides whether it runs, goes to the inbox, is only observed, or is refused; an Executor runs each action as a fixed, idempotent, code-defined recipe and streams steps over SSE. `deterministic` mode satisfies the same planner interface with scripted policies, so tests and the demo never depend on the API. The web app is a React/TypeScript SPA on TanStack Router (filters, selection and tabs live in the URL) and TanStack Query (all server data; counts are selectors, never state), with Zod schemas mirroring the API's OpenAPI (hand-maintained until `make gen-api` has run on a machine with registry access; see `docs/FIRST_RUN.md`).
+FastAPI over a pydantic document store in SQLite serves a frozen, advanceable clock over a simulated world (PMS, clearinghouse, five payers with their real quirks). Agents never touch the internet: in `live` mode a Claude model reads world content through tools, classifies the situation and **proposes** an allowed action with evidence; a Policy layer (rules table × autonomy tier × caps × root cause) decides whether it runs, goes to the inbox, is only observed, or is refused; an Executor runs each action as a fixed, idempotent, code-defined recipe and streams steps over SSE. `deterministic` mode satisfies the same planner interface with scripted policies, so tests and the demo never depend on the API. The web app is a React/TypeScript SPA on TanStack Router (filters, selection and tabs live in the URL) and TanStack Query (all server data; counts are selectors, never state), with Zod schemas generated from the API's OpenAPI (`make gen-api`). `pnpm test:contract` parses real API responses and stream frames with them, so a mock that drifts cannot hide a mismatch.
 
 Docs: `docs/spec/` (contracts) · `docs/adr/` · `docs/SESSIONS.md` (how the build is parallelized across Claude Code sessions) · `docs/STATUS.md`.
 
@@ -37,4 +37,4 @@ Docs: `docs/spec/` (contracts) · `docs/adr/` · `docs/SESSIONS.md` (how the bui
 
 ## How this was built
 
-Designed over seven red-teamed mock rounds, then built in parallel Claude Code sessions coordinated by one session that made decisions by red team instead of guessing (`docs/SESSIONS.md`). The first build pass ran in an environment without PyPI/npm access, so the Python side is verified by 365 pure-pytest tests and the web side was reviewed but not compiled — `docs/FIRST_RUN.md` is the honest list of what the first run on a laptop must verify.
+Designed over seven red-teamed mock rounds, then built in parallel Claude Code sessions coordinated by one session that made decisions by red team instead of guessing (`docs/SESSIONS.md`). The first build pass ran with no PyPI or npm access; the first real run on a laptop is recorded in `docs/STATUS.md`, with the bugs only that run could find and what is still unverified. `make e2e` runs against MSW and CI does not run e2e; the demo script against the real API is a local step (`E2E_TARGET=real pnpm e2e --grep @demo` with `make dev` running).
