@@ -84,5 +84,8 @@ export function useResetDemo() {
       await qc.invalidateQueries()
       toast('Demo reset to Wed 10/28 10:40.', { tone: 'ok' })
     },
+    onError: (err) => {
+      toast(isApiError(err) ? err.message : 'Could not reset the demo.', { tone: 'bad' })
+    },
   })
 }

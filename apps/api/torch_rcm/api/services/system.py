@@ -259,6 +259,8 @@ def reseed(ctx: Ctx, scenario: str | None) -> ReseedOut:
         raise ApiError(422, "unknown_scenario", f"scenario {name!r} not in {sorted(SCENARIOS)}")
     if ctx.rt.scheduler.advance_lock.locked():
         raise conflict("advance_in_progress", "wait for the advance to finish")
+    if ctx.rt.scheduler.job_lock.locked():  # a running job would write onto the fresh seed
+        raise conflict("run_in_progress", "An agent run is finishing. Reset when it is done.")
     from torch_rcm.seed.persist import persist
 
     persist(ctx.rt.store, build_scenario(name))

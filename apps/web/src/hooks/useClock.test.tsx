@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { API_BASE } from '@/env'
 import { launchStore } from '@/state/launches'
+import { useToasts } from '@/state/toast'
 import { useResetDemo } from './useClock'
 
 const counts = {
@@ -54,5 +55,30 @@ describe('useResetDemo', () => {
     await act(() => result.current.mutateAsync())
 
     expect(launchStore.get()).toEqual([])
+  })
+
+  it('says why when the API refuses: a run is finishing, and the launches stay', async () => {
+    server.use(
+      http.post(`${API_BASE}/clock/reset`, () =>
+        HttpResponse.json({ error: { code: 'run_in_progress', message: 'An agent run is finishing. Reset when it is done.' } }, { status: 409 }),
+      ),
+    )
+    launchStore.add({
+      id: 'run_live',
+      kind: 'approve',
+      title: 'Approve',
+      runs: [{ run_id: 'run_live', claim_id: 'clm_4821', item_id: 'itm_4821', label: '#4821 K. Owens' }],
+      started_at: '2026-10-28T10:40:00-04:00',
+    })
+    const qc = new QueryClient()
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    const { result } = renderHook(() => ({ reset: useResetDemo(), toasts: useToasts() }), { wrapper })
+
+    await act(async () => {
+      await result.current.reset.mutateAsync().catch(() => undefined)
+    })
+
+    expect(launchStore.get()).toHaveLength(1)
+    expect(result.current.toasts.at(-1)?.message).toContain('Reset when it is done')
   })
 })

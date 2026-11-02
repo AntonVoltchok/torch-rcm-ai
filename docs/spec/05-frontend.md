@@ -33,7 +33,7 @@ Visual language: the mocks in `docs/design/mocks.html` (neutral grays, one accen
 | Column widths/density, last used location | `localStorage` behind try/catch | convenience only |
 | Edit-form drafts | component state (react-hook-form) | ephemeral |
 
-Counts (sidebar badges, strip tiles, "12 items") are **never stored** — they come from `summary/strip` and from `meta.counts` returned by every mutation, which the mutation's `onSuccess` writes into `['strip']`.
+Counts (sidebar badges, strip tiles, "12 items") are **never stored** — they come from `summary/strip` and from `meta.counts` returned by every mutation, which the API client writes into `['strip']` for "All locations" (`router.tsx`). `meta.counts` is practice-wide, so with one location selected the client invalidates instead of writing.
 
 ## Mutations
 

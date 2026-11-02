@@ -68,7 +68,7 @@ export interface FileDeparted {
 
 function explain(err: unknown): string {
   if (isApiError(err, 'already_resolved')) return `Already handled: ${err.message}`
-  if (isApiError(err, 'tier_requires_owner')) return err.message
+  if (isApiError(err, 'tier_requires_owner') || isApiError(err, 'signoff_stale')) return err.message
   if (isApiError(err, 'network')) return 'The API is unreachable; nothing was sent.'
   return 'Approval failed; nothing was sent. The item is back in your Inbox.'
 }

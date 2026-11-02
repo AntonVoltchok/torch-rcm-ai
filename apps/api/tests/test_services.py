@@ -380,3 +380,13 @@ def test_chen_frequency_rows_show_pms_history(rt: Runtime) -> None:
     assert rows["D4341"] == ("2024-03-12", None)
     assert rows["D0274"] == ("2025-11-03", "2026-11-03")
     assert rows["D1110"] == ("2026-04-14", None)
+
+
+def test_reset_refuses_while_a_job_runs(rt: Runtime) -> None:
+    async def with_a_job_running() -> None:
+        async with rt.scheduler.job_lock:
+            with pytest.raises(ApiError) as exc:
+                system.reseed(ctx(rt, "usr_morgan"), None)
+            assert code(exc) == (409, "run_in_progress")
+
+    asyncio.run(with_a_job_running())
