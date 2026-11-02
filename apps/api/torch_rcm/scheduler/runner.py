@@ -57,6 +57,9 @@ class Scheduler:
         self.owner = owner or f"boot_{uuid.uuid4().hex[:8]}"
         self.queue = JobQueue(store, clock, self.owner)
         self.advance_lock = asyncio.Lock()
+        self.job_lock = (
+            asyncio.Lock()
+        )  # held by the worker's job and by a whole advance: the clock never moves under a run
         self._task: asyncio.Task[Advance] | None = None
         register_world_handlers(reg)
 
@@ -215,8 +218,9 @@ class Scheduler:
     async def execute_advance(self, advance: Advance) -> Advance:
         async with self.advance_lock:
             try:
-                result = await self.run_due(advance.to_at, advance)
-                self._progress(advance, result, done=True)
+                async with self.job_lock:
+                    result = await self.run_due(advance.to_at, advance)
+                    self._progress(advance, result, done=True)
             except asyncio.CancelledError:
                 self._fail(advance, "interrupted by shutdown")
                 raise
@@ -250,9 +254,10 @@ class Scheduler:
         while not stop.is_set():
             ran = False
             if not self.advance_lock.locked():
-                job = self.queue.next_due(self.clock.now(), self.handled_kinds())
-                if job is not None:
-                    ran = await self.run_one(job, None, None)
+                async with self.job_lock:
+                    job = self.queue.next_due(self.clock.now(), self.handled_kinds())
+                    if job is not None:
+                        ran = await self.run_one(job, None, None)
             if not ran:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=poll_seconds)
