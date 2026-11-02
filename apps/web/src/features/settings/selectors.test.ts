@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { RulesOut } from '@/api/schema'
+import { RulesOut } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { changeDiff, floorLabel, previewView, rowView, tierViews, weeklyDigest, withRuleMode } from './selectors'
 
-const rules = (): RulesOut => new MockDb({ stepDelayMs: 0, schedule: () => undefined }).rules()
+const rules = (): RulesOut => RulesOut.parse(new MockDb({ stepDelayMs: 0, schedule: () => undefined }).rules())
 const row = (data: RulesOut, id: string) => {
   for (const t of data.tiers) for (const r of t.rows) if (r.rule.id === id) return r
   throw new Error(`no ${id}`)

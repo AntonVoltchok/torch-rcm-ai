@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import type { PlannerKind, PolicyVerdict, RunStep, RunView } from '@/api/schema'
+import type { PlannerKind, PolicyVerdict, RunStep, RunView, RunViewStep } from '@/api/schema'
 import { useRun, type StreamMode } from '@/hooks/useRun'
 import { isTerminal, stepLabel } from '@/lib/runEvents'
 import { AGENT_NAME } from '@/lib/payers'
@@ -38,9 +38,10 @@ function StepDot({ status }: { status: RunStep['status'] }) {
   return <span className={cn(base, 'border-dashed border-soft')} aria-label="pending" />
 }
 
-function StepRow({ step, run }: { step: RunStep; run: RunView }) {
+function StepRow({ step, run }: { step: RunViewStep; run: RunView }) {
   const evidence = run.evidence.filter((e) => step.evidence_ids.includes(e.id))
   const isDecide = step.name === 'decide'
+  const rationale = run.plan?.rationale
   return (
     <li data-step={step.name} data-status={step.status} className="flex gap-2.5 py-1">
       <StepDot status={step.status} />
@@ -58,7 +59,7 @@ function StepRow({ step, run }: { step: RunStep; run: RunView }) {
             Agent’s label: <b>“{run.model_situation_label}”</b>
           </div>
         )}
-        {isDecide && run.plan?.rationale && <p className="m-0 mt-0.5 text-xs text-mid">{run.plan.rationale}</p>}
+        {isDecide && typeof rationale === 'string' && rationale && <p className="m-0 mt-0.5 text-xs text-mid">{rationale}</p>}
         {step.output_summary && <small className="block text-xs text-mid">{step.output_summary}</small>}
         {step.policy_verdict && (
           <Chip tone={VERDICT[step.policy_verdict].tone} className="mt-0.5">
@@ -67,7 +68,7 @@ function StepRow({ step, run }: { step: RunStep; run: RunView }) {
         )}
         {evidence.map((e) => (
           <Chip key={e.id} tone="acc" className="mr-1 mt-0.5">
-            {e.kind === 'nea_attachment' ? `NEA# ${e.reference ?? ''}` : e.title}
+            {e.kind === 'nea_attachment' && e.reference ? `NEA# ${e.reference}` : e.title}
           </Chip>
         ))}
         {step.status === 'failed' && <div className="text-xs font-semibold text-bad">Step failed — sent back to the Inbox as a new item.</div>}

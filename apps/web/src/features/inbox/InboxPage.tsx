@@ -26,7 +26,7 @@ import { SkeletonRows } from '@/components/ui/Skeleton'
 import { InboxDetail, type DetailPanel } from './InboxDetail'
 import { InboxListView } from './InboxList'
 import { RecentRuns } from './RecentRuns'
-import { groupFor, groupRowId, itemOrder, keyOrder, nextSelection } from './selectors'
+import { groupFor, groupRowId, inboxGroups, itemOrder, keyOrder, nextSelection } from './selectors'
 
 const route = getRouteApi('/inbox')
 
@@ -90,7 +90,7 @@ export function InboxPage() {
 
   const selectKey = (id: string) => {
     if (id.startsWith('group:')) {
-      const g = data?.groups.find((x) => groupRowId(x.group_key) === id)
+      const g = data && inboxGroups(data).find((x) => groupRowId(x.group_key) === id)
       if (g) openGroup(g)
       return
     }
@@ -98,7 +98,7 @@ export function InboxPage() {
     void select({ item: id, group: it?.group_key ?? search.group })
   }
 
-  const currentGroup = group ?? (search.group ? { group: data?.groups.find((g) => g.group_key === search.group), position: 0 } : null)
+  const currentGroup = group ?? (search.group ? { group: data && inboxGroups(data).find((g) => g.group_key === search.group), position: 0 } : null)
 
   useListKeys({
     ids: keys,
@@ -168,7 +168,7 @@ export function InboxPage() {
             <SkeletonRows rows={10} />
           ) : list.isError ? (
             <QueryError error={list.error} what="the Inbox" onRetry={() => void list.refetch()} />
-          ) : items.length === 0 ? (
+          ) : !data || items.length === 0 ? (
             <EmptyState title="Nothing needs you" action={<Link to="/activity" className="font-semibold text-acc">See Activity →</Link>}>
               {ranAlone !== null ? `Agents handled ${count(ranAlone)} items this week without you.` : 'Agents are handling the rest.'}
             </EmptyState>

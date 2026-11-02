@@ -1,21 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import type { RunView } from '@/api/schema'
+import type { Evidence, RunView, RunViewStep } from '@/api/schema'
 import { applyDoneEvent, applyStatusEvent, applyStepEvent, mergeSnapshot, reduceRunMessage, runViewOf } from './runEvents'
+
+const step = (idx: number, name: string): RunViewStep => ({ idx, name, label: '', status: 'pending', tool: '', input_summary: '', output_summary: '', progress_lines: [], evidence_ids: [] })
 
 const base = (): RunView => ({
   id: 'run_1',
   agent: 'followup',
   trigger: 'approval',
+  idempotency_key: 'approve:run_1',
   status: 'queued',
-  steps: [
-    { idx: 0, name: 'fetch_pa_from_pms_imaging', status: 'pending', progress_lines: [], evidence_ids: [] },
-    { idx: 1, name: 'upload_to_nea', status: 'pending', progress_lines: [], evidence_ids: [] },
-  ],
+  started_at: '2026-10-28T10:40:00-04:00',
+  steps: [step(0, 'fetch_pa_from_pms_imaging'), step(1, 'upload_to_nea')],
+  action_label: '',
+  result_summary: '',
+  audit_line: '',
+  outcome: '',
   evidence: [],
   last_event_id: null,
 })
 
-const nea = { id: 'ev_nea', kind: 'nea_attachment' as const, title: 'PA uploaded', excerpt: 'NEA# 47731888', captured_at: '2026-10-28T10:40:00-04:00', reference: '47731888' }
+const nea: Evidence = { id: 'ev_nea', kind: 'nea_attachment', title: 'PA uploaded', excerpt: 'NEA# 47731888', captured_at: '2026-10-28T10:40:00-04:00', reference: '47731888', suspicious: false, source: '' }
+/** What `event: step` carries (`agents/runtime.py`): references, hydrated by the next GET /runs/{id}. */
+const neaRef = { id: nea.id, kind: nea.kind, title: nea.title }
 
 describe('run event reducer', () => {
   it('applies events in order', () => {
@@ -27,14 +34,14 @@ describe('run event reducer', () => {
   })
 
   it('never moves a step backwards when a late `started` arrives after `completed`', () => {
-    let r = applyStepEvent(base(), { idx: 1, name: 'upload_to_nea', status: 'ok', output_summary: 'NEA# 47731888', evidence: nea }, 5)
+    let r = applyStepEvent(base(), { idx: 1, name: 'upload_to_nea', status: 'ok', output_summary: 'NEA# 47731888', evidence: [neaRef] }, 5)
     r = applyStepEvent(r, { idx: 1, name: 'upload_to_nea', status: 'running', output_summary: 'uploading…' }, 4)
     expect(r.steps[1]).toMatchObject({ status: 'ok', output_summary: 'NEA# 47731888', evidence_ids: ['ev_nea'] })
     expect(r.last_event_id).toBe(5)
   })
 
   it('is idempotent under replay (same event twice)', () => {
-    const ev = { idx: 1, name: 'upload_to_nea', status: 'ok' as const, evidence: nea, progress_line: 'read PMS imaging' }
+    const ev = { idx: 1, name: 'upload_to_nea', status: 'ok' as const, evidence: [neaRef], progress_line: 'read PMS imaging' }
     const once = applyStepEvent(base(), ev, 3)
     const twice = applyStepEvent(once, ev, 3)
     expect(twice).toEqual(once)

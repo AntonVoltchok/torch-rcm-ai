@@ -2,7 +2,7 @@
  * Inbox fixture at Wed 10/28 10:40: 12 open items = 9 claim items + 3 eligibility items
  * (docs/spec/04-seed.md "Inbox open"), in server priority order. The Delta missing-PA group of 3 is first.
  */
-import type { Evidence, InboxGroup, InboxItemDetail } from '@/api/schema'
+import type { Evidence, InboxGroup, InboxItemDetail } from '../wire'
 import { at } from './claims'
 
 /**
@@ -11,7 +11,9 @@ import { at } from './claims'
  * (`InboxItemOut` = row + `claim`/`patient` refs + priority; `InboxItemDetail` adds hydrated evidence and the
  * hold window). Nothing outside src/mocks sees this type.
  */
-export type MockInboxItem = Omit<InboxItemDetail, 'claim' | 'patient' | 'priority' | 'suspicious_evidence' | 'evidence' | 'hold_window' | 'payload' | 'summary'> & {
+type Row = Omit<InboxItemDetail, 'claim' | 'patient' | 'priority' | 'suspicious_evidence' | 'evidence' | 'hold_window' | 'payload' | 'summary'>
+type Always = 'id' | 'kind' | 'state' | 'title' | 'recommendation' | 'cents' | 'created_at' | 'evidence_ids' | 'plan_steps'
+export type MockInboxItem = Pick<Row, Always> & Partial<Omit<Row, Always>> & {
   claim_id?: string | null
   summary?: string | null
   payload?: Record<string, unknown>
@@ -19,11 +21,8 @@ export type MockInboxItem = Omit<InboxItemDetail, 'claim' | 'patient' | 'priorit
 
 export const GROUP_DELTA_PA = 'delta_ny:resubmit_with_attachment'
 
-export const GROUP_META: Record<string, Pick<InboxGroup, 'title' | 'summary'>> = {
-  [GROUP_DELTA_PA]: {
-    title: 'Delta Dental · missing PA x-ray',
-    summary: 'CO-16 · N29 on 3 crowns · same fix: attach PA via NEA, resubmit',
-  },
+export const GROUP_META: Record<string, Pick<InboxGroup, 'title'>> = {
+  [GROUP_DELTA_PA]: { title: 'Delta Dental · missing PA x-ray' },
 }
 
 const PA_BASIS = '23 of 25 Delta CO-16 · N29 denials paid within 30 d after a PA resubmit (12 mo)'

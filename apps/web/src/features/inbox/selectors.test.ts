@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { InboxList } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { GROUP_DELTA_PA } from '@/mocks/fixtures/inbox'
-import { entries, itemOrder, keyOrder, nextSelection, withoutItems } from './selectors'
+import { entries, inboxGroups, itemOrder, keyOrder, nextSelection, withoutItems } from './selectors'
 
-const list = () => new MockDb({ stepDelayMs: 0, schedule: () => undefined }).inbox({})
+const list = () => InboxList.parse(new MockDb({ stepDelayMs: 0, schedule: () => undefined }).inbox({}))
 
 describe('inbox selectors', () => {
   it('shows the Delta group once, first, with its three members', () => {
@@ -33,9 +34,9 @@ describe('inbox selectors', () => {
   it('projects the optimistic removal: the group shrinks, then vanishes', () => {
     const one = withoutItems(list(), ['inb_4821'])
     expect(one.total).toBe(11)
-    expect(one.groups[0]).toMatchObject({ count: 2, cents: 249_000 })
+    expect(inboxGroups(one)[0]).toMatchObject({ count: 2, cents: 249_000 })
     const all = withoutItems(list(), ['inb_4821', 'inb_4836', 'inb_4840'])
     expect(all.total).toBe(9)
-    expect(all.groups).toHaveLength(0)
+    expect(inboxGroups(all)).toHaveLength(0)
   })
 })

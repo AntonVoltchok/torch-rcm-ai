@@ -28,10 +28,12 @@ export function userName(id: string | null | undefined): string {
 /** "≥ 90% · 23/25 paid", or amber "no outcome data" when the rule has no outcome metric (owner-authored, never learned). */
 export function floorLabel(rule: Rule): { text: string; tone: 'normal' | 'warn' | 'muted' } {
   if (rule.tier === 3) return { text: '—', tone: 'muted' }
-  if (rule.outcome_metric === 'none') return { text: 'no outcome data', tone: 'warn' }
+  const metric = rule.outcome_metric ?? 'none'
+  if (metric === 'none') return { text: 'no outcome data', tone: 'warn' }
   const floor = rule.confidence_floor ? `≥ ${Math.round(rule.confidence_floor * 100)}%` : null
-  const base = rule.base_rate.n > 0 ? `${rule.base_rate.k}/${rule.base_rate.n} ${OUTCOME_NOUN[rule.outcome_metric]}` : 'no base rate yet'
-  return { text: [floor, base].filter(Boolean).join(' · '), tone: rule.base_rate.n > 0 ? 'normal' : 'muted' }
+  const { n, k } = rule.base_rate ?? { n: 0, k: 0 }
+  const base = n > 0 ? `${k}/${n} ${OUTCOME_NOUN[metric]}` : 'no base rate yet'
+  return { text: [floor, base].filter(Boolean).join(' · '), tone: n > 0 ? 'normal' : 'muted' }
 }
 
 const ITEM_TYPE: Record<string, string> = {
@@ -43,9 +45,10 @@ const ITEM_TYPE: Record<string, string> = {
 
 /** "Delta · CO-16 · N29 missing PA · any $" / "All · ≤ $2,000". */
 export function scopeLabel(rule: Rule): string {
-  const who = rule.scope.payer_key ? PAYER_NAME[rule.scope.payer_key] : 'All'
-  const what = ITEM_TYPE[rule.scope.item_type] ?? rule.scope.item_type.replace(/[_:]/g, ' ')
-  const cap = rule.scope.max_cents ? `≤ ${money(rule.scope.max_cents)}` : 'any $'
+  const { payer_key, item_type = 'all', max_cents } = rule.scope ?? {}
+  const who = payer_key ? PAYER_NAME[payer_key] : 'All'
+  const what = ITEM_TYPE[item_type] ?? item_type.replace(/[_:]/g, ' ')
+  const cap = max_cents ? `≤ ${money(max_cents)}` : 'any $'
   return [who, what, cap].filter(Boolean).join(' · ')
 }
 
@@ -103,8 +106,8 @@ export function rowView(row: RuleRow, viewer: Role): RuleRowView {
     options: humanOnly ? [] : modeOptions(r.tier),
     needsOwner: r.tier === 2 && viewer !== 'owner',
     floor: floorLabel(r),
-    outcome: r.tier === 3 ? '—' : outcomeLabel(r.outcome_metric),
-    reverses: reversesLabel(r.reverses_in),
+    outcome: r.tier === 3 ? '—' : outcomeLabel(r.outcome_metric ?? 'none'),
+    reverses: reversesLabel(r.reverses_in ?? 'none'),
     ran: row.ran_without_review_7d,
     waiting: row.waiting,
     changed: changedLabel(r),

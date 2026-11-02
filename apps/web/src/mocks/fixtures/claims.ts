@@ -4,30 +4,55 @@
  * Accepted 24 $17,640 · Pending 57 $46,520 · Denied 5 $6,210 · Appealed 3 $1,920 · Partial 5 $1,060 ·
  * Paid Oct 118 $61,300). Deterministic: a fixed PRNG seed, no wall clock.
  */
-import type {
-  AckEvent,
-  AgentKind,
-  Attachment,
-  ClaimDetail,
-  ClaimLine,
-  ClaimStatus,
-  Deadline,
-  Denial,
-  Hold,
-  PayerKey,
-  ReadinessCheck,
-  TimelineEntry,
-} from '@/api/schema'
+import type { AckEvent, AckStage, AgentKind, Attachment, ClaimLine, ClaimStatus, Deadline, Denial, Hold, PayerKey, ReadinessCheck, TimelineEntry } from '../wire'
 
 export const FROZEN_NOW = '2026-10-28T10:40:00-04:00'
 
-/** Server-side record: the detail shape plus the list-row denormalisations. */
-export interface MockClaim extends Omit<ClaimDetail, 'open_inbox_items' | 'needs_action'> {
+/** A timeline row before db.ts files it under the API's `kind` (the lane says enough for the mock). */
+export type MockTimelineEntry = Omit<TimelineEntry, 'kind'>
+
+/** Server-side record, flat like the API's `Claim` entity: db.ts builds ClaimRow / ClaimDetail from it, as the API's read models do. */
+export interface MockClaim {
+  id: string
+  number: number
+  visit_id: string
+  patient_id: string
+  coverage_id: string
+  payer_key: PayerKey
+  status: ClaimStatus
+  dos: string
+  built_at: string
+  sent_at: string | null
+  file_time: string | null
+  icn: string | null
+  ack_stage: AckStage
+  billed_cents: number
+  allowed_cents: number | null
+  paid_cents: number | null
+  writeoff_cents: number | null
+  patient_resp_cents: number | null
+  denial: Denial | null
+  deadline: Deadline | null
+  parent_claim_id: string | null
+  frequency_code: 1 | 7 | 8
+  readiness: ReadinessCheck[]
+  timely_filing_due: string | null
   location_id: 'loc_downtown' | 'loc_riverside'
+  patient: { id: string; name: string; dob: string | null }
   patient_name: string
+  provider_name: string
+  plan_label: string | null
+  age_days: number | null
   procedures_label: string
-  agent_chip: { agent: AgentKind; label: string } | null
+  reason_text: string | null
+  agent_note: string | null
   last_activity: { at: string; label: string } | null
+  lines: ClaimLine[]
+  attachments: Attachment[]
+  acks: AckEvent[]
+  timeline: MockTimelineEntry[]
+  in_flight: string | null
+  closed_reason?: string | null
   /** A queued payer-file entry (API `FileEntry` state=queued): the claim is editable until the file leaves. */
   queued_file?: { at: string; kind: 'original' | 'resubmit' | 'corrected' } | null
   /** An open hold (API `Hold`): the claim is on Today's claims under "Held". */
@@ -236,17 +261,16 @@ function split(total: number, n: number, rand: () => number): number[] {
 function lineFromProcs(id: string, procs: string, billedCents: number): ClaimLine[] {
   const code = /D\d{4}/.exec(procs)?.[0] ?? 'D0120'
   const tooth = /#(\d+)/.exec(procs)?.[1] ?? null
-  const desc = PROCS.find((p) => p.cdt === code)?.desc ?? 'Procedure'
-  return [{ id: `${id}_l1`, claim_id: id, cdt: code, description: desc, tooth, surface: null, fee_cents: billedCents, allowed_cents: null, paid_cents: null, adj: [], patient_adj: [], patient_cents: null }]
+  return [{ id: `${id}_l1`, cdt: code, tooth, surface: null, fee_cents: billedCents, allowed_cents: null, paid_cents: null, adj: [], patient_adj: [], patient_cents: null }]
 }
 
-function genericTimeline(c: { id: string; status: ClaimStatus; dos: string; sentDate: string; payer: PayerKey }): TimelineEntry[] {
-  const t: TimelineEntry[] = [
-    { id: `${c.id}_t1`, at: at(c.dos, '10:43'), lane: 'agent', agent: 'claims', title: 'Built claim at checkout with PMS codes', tier: 1, evidence: [] },
+function genericTimeline(c: { id: string; status: ClaimStatus; dos: string; sentDate: string; payer: PayerKey }): MockTimelineEntry[] {
+  const t: MockTimelineEntry[] = [
+    { id: `${c.id}_t1`, at: at(c.dos, '10:43'), lane: 'agent', title: 'Built claim at checkout with PMS codes' },
   ]
-  if (c.status !== 'ready') t.push({ id: `${c.id}_t2`, at: at(c.sentDate, '10:45'), lane: 'system', title: 'Left in the payer file via Vyne · 999 accepted', evidence: [] })
-  if (!['ready', 'sent', 'rejected'].includes(c.status)) t.push({ id: `${c.id}_t3`, at: at(c.sentDate, '23:10'), lane: 'payer', title: 'Payer 277CA accepted · day-30 status check booked', evidence: [] })
-  if (c.status === 'paid' || c.status === 'partial') t.push({ id: `${c.id}_t4`, at: at(daysAgo(2), '06:20'), lane: 'payer', title: c.status === 'paid' ? '835 posted on contract' : '835 posted · line held for review', evidence: [] })
+  if (c.status !== 'ready') t.push({ id: `${c.id}_t2`, at: at(c.sentDate, '10:45'), lane: 'system', title: 'Left in the payer file via Vyne · 999 accepted' })
+  if (!['ready', 'sent', 'rejected'].includes(c.status)) t.push({ id: `${c.id}_t3`, at: at(c.sentDate, '23:10'), lane: 'payer', title: 'Payer 277CA accepted · day-30 status check booked' })
+  if (c.status === 'paid' || c.status === 'partial') t.push({ id: `${c.id}_t4`, at: at(daysAgo(2), '06:20'), lane: 'payer', title: c.status === 'paid' ? '835 posted on contract' : '835 posted · line held for review' })
   return t
 }
 
@@ -291,7 +315,7 @@ function build(pin: Pin, idx: number, rand: () => number): MockClaim {
     age_days: pin.status === 'ready' ? null : pin.ageDays,
     procedures_label: pin.procs,
     reason_text: pin.reason ?? null,
-    agent_chip: pin.agent ?? null,
+    agent_note: pin.agent?.label ?? null,
     last_activity: pin.last ?? null,
     lines: lineFromProcs(id, pin.procs, billed),
     attachments: [],
@@ -343,9 +367,6 @@ function generated(status: ClaimStatus, n: number, dollars: number, rand: () => 
 
 /** #4821 is drawn in full: lines, attachments, acks, readiness, the owned root cause and its timeline. */
 function owens4821(base: MockClaim): MockClaim {
-  const evEra = { id: 'ev_4821_era', kind: 'era_line' as const, title: 'Delta 835 · 10/26 · D2740 #19', excerpt: 'CO-16 · N29 — claim lacks information needed for adjudication; N29: missing documentation (pre-operative radiograph required). Paid $0.00.', captured_at: at('2026-10-26', '06:05'), reference: 'TRN 1DD2629904' }
-  const evRep = { id: 'ev_4821_rep', kind: 'rep_call' as const, title: 'Rep call (after IVR) · 6m 12s', excerpt: 'Rep, 10/27 4:20 PM: “…send the PA through FastAttach and resubmit with the claim number.”', captured_at: at('2026-10-27', '16:26'), reference: 'DD-1027-88412' }
-  const evIvr = { id: 'ev_4821_ivr', kind: 'ivr_transcript' as const, title: 'Delta IVR status check', excerpt: '“Claim 26299-041833 … denied on October 26 … paid amount zero dollars.”', captured_at: at('2026-10-27', '16:02'), reference: 'IVR-1027-5531' }
   return {
     ...base,
     dos: '2026-10-12',
@@ -365,14 +386,14 @@ function owens4821(base: MockClaim): MockClaim {
     age_days: 16,
     location_id: 'loc_downtown',
     lines: [
-      { id: 'cl_4821_1', claim_id: 'clm_4821', cdt: 'D2740', description: 'Crown, porcelain/ceramic', tooth: '19', surface: null, fee_cents: 109000, allowed_cents: 86800, paid_cents: 0, adj: [{ group: 'CO', code: '16', cents: 86800 }, { group: 'CO', code: '45', cents: 22200 }], patient_adj: [], patient_cents: 43400 },
-      { id: 'cl_4821_2', claim_id: 'clm_4821', cdt: 'D2950', description: 'Core buildup', tooth: '19', surface: null, fee_cents: 12000, allowed_cents: 9600, paid_cents: 0, adj: [{ group: 'CO', code: '16', cents: 9600 }, { group: 'CO', code: '45', cents: 2400 }], patient_adj: [], patient_cents: 4800 },
-      { id: 'cl_4821_3', claim_id: 'clm_4821', cdt: 'D0220', description: 'Intraoral periapical, first film', tooth: '19', surface: null, fee_cents: 3000, allowed_cents: 2200, paid_cents: 0, adj: [{ group: 'CO', code: '16', cents: 2200 }, { group: 'CO', code: '45', cents: 800 }], patient_adj: [], patient_cents: 0 },
+      { id: 'cl_4821_1', cdt: 'D2740', tooth: '19', surface: null, fee_cents: 109000, allowed_cents: 86800, paid_cents: 0, adj: [{ group: 'CO', code: '16', cents: 86800 }, { group: 'CO', code: '45', cents: 22200 }], patient_adj: [], patient_cents: 43400 },
+      { id: 'cl_4821_2', cdt: 'D2950', tooth: '19', surface: null, fee_cents: 12000, allowed_cents: 9600, paid_cents: 0, adj: [{ group: 'CO', code: '16', cents: 9600 }, { group: 'CO', code: '45', cents: 2400 }], patient_adj: [], patient_cents: 4800 },
+      { id: 'cl_4821_3', cdt: 'D0220', tooth: '19', surface: null, fee_cents: 3000, allowed_cents: 2200, paid_cents: 0, adj: [{ group: 'CO', code: '16', cents: 2200 }, { group: 'CO', code: '45', cents: 800 }], patient_adj: [], patient_cents: 0 },
     ],
     attachments: [
-      { id: 'att_4821_1', claim_id: 'clm_4821', kind: 'narrative', nea_number: null, source: 'agent', created_at: at('2026-10-12', '10:43'), note: 'Narrative.txt' },
-      { id: 'att_4821_2', claim_id: 'clm_4821', kind: 'bwx', nea_number: '47720913', source: 'agent', created_at: at('2026-10-12', '10:43'), note: 'sent 10/12 · wrong image for a crown' },
-      { id: 'att_4821_3', claim_id: 'clm_4821', kind: 'eob', nea_number: null, source: 'agent', created_at: at('2026-10-26', '06:05'), note: 'Delta ERA 835 · 10/26' },
+      { id: 'att_4821_1', kind: 'narrative', nea_number: null, source: 'agent', created_at: at('2026-10-12', '10:43'), note: 'Narrative.txt' },
+      { id: 'att_4821_2', kind: 'bwx', nea_number: '47720913', source: 'agent', created_at: at('2026-10-12', '10:43'), note: 'sent 10/12 · wrong image for a crown' },
+      { id: 'att_4821_3', kind: 'eob', nea_number: null, source: 'agent', created_at: at('2026-10-26', '06:05'), note: 'Delta ERA 835 · 10/26' },
     ] satisfies Attachment[],
     acks: [
       { id: 'ack_4821_1', claim_id: 'clm_4821', stage: 'file_999_ok', code: null, message: '10:45 Delta file accepted (999)', at: at('2026-10-12', '10:46') },
@@ -390,19 +411,25 @@ function owens4821(base: MockClaim): MockClaim {
       { key: 'timely_filing', status: 'pass', detail: 'Filed day 0 of 365' },
     ],
     timeline: [
-      { id: 't4821_01', at: at('2026-10-12', '10:41'), lane: 'system', title: 'Crown D2740 #19 completed; 3 lines posted to the ledger (PMS)', evidence: [] },
-      { id: 't4821_02', at: at('2026-10-12', '10:43'), lane: 'agent', agent: 'claims', tier: 1, title: 'Built claim at checkout with BWX D0274 (NEA# 47720913)', detail: 'The attachment rule picked the BWX, not the PA', evidence: [] },
-      { id: 't4821_03', at: at('2026-10-12', '10:45'), lane: 'system', title: 'Left in the 10:45 Delta file via Vyne · 999 accepted', evidence: [] },
-      { id: 't4821_04', at: at('2026-10-13', '06:12'), lane: 'payer', title: 'Delta 277CA accepted · ICN 26299-041833 · day-30 status check booked 11/11', evidence: [] },
-      { id: 't4821_05', at: at('2026-10-26', '06:05'), lane: 'payer', title: 'Denied CO-16 · N29 · pre-op radiograph required', evidence: [evEra] },
-      { id: 't4821_06', at: at('2026-10-26', '09:30'), lane: 'agent', agent: 'followup', root_cause: 'ours', title: 'Root cause: ours — BWX sent, not the PA billed as D0220', evidence: [] },
-      { id: 't4821_07', at: at('2026-10-26', '10:02'), lane: 'human', actor: 'Dana S.', title: 'Approved rule: Delta D27xx → attach PA, not BWX · found 2 more', evidence: [] },
-      { id: 't4821_08', at: at('2026-10-27', '16:02'), lane: 'agent', agent: 'followup', tier: 1, title: 'IVR status check: denied 10/26, $0 paid', evidence: [evIvr] },
-      { id: 't4821_09', at: at('2026-10-27', '16:20'), lane: 'agent', agent: 'followup', tier: 1, title: 'Rep call · ref # DD-1027-88412: send PA via NEA, resubmit', evidence: [evRep] },
-      { id: 't4821_10', at: at('2026-10-28', '06:15'), lane: 'agent', agent: 'followup', title: 'Matched PA #19 in PMS imaging; proposal → Inbox', evidence: [] },
+      { id: 't4821_01', at: at('2026-10-12', '10:41'), lane: 'system', title: 'Crown D2740 #19 completed; 3 lines posted to the ledger (PMS)' },
+      { id: 't4821_02', at: at('2026-10-12', '10:43'), lane: 'agent', title: 'Built claim at checkout with BWX D0274 (NEA# 47720913)', detail: 'The attachment rule picked the BWX, not the PA' },
+      { id: 't4821_03', at: at('2026-10-12', '10:45'), lane: 'system', title: 'Left in the 10:45 Delta file via Vyne · 999 accepted' },
+      { id: 't4821_04', at: at('2026-10-13', '06:12'), lane: 'payer', title: 'Delta 277CA accepted · ICN 26299-041833 · day-30 status check booked 11/11' },
+      { id: 't4821_05', at: at('2026-10-26', '06:05'), lane: 'payer', title: 'Denied CO-16 · N29 · pre-op radiograph required' },
+      { id: 't4821_06', at: at('2026-10-26', '09:30'), lane: 'agent', root_cause: 'ours', title: 'Root cause: ours — BWX sent, not the PA billed as D0220' },
+      { id: 't4821_07', at: at('2026-10-26', '10:02'), lane: 'human', actor: 'Dana S.', title: 'Approved rule: Delta D27xx → attach PA, not BWX · found 2 more' },
+      { id: 't4821_08', at: at('2026-10-27', '16:02'), lane: 'agent', title: 'IVR status check: denied 10/26, $0 paid', run_id: 'run_4821_ivr', evidence_ids: ['ev_4821_ivr'] },
+      { id: 't4821_09', at: at('2026-10-27', '16:20'), lane: 'agent', title: 'Rep call · ref # DD-1027-88412: send PA via NEA, resubmit', run_id: 'run_4821_rep', evidence_ids: ['ev_4821_rep'] },
+      { id: 't4821_10', at: at('2026-10-28', '06:15'), lane: 'agent', title: 'Matched PA #19 in PMS imaging; proposal → Inbox' },
     ],
   }
 }
+
+/** #4821's two status runs, as the API keeps them: the timeline carries evidence ids, the run holds the objects. */
+export const OWENS_RUNS = [
+  { id: 'run_4821_ivr', claim_id: 'clm_4821', action_label: 'IVR status check', started_at: at('2026-10-27', '16:02'), evidence: { id: 'ev_4821_ivr', kind: 'ivr_transcript' as const, title: 'Delta IVR status check', excerpt: '“Claim 26299-041833 … denied on October 26 … paid amount zero dollars.”', captured_at: at('2026-10-27', '16:02'), reference: 'IVR-1027-5531' } },
+  { id: 'run_4821_rep', claim_id: 'clm_4821', action_label: 'Rep call', started_at: at('2026-10-27', '16:20'), evidence: { id: 'ev_4821_rep', kind: 'rep_call' as const, title: 'Rep call (after IVR) · 6m 12s', excerpt: 'Rep, 10/27 4:20 PM: “…send the PA through FastAttach and resubmit with the claim number.”', captured_at: at('2026-10-27', '16:26'), reference: 'DD-1027-88412' } },
+]
 
 export function buildClaims(): MockClaim[] {
   const rand = mulberry32(4821)

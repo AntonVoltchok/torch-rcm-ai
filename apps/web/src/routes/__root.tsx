@@ -16,7 +16,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   ),
   errorComponent: ({ error, reset }) => (
     <EmptyState title="Something broke on this screen" action={<button type="button" className="font-semibold text-acc underline" onClick={reset}>Try again</button>}>
-      {error.message}
+      {error instanceof Error ? error.message : String(error)}
     </EmptyState>
   ),
 })

@@ -80,12 +80,12 @@ const routes: Route[] = [
   ['GET', new RegExp(`^/clock/advance/${ID}$`), ({ db, m }) => db.advanceStatus(m[1] ?? '')],
   ['POST', /^\/clock\/reset$/, ({ db }) => {
     db.reset()
-    return { meta: { counts: db.strip() } }
+    return { scenario: 'canonical', now: db.now, meta: { counts: db.strip() } }
   }],
   ['GET', /^\/agents\/status$/, ({ db }) => db.agentsStatus()],
   ['POST', /^\/agents:pause$/, ({ db, user }) => db.pause(user)],
   ['POST', /^\/agents:resume$/, ({ db, user }) => db.resume(user)],
-  ['GET', /^\/_world\/status$/, () => ({ outages: [] })],
+  ['GET', /^\/_world\/payers$/, () => []],
   ['GET', /^\/summary\/strip$/, ({ db, url, user }) => db.strip(q(url, 'location_id') ?? undefined, user)],
 
   ['GET', /^\/inbox$/, ({ db, url, user }) => db.inbox({ state: q(url, 'state'), kind: q(url, 'kind'), agent: q(url, 'agent') }, user)],

@@ -2,6 +2,7 @@ import { useAgentsStatus } from '@/hooks/useAgents'
 import { AGENT_COUNT } from '@/lib/payers'
 import { time } from '@/lib/format'
 import { useFirehoseState } from '@/state/live'
+import { userName } from '@/features/settings/selectors'
 
 /** "✦ 5 agents · 1 running" from GET /agents/status, kept fresh by the firehose; degrades, never lies. */
 export function AgentsIndicator() {
@@ -17,7 +18,7 @@ export function AgentsIndicator() {
       </span>
       {s?.paused && (
         <span className="rounded border border-warn-line bg-warn-bg px-1.5 py-0.5 font-semibold text-warn">
-          Agents paused{s.paused_by ? ` by ${s.paused_by}` : ''}
+          Agents paused{s.paused_by ? ` by ${userName(s.paused_by)}` : ''}
           {s.paused_at ? ` ${time(s.paused_at)}` : ''}
         </span>
       )}

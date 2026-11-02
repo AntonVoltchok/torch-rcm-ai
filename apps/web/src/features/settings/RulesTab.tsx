@@ -65,7 +65,7 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
               </span>
               <RuleCapEditor
                 key={selectedRow.rule.id}
-                cents={selectedRow.rule.scope.max_cents ?? null}
+                cents={selectedRow.rule.scope?.max_cents ?? null}
                 busy={patch.isPending}
                 onPreview={(cents) => setCapTrial(cents === null ? null : { rule_id: selectedRow.rule.id, max_cents: cents })}
                 onApply={(cents) => patch.mutate({ ruleId: selectedRow.rule.id, label: selectedRow.rule.label, patch: { max_cents: cents } })}

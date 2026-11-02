@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Ledger } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { THURSDAY_0710 } from '@/mocks/fixtures/static'
 import { ackChips, fileGroups } from '@/features/ledger/selectors'
@@ -54,7 +55,7 @@ describe('denials worklist selectors', () => {
 describe('today’s claims selectors', () => {
   it('reads a fixed A7 as “A7:164 → A1” and groups leaving claims by file time', () => {
     const db = new MockDb({ stepDelayMs: 0, schedule: () => undefined })
-    const l = db.ledger()
+    const l = Ledger.parse(db.ledger())
     const iqbal = l.sent.find((r) => r.claim.number === 4860)
     expect(iqbal && ackChips(iqbal.acks, true).vyne.text).toBe('A7:164 9:49 AM → A1 10:19 AM')
     expect(iqbal && ackChips(iqbal.acks, true).payer).toEqual({ tone: 'pending', text: 'pending' })

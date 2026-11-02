@@ -5,6 +5,7 @@
  * mode and the real API tell the same story.
  */
 import type {
+  CoverageOut,
   ActionKind,
   AgentKind,
   BenefitsPanel,
@@ -18,7 +19,7 @@ import type {
   RootCause,
   SavedView,
   Tier,
-} from '@/api/schema'
+} from '../wire'
 import { at, FROZEN_NOW, type MockClaim } from './claims'
 
 export const TODAY = FROZEN_NOW.slice(0, 10)
@@ -336,6 +337,29 @@ const AGENT_NOTE: Record<string, string> = {
   appt_park_1030: 'MetLife portal and IVR unavailable since 05:40; 271 returned no plan detail. Verify at check-in or call MetLife.',
 }
 
+/** A claim's coverage on the plan its payer sells in this seed (the eligibility card's numbers). */
+export function coverageFor(c: { coverage_id: string; payer_key: PayerKey; plan_label: string | null }): CoverageOut {
+  return {
+    id: c.coverage_id,
+    payer_key: c.payer_key,
+    plan_name: c.plan_label ?? PLAN_NAME[c.payer_key],
+    subscriber_id: `6049${c.coverage_id.slice(-5)}`,
+    group_no: '0042-10',
+    order: 'primary',
+    self_funded: c.payer_key === 'aetna',
+    annual_max_cents: 150000,
+    used_cents: 32000,
+    remaining_max_cents: 118000,
+    deductible_cents: 5000,
+    deductible_met_cents: 5000,
+    pct_preventive: 100,
+    pct_basic: 80,
+    pct_major: 50,
+    verified_at: at(TODAY, '06:12'),
+    verified_via: 'portal',
+  }
+}
+
 export function benefitsFor(row: EligibilityRow): BenefitsPanel {
   const payer = row.payer?.key ?? 'delta_ny'
   const used = row.remaining_max_cents === null ? 0 : 150000 - row.remaining_max_cents
@@ -523,5 +547,5 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
 ]
 
 export const VIEWS: SavedView[] = [
-  { id: 'view_pending_30', name: 'Pending 31–60 d', search_params: { status: ['pending'], age: '31_60', sort: '-age' }, owner_user_id: 'usr_dana', builtin: false },
+  { id: 'view_pending_30', name: 'Pending 31–60 d', search_params: { status: ['pending'], age: '31_60', sort: '-age' }, owner_user_id: 'usr_dana', created_at: at('2026-10-26', '09:00'), builtin: false },
 ]

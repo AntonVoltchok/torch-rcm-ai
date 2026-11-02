@@ -204,7 +204,7 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     expect(db.inbox({}).items.find((i) => i.id === 'inb_4800')).toMatchObject({ tier: 2, rule_id: null })
     expect(db.inbox({}).items.find((i) => i.id === 'inb_4797')).toMatchObject({ tier: 1, root_cause: 'ours' })
     for (const id of ['clm_4821', 'clm_4836', 'clm_4840']) {
-      const c = db.claim(id)
+      const { claim: c } = db.claim(id)
       expect(c.status).toBe('denied')
       expect(c.in_flight).toContain('11:15')
     }

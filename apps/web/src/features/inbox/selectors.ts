@@ -5,13 +5,16 @@
  */
 import type { InboxGroup, InboxItem, InboxList } from '@/api/schema'
 
+/** The API sends `groups` only for `?group=true`; every list here asks for them, so absent means none. */
+export const inboxGroups = (list: InboxList): InboxGroup[] => list.groups ?? []
+
 export type Entry = { type: 'item'; item: InboxItem } | { type: 'group'; group: InboxGroup; members: InboxItem[] }
 
 /** Items in server order; a group appears once, where its first member would be. */
 export function entries(list: InboxList): Entry[] {
   const byId = new Map(list.items.map((i) => [i.id, i]))
   const groupOf = new Map<string, InboxGroup>()
-  for (const g of list.groups) for (const id of g.item_ids) groupOf.set(id, g)
+  for (const g of inboxGroups(list)) for (const id of g.item_ids) groupOf.set(id, g)
   const seen = new Set<string>()
   const out: Entry[] = []
   for (const item of list.items) {
@@ -53,7 +56,7 @@ export function nextSelection(order: readonly string[], removed: readonly string
 
 export function groupFor(list: InboxList | undefined, item: InboxItem | undefined): { group: InboxGroup; position: number } | null {
   if (!list || !item?.group_key) return null
-  const group = list.groups.find((g) => g.group_key === item.group_key)
+  const group = inboxGroups(list).find((g) => g.group_key === item.group_key)
   if (!group) return null
   return { group, position: group.item_ids.indexOf(item.id) + 1 }
 }
@@ -68,7 +71,7 @@ export function withoutItems(list: InboxList, ids: readonly string[]): InboxList
     items: list.items.filter((i) => !drop.has(i.id)),
     total: Math.max(0, list.total - removed.length),
     total_cents: Math.max(0, list.total_cents - removed.reduce((a, i) => a + i.cents, 0)),
-    groups: list.groups
+    groups: inboxGroups(list)
       .map((g) => {
         const gone = g.item_ids.filter((id) => drop.has(id))
         return {

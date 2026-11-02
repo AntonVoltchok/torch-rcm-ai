@@ -39,10 +39,10 @@ describe('mock API', () => {
     drain()
     const { run, evidence } = db.run(res.runs[0]?.id ?? '')
     expect(run.status).toBe('succeeded')
-    expect(run.steps.map((s) => s.name)).toEqual(['fetch_pa_from_pms_imaging', 'upload_to_nea', 'write_nea_to_remarks', 'queue_for_delta_file'])
+    expect(run.steps?.map((s) => s.name)).toEqual(['fetch_pa_from_pms_imaging', 'upload_to_nea', 'write_nea_to_remarks', 'queue_for_delta_file'])
     expect(evidence[0]?.kind).toBe('nea_attachment')
     expect(run.audit_line).toContain('11:15 Delta file')
-    expect(db.claim('clm_4821')).toMatchObject({ open_inbox_items: [], in_flight: 'resubmit queued · leaves 11:15' })
+    expect(db.claim('clm_4821')).toMatchObject({ open_inbox_items: [], claim: { in_flight: 'resubmit queued · leaves 11:15' } })
     invariants(db)
   })
 
@@ -64,8 +64,8 @@ describe('mock API', () => {
     const done = db.run(run.id).run
     expect(done.planner).toBe('recorded_plan')
     expect(done.model_situation_label).toBe('payer asks for missing-tooth history')
-    expect(done.steps.find((s) => s.name === 'decide')?.policy_verdict).toBe('propose')
-    expect(done.steps.find((s) => s.name === 'investigate')?.progress_lines).toContain('read portal correspondence 10/22')
+    expect(done.steps?.find((s) => s.name === 'decide')?.policy_verdict).toBe('propose')
+    expect(done.steps?.find((s) => s.name === 'investigate')?.progress_lines).toContain('read portal correspondence 10/22')
     expect(db.strip().inbox_open).toBe(13)
     expect(() => db.triage('clm_4744', 'usr_dana')).toThrow(MockError)
   })

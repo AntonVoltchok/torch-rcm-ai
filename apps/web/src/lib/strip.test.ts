@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { StripSummary } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { arTotals, flaggedTotal, navBadge, openTotals, stripTiles } from './strip'
 
 /** The strip as the canonical seed must produce it at Wed 10/28 10:40 (docs/spec/04-seed.md). */
 describe('strip selectors', () => {
-  const strip = new MockDb({ stepDelayMs: 0, schedule: () => undefined }).strip()
+  const strip = StripSummary.parse(new MockDb({ stepDelayMs: 0, schedule: () => undefined }).strip())
 
   it('reads the tiles in lifecycle order with the month label on Paid', () => {
     expect(stripTiles(strip).map((t) => `${t.label} ${t.count} ${t.cents / 100}`)).toEqual([

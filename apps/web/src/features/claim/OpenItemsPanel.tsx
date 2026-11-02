@@ -17,7 +17,7 @@ export function OpenItemsPanel({ claim, onLaunched }: { claim: ClaimDetail; onLa
       <div className="mb-1 text-2xs font-extrabold uppercase tracking-[.05em] text-mid">Open inbox items for this claim ({items.length})</div>
       {items.length === 0 ? (
         <p className="m-0 text-sm text-mid" data-testid="no-open-items">
-          Nothing open.{claim.in_flight ? <> ✦ <b className="text-ink">{claim.in_flight}</b></> : null}
+          Nothing open.{claim.claim.in_flight ? <> ✦ <b className="text-ink">{claim.claim.in_flight}</b></> : null}
         </p>
       ) : (
         <ul className="m-0 list-none p-0">

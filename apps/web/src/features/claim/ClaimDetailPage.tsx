@@ -6,6 +6,7 @@
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { InboxList } from '@/api/schema'
+import { inboxGroups } from '@/features/inbox/selectors'
 import { qk } from '@/api/queryKeys'
 import { isApiError } from '@/api/client'
 import { useClaim } from '@/hooks/useClaims'
@@ -43,7 +44,7 @@ function useBreadcrumbPosition(itemId: string | undefined): string | null {
   const qc = useQueryClient()
   if (!itemId) return null
   for (const [, list] of qc.getQueriesData<InboxList>({ queryKey: qk.inbox.lists() })) {
-    const g = list?.groups.find((x) => x.item_ids.includes(itemId))
+    const g = list && inboxGroups(list).find((x) => x.item_ids.includes(itemId))
     if (g) return `${g.item_ids.indexOf(itemId) + 1} of ${g.count}`
   }
   return null
@@ -86,12 +87,14 @@ export function ClaimDetailPage() {
     )
   }
 
-  const c = claim.data
+  const d = claim.data
+  const c = d.claim
+  const payerName = PAYER_NAME[d.payer.key]
   const tone = ageTone(c.age_days)
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title={`Claim #${c.number}`} sub={`${c.patient.name} · ${PAYER_NAME[c.payer_key]}`}>
-        <TriageButton claim={c} onLaunched={(l) => openLaunch(l.id)} />
+      <PageHeader title={`Claim #${c.number}`} sub={`${d.patient.name} · ${payerName}`}>
+        <TriageButton claim={d} onLaunched={(l) => openLaunch(l.id)} />
       </PageHeader>
       <nav aria-label="Breadcrumb" className="flex flex-none items-center gap-2 border-b border-line bg-fill px-[18px] py-1.5 text-sm text-mid">
         {from?.kind === 'inbox' ? (
@@ -105,7 +108,7 @@ export function ClaimDetailPage() {
         )}
         <span>›</span>
         <b className="text-ink">
-          #{c.number} · {PAYER_NAME[c.payer_key]}
+          #{c.number} · {payerName}
           {position ? ` · ${position}` : ''}
         </b>
         {c.icn && <span>ICN {c.icn}</span>}
@@ -114,18 +117,18 @@ export function ClaimDetailPage() {
       <div className="min-h-0 flex-1 overflow-auto px-5 py-3.5">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-3">
           {launch && <ProgressPanel launch={launch} fromInbox={false} onClose={() => void navigate({ search: (s) => ({ ...s, launch: undefined }), replace: true })} />}
-          <OpenItemsPanel claim={c} onLaunched={(l) => openLaunch(l.id)} />
+          <OpenItemsPanel claim={d} onLaunched={(l) => openLaunch(l.id)} />
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="m-0 text-[18px] font-bold">{c.patient.name}</h2>
+            <h2 className="m-0 text-[18px] font-bold">{d.patient.name}</h2>
             <span className="text-sm text-mid">
-              {[c.patient.dob ? `DOB ${longDate(c.patient.dob)}` : null, c.plan_label ?? PAYER_NAME[c.payer_key], `DOS ${longDate(c.dos)}`, c.provider_name].filter(Boolean).join(' · ')}
+              {[d.patient.dob ? `DOB ${longDate(d.patient.dob)}` : null, d.coverage.plan_name, `DOS ${longDate(c.dos)}`, d.provider_name].filter(Boolean).join(' · ')}
             </span>
             <span className="ml-auto flex items-center gap-2">
               <StatusChip status={c.status} />
-              {c.denial && (
+              {d.denial && (
                 <b className="text-sm">
-                  {c.denial.carc}
-                  {c.denial.rarc ? ` · ${c.denial.rarc}` : ''}
+                  {d.denial.carc}
+                  {d.denial.rarc ? ` · ${d.denial.rarc}` : ''}
                 </b>
               )}
               {c.age_days !== null && c.age_days !== undefined && (
@@ -135,19 +138,19 @@ export function ClaimDetailPage() {
               )}
             </span>
           </div>
-          <MoneyMath claim={c} />
-          {c.denial && (
+          <MoneyMath money={d.money} />
+          {d.denial && (
             <p className="m-0 rounded-md border border-bad-line bg-bad-bg px-3 py-1.5 text-sm">
               <b>
-                Denial {c.denial.carc}
-                {c.denial.rarc ? ` · ${c.denial.rarc}` : ''}
+                Denial {d.denial.carc}
+                {d.denial.rarc ? ` · ${d.denial.rarc}` : ''}
               </b>{' '}
-              — {c.denial.decoded}
-              {c.denial.root_cause === 'ours' && <b className="ml-1 text-bad">Root cause: ours.</b>}
-              {c.deadline && c.deadline.kind !== 'none' && (
+              — {d.denial.decoded}
+              {d.denial.root_cause === 'ours' && <b className="ml-1 text-bad">Root cause: ours.</b>}
+              {d.deadline.kind !== 'none' && (
                 <span className="text-mid">
                   {' '}
-                  · {c.deadline.kind.replace('_', ' ')} due {c.deadline.due_on ? shortDate(c.deadline.due_on) : '—'} ({c.deadline.basis})
+                  · {d.deadline.kind.replace('_', ' ')} due {d.deadline.due_on ? shortDate(d.deadline.due_on) : '—'} ({d.deadline.basis})
                 </span>
               )}
             </p>
@@ -155,21 +158,21 @@ export function ClaimDetailPage() {
           <div className="grid grid-cols-[1.35fr_1fr] gap-3">
             <div className="flex min-w-0 flex-col gap-3">
               <Card title="Line items">
-                <LinesTable lines={c.lines} />
+                <LinesTable lines={d.lines} />
               </Card>
               <Card title="Timeline">
-                <Timeline entries={c.timeline} nowLabel={c.in_flight ? c.in_flight : c.open_inbox_items.length ? 'Awaiting approval' : undefined} />
+                <Timeline entries={d.timeline} nowLabel={c.in_flight ? c.in_flight : d.open_inbox_items.length ? 'Awaiting approval' : undefined} />
               </Card>
             </div>
             <div className="flex min-w-0 flex-col gap-3">
               <Card title="Attachments">
-                <Attachments attachments={c.attachments} />
+                <Attachments attachments={d.attachments} />
               </Card>
               <Card title="Acknowledgements">
-                <AcksList acks={c.acks} />
+                <AcksList acks={d.acks} />
               </Card>
               <Card title="Readiness checks">
-                <ReadinessChecklist checks={c.readiness} />
+                <ReadinessChecklist checks={d.readiness} />
               </Card>
             </div>
           </div>

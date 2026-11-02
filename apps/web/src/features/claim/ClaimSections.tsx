@@ -1,4 +1,5 @@
 import type { AckEvent, Attachment, ClaimLine } from '@/api/schema'
+import { cdtName } from '@/lib/cdt'
 import { dateTime, money } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -26,11 +27,11 @@ export function LinesTable({ lines }: { lines: ClaimLine[] }) {
           <tr key={l.id} className="h-9 border-t border-light">
             <td className="pr-2 font-mono text-xs">{l.cdt}</td>
             <td className="pr-2">{l.tooth ?? '—'}</td>
-            <td className="pr-2">{l.description ?? '—'}</td>
+            <td className="pr-2">{cdtName(l.cdt) ?? '—'}</td>
             <td className="pr-2 text-right">{money(l.fee_cents)}</td>
             <td className="pr-2 text-right">{money(l.allowed_cents ?? null)}</td>
             <td className="pr-2 text-right">{money(l.paid_cents ?? null)}</td>
-            <td className="pr-2 text-xs text-mid">{l.adj.length ? l.adj.map((a) => `${a.group}-${a.code} ${money(a.cents)}`).join(' · ') : '—'}</td>
+            <td className="pr-2 text-xs text-mid">{l.adj?.length ? l.adj.map((a) => `${a.group}-${a.code} ${money(a.cents)}`).join(' · ') : '—'}</td>
             <td className="text-right">{money(l.patient_cents ?? null)}</td>
           </tr>
         ))}

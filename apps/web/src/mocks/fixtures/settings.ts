@@ -2,7 +2,7 @@
  * Settings › Agents fixture: the 19 rules, the 5-row change log and the 3 proposals exactly as the API seed
  * builds them (apps/api/torch_rcm/seed/canonical/agents.py), so mock mode and the real API show the same table.
  */
-import type { Rule, RuleChange, RuleProposal, Tier } from '@/api/schema'
+import type { Rule, RuleChange, RuleProposal, Tier } from '../wire'
 import { at } from './claims'
 
 export const PRACTICE_CAP_CENTS = 100_000

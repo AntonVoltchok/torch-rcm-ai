@@ -74,7 +74,6 @@ function GroupBlock(props: {
             </span>
             <span className="ml-auto font-bold">{money(group.cents)}</span>
           </span>
-          {group.summary && <span className="mt-0.5 block text-sm text-ink">{group.summary}</span>}
         </button>
         <div className="mt-1.5 flex items-center gap-2">
           <Button size="sm" variant="primary" onClick={props.onApproveGroup} disabled={props.approving} kbd="⇧A">

@@ -1,16 +1,41 @@
 /** The claim's story, newest last, in three lanes: agent ✦, payer/system ●, you ●. Agent errors are owned. */
-import type { TimelineEntry } from '@/api/schema'
-import { dateTime } from '@/lib/format'
-import { AGENT_NAME } from '@/lib/payers'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import type { Evidence, RunViewEvidence, TimelineEntry } from '@/api/schema'
+import { runQueryOptions } from '@/hooks/useRun'
+import { dateTime, plural } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { EvidenceCard } from './EvidenceCard'
-import { TierBadge } from './TierBadge'
 
 const DOT: Record<TimelineEntry['lane'], string> = {
   agent: 'border-acc bg-acc',
   payer: 'border-soft bg-white',
   system: 'border-soft bg-white',
   human: 'border-ink bg-ink',
+}
+
+const isHydrated = (e: RunViewEvidence): e is Evidence => e.excerpt !== undefined
+
+/** The timeline carries evidence ids; the run holds the objects, fetched when someone asks (no N+1 on the claim). */
+function RunEvidence({ runId, ids }: { runId: string; ids: string[] }) {
+  const [open, setOpen] = useState(false)
+  const run = useQuery({ ...runQueryOptions(runId), enabled: open })
+  const evidence = (run.data?.evidence ?? []).filter(isHydrated).filter((e) => ids.includes(e.id))
+  return (
+    <div className="mt-1">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="text-xs font-semibold text-acc hover:underline">
+        {open ? '▾' : '▸'} {plural(ids.length, 'evidence item')}
+      </button>
+      {open && run.isError && <p className="m-0 text-xs text-bad">Could not load the evidence.</p>}
+      {open && evidence.length > 0 && (
+        <div className="mt-1 flex max-w-[560px] gap-2">
+          {evidence.map((ev) => (
+            <EvidenceCard key={ev.id} evidence={ev} className="max-w-[180px]" />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function Timeline({ entries, nowLabel }: { entries: TimelineEntry[]; nowLabel?: string | undefined }) {
@@ -33,23 +58,16 @@ export function Timeline({ entries, nowLabel }: { entries: TimelineEntry[]; nowL
             <span className={cn('absolute -left-[19px] top-1 h-2.5 w-2.5 rounded-full border-2', DOT[e.lane])} aria-hidden />
             <div className="text-2xs text-soft">
               {dateTime(e.at)}
-              {e.lane === 'agent' && e.agent ? ` · ✦ ${AGENT_NAME[e.agent]}` : ''}
+              {e.lane === 'agent' ? ' · ✦ agent' : ''}
               {e.lane === 'human' && e.actor ? ` · ${e.actor}` : ''}
               {e.lane === 'payer' ? ' · payer' : ''}
             </div>
             <div className="flex flex-wrap items-center gap-1.5 font-semibold">
               <span>{e.title}</span>
-              {e.tier ? <TierBadge tier={e.tier} compact /> : null}
               {e.root_cause === 'ours' && <span className="rounded border border-bad-line bg-bad-bg px-1 text-2xs font-bold text-bad">root cause: ours</span>}
             </div>
             {e.detail && <div className="text-sm text-mid">{e.detail}</div>}
-            {e.evidence.length > 0 && (
-              <div className="mt-1 flex max-w-[560px] gap-2">
-                {e.evidence.map((ev) => (
-                  <EvidenceCard key={ev.id} evidence={ev} className="max-w-[180px]" />
-                ))}
-              </div>
-            )}
+            {e.run_id && e.evidence_ids && e.evidence_ids.length > 0 && <RunEvidence runId={e.run_id} ids={e.evidence_ids} />}
           </li>
         ))}
         {nowLabel && (
