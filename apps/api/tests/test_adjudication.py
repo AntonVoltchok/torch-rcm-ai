@@ -1,13 +1,11 @@
-"""Payer adjudication: the pinned demo cases to the cent, and property tests that every remittance line balances.
-
-The hypothesis test runs where hypothesis is installed (dev dependency); the seeded sweep always runs.
-"""
+"""Payer adjudication: the pinned demo cases to the cent, and property tests that every remittance line balances."""
 
 from __future__ import annotations
 
 import random
 
-import pytest
+import hypothesis
+from hypothesis import strategies as st
 
 from torch_rcm.domain.enums import AdjGroup, ClaimStatus, PayerKey
 from torch_rcm.domain.values import PlanBenefits
@@ -166,9 +164,6 @@ def test_lines_always_balance_seeded_sweep() -> None:
 
 
 def test_lines_always_balance_hypothesis() -> None:
-    hypothesis = pytest.importorskip("hypothesis")
-    st = pytest.importorskip("hypothesis.strategies")
-
     @hypothesis.settings(max_examples=300, deadline=None)
     @hypothesis.given(
         codes=st.lists(st.sampled_from(INSURED), min_size=1, max_size=6),
