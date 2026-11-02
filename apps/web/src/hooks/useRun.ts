@@ -17,7 +17,6 @@ import { qk } from '@/api/queryKeys'
 import type { RunView } from '@/api/schema'
 import { isTerminal, mergeSnapshot, reduceRunMessage, runViewOf, type RunMessageEffect } from '@/lib/runEvents'
 import { backoffMs, connectSse, type SseMessage } from '@/lib/sse'
-import { session } from '@/state/session'
 
 /** `desynced`: the stream ended on a frame we could not read; the view polls the server until it is terminal. */
 export type StreamMode = 'sse' | 'poll' | 'desynced' | 'idle'
@@ -55,7 +54,6 @@ export function handleRunMessage(qc: QueryClient, runId: string, msg: SseMessage
   const cached = qc.getQueryData<RunView>(qk.run(runId))
   const fx = reduceRunMessage(cached, msg)
   if (fx.run && fx.run !== cached) qc.setQueryData<RunView>(qk.run(runId), fx.run)
-  if (fx.counts) qc.setQueryData(qk.strip(session.locationParam()), fx.counts)
   // Finished (cleanly or not): the server's Run.status is the truth, so ['run', id] is always refetched.
   if (fx.result !== 'continue') invalidateAfterRun(qc, runId, { refetchRun: true })
   else if (fx.refetchRun) void qc.invalidateQueries({ queryKey: qk.run(runId) })
@@ -75,8 +73,9 @@ export function useRun(runId: string | undefined): { run: RunView | undefined; m
   const hasSnapshot = query.data !== undefined
   const terminal = query.data ? isTerminal(query.data.status) : false
 
-  // The API ends a run with a terminal `status`, then `counts`, then `done`. Only `done` ends the stream, so `terminal`
-  // must not be a dependency here: closing on the status frame would drop the two frames that refresh the app.
+  // The API ends a run with a terminal `status`, `counts` and `done`, and the route then appends a second `status` and a
+  // bare `done` before it closes. `terminal` must not be a dependency here: closing on the first `status` would lose the
+  // `done` that refreshes the app. That first `done` is the end of the run; `onMessage` ignores what follows it.
   useEffect(() => {
     if (!runId || !hasSnapshot) return
     const opened = qc.getQueryData<RunView>(qk.run(runId))
@@ -103,8 +102,7 @@ export function useRun(runId: string | undefined): { run: RunView | undefined; m
               setMode('sse')
             },
             onMessage: (msg) => {
-              const r = handleRunMessage(qc, runId, msg)
-              if (r !== 'continue') finished = r
+              if (finished === 'continue') finished = handleRunMessage(qc, runId, msg)
             },
           })
         } catch {

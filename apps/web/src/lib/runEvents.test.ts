@@ -49,6 +49,12 @@ describe('run event reducer', () => {
     expect(twice.steps[1]?.progress_lines).toEqual(['read PMS imaging'])
   })
 
+  it('a `done` that adds nothing after the run is already terminal is a clean end, not a desync', () => {
+    const cancelled = applyStatusEvent(applyStatusEvent(base(), { status: 'running' }, 1), { status: 'cancelled' }, 2)
+    expect(reduceRunMessage(cancelled, { id: null, event: 'done', data: '{"run_id": "run_1"}' }).result).toBe('done')
+    expect(reduceRunMessage(cancelled, { id: null, event: 'done', data: '{"status": ' }).result).toBe('done')
+  })
+
   it('a replayed `running` step does not resume a paused run: only a status event does', () => {
     const running = applyStepEvent(base(), { idx: 0, name: 'fetch_pa_from_pms_imaging', status: 'running' }, 1)
     const paused = applyStatusEvent(running, { status: 'paused' }, 2)

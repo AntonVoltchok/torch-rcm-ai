@@ -9,7 +9,7 @@
  * The reducer never invents a run status: a `done` without a status (or one that fails to parse, see
  * hooks/useRun.ts) leaves the status alone, and the caller refetches GET /runs/{id} for the server's.
  */
-import { RunDoneEvent, RunStatusEvent, RunStepEvent, StripSummary } from '@/api/schema'
+import { RunDoneEvent, RunStatusEvent, RunStepEvent } from '@/api/schema'
 import type { Run, RunDetail, RunEvidenceRef, RunStatus, RunStep, RunStepStatus, RunView, RunViewEvidence, RunViewStep } from '@/api/schema'
 import type { SseMessage } from './sse'
 
@@ -146,15 +146,14 @@ export function mergeSnapshot(cached: RunView | undefined, snapshot: RunView): R
 
 /**
  * What one SSE frame does: the next cached view, whether the stream goes on, and what to refetch.
- * `desynced` = the stream ended on a frame we could not read (or a `done` without a status): the view keeps
- * its last known status and the caller refetches GET /runs/{id} for the server's, never assuming success.
+ * `desynced` = the stream ended on a frame we could not read (or a `done` without a status) with the run not yet known to
+ * be over: the view keeps its last known status and the caller refetches GET /runs/{id}, never assuming success.
  */
 export interface RunMessageEffect {
   run: RunView | undefined
   result: 'continue' | 'done' | 'desynced'
   /** Refetch ['run', id] (the stored run carries what the stream does not, or the outcome is unknown). */
   refetchRun: boolean
-  counts?: StripSummary
 }
 
 export function reduceRunMessage(run: RunView | undefined, msg: SseMessage): RunMessageEffect {
@@ -176,14 +175,12 @@ export function reduceRunMessage(run: RunView | undefined, msg: SseMessage): Run
       const ev = RunStatusEvent.safeParse(data)
       return ev.success ? { ...keep, run: run && applyStatusEvent(run, ev.data, msg.id) } : keep
     }
-    case 'counts': {
-      const ev = StripSummary.safeParse(data)
-      return ev.success ? { ...keep, counts: ev.data } : keep
-    }
+    // `counts` falls through: the frame has no viewer and no location, so it cannot be the strip; `done` refetches that.
     case 'done': {
       const ev = RunDoneEvent.safeParse(data)
-      if (!ev.success) return { run, result: 'desynced', refetchRun: true }
-      return { run: run && applyDoneEvent(run, ev.data, msg.id), result: ev.data.status ? 'done' : 'desynced', refetchRun: true }
+      const next = ev.success && run ? applyDoneEvent(run, ev.data, msg.id) : run
+      const ended = (ev.success && Boolean(ev.data.status)) || (run !== undefined && isTerminal(run.status))
+      return { run: next, result: ended ? 'done' : 'desynced', refetchRun: true }
     }
     default:
       return keep
