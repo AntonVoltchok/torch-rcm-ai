@@ -1,87 +1,96 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { z } from 'zod'
+import { api } from '@/api/endpoints'
 import * as S from '@/api/schema'
-import { MockDb, type SseRecord } from './db'
+import { session } from '@/state/session'
 import { GROUP_DELTA_PA } from './fixtures/inbox'
 import { THURSDAY_0710 } from './fixtures/static'
+import { createMockApi } from './node'
 
-/** The mock layer follows the API, never the reverse: everything it serves must parse under the strict generated schemas. */
-function setup() {
-  const queue: (() => void)[] = []
-  const db = new MockDb({ stepDelayMs: 0, schedule: (fn) => queue.push(fn) })
-  const drain = () => {
-    for (let n = 0; queue.length && n < 100_000; n++) queue.shift()?.()
-  }
-  return { db, drain }
-}
+/**
+ * The mock layer follows the API, never the reverse. Every call goes through the MSW handlers and the real client, which
+ * parses under the strict generated schemas and throws `schema_mismatch` on any drift. src/api/real.contract.ts holds the
+ * same schemas to the real API (`pnpm test:contract`).
+ */
+const mock = createMockApi({ stepDelayMs: 0 })
+beforeAll(() => mock.server.listen({ onUnhandledRequest: 'error' }))
+afterEach(() => {
+  mock.reset()
+  session.set({ userId: 'usr_dana' })
+})
+afterAll(() => mock.server.close())
 
 const parses = (schema: z.ZodTypeAny, value: unknown) => {
-  const out = schema.safeParse(JSON.parse(JSON.stringify(value)))
+  const out = schema.safeParse(value)
   expect(out.success ? [] : out.error.issues).toEqual([])
 }
 
-function reads(db: MockDb) {
-  parses(S.Clock, db.clock)
-  parses(S.StripSummary, db.strip())
-  parses(S.AgentsStatus, db.agentsStatus())
-  const inbox = db.inbox({})
-  parses(S.InboxList, inbox)
-  for (const item of inbox.items) parses(S.InboxItemDetail, db.inboxItem(item.id))
-  const claims = db.claims({ limit: 10_000 })
-  parses(S.ClaimList, claims)
-  for (const c of claims.items) parses(S.ClaimDetail, db.claim(c.id))
-  parses(S.ViewList, db.views())
-  parses(S.RulesOut, db.rules())
-  parses(S.RuleChangeList, db.ruleChanges())
-  parses(S.ProposalList, db.proposals())
-  parses(S.Preview, db.preview('rule_t1_delta_pa'))
-  parses(S.ActivityOut, db.activity({}))
-  parses(S.Ledger, db.ledger())
-  const eligibility = db.eligibility(null)
-  parses(S.EligibilityOut, eligibility)
-  for (const row of eligibility.rows) parses(S.BenefitsPanel, db.benefits(row.appointment_id))
-  parses(S.CashSummary, db.cash('usr_morgan'))
-  parses(S.DenialsOut, db.denials('usr_dana'))
+async function reads() {
+  await api.clock()
+  await api.agentsStatus()
+  await api.worldPayers()
+  await api.strip()
+  const inbox = await api.inbox({ state: 'open' })
+  await Promise.all(inbox.items.map((i) => api.inboxItem(i.id)))
+  const claims = await api.claims({ sort: '-age' }, undefined)
+  await Promise.all(claims.items.map((c) => api.claim(c.id)))
+  await api.views()
+  await api.rules()
+  await api.ruleChanges()
+  await api.proposals()
+  await api.preview({ rule_id: 'rule_t1_delta_pa', mode: 'auto' })
+  await api.activity({})
+  await api.ledger()
+  const eligibility = await api.eligibility({})
+  await Promise.all(eligibility.rows.map((r) => api.benefits(r.appointment_id)))
+  await api.denials()
+  session.set({ userId: 'usr_morgan' })
+  await api.cash()
+  session.set({ userId: 'usr_dana' })
 }
 
-function replay(db: MockDb, runId: string): SseRecord[] {
-  const sub = db.subscribeRun(runId, null, () => undefined)
-  sub.unsubscribe()
-  return sub.replay
+async function advanceToThursday() {
+  session.set({ userId: 'usr_morgan' })
+  const { advance_id } = await api.advanceClock({ to: THURSDAY_0710 })
+  await expect.poll(() => api.advanceStatus(advance_id).then((s) => s.done), { timeout: 5000 }).toBe(true)
+  session.set({ userId: 'usr_dana' })
 }
 
-describe('mock responses match the API contract', () => {
-  it('every read at Wed 10:40 and after the overnight', () => {
-    const { db, drain } = setup()
-    reads(db)
-    db.advanceClock(THURSDAY_0710, 'usr_morgan')
-    drain()
-    reads(db)
+describe('the mock serves the API contract', () => {
+  it('on every read, at Wed 10:40 and after the overnight', async () => {
+    await reads()
+    await advanceToThursday()
+    await reads()
   })
 
-  it('every mutation, and the SSE frames a run streams', () => {
-    const { db, drain } = setup()
-    const group = db.approveGroup(GROUP_DELTA_PA, 'usr_dana')
-    parses(S.ApproveGroupResponse, group)
-    const one = db.approve('itm_4705', 'usr_dana')
-    parses(S.ApproveResponse, one)
-    parses(S.ItemResponse, db.reject('itm_4733', 'usr_dana', 'not this one'))
-    parses(S.CorrectedClaimResponse, db.corrected('clm_4851', 'usr_dana'))
-    parses(S.TriageAccepted, db.triage('clm_4744', 'usr_dana'))
-    parses(S.AgentsStatus, db.pause('usr_morgan'))
-    parses(S.AgentsStatus, db.resume('usr_morgan'))
-    parses(S.ClockAdvanceAccepted, db.advanceClock(THURSDAY_0710, 'usr_morgan'))
-    drain()
+  it('on every mutation the app sends', async () => {
+    const group = await api.approveGroup(GROUP_DELTA_PA)
+    await api.approve('itm_4705')
+    await api.reject('itm_4733', 'not this one')
+    await api.snooze('itm_4851', '2026-10-30T09:00:00-04:00')
+    await api.reopen('itm_4851')
+    await api.saveView('Denied', { status: ['denied'] })
+    await api.correctedClaim('clm_4851', { subscriber_id: '123456789' })
+    await api.triage('clm_4744')
+    await api.patchRule('rule_t1_status_check', { mode: 'auto' })
+    await api.acceptProposal('prop_delta_pa')
+    await api.dismissProposal('prop_guardian_5mm')
+    session.set({ userId: 'usr_morgan' })
+    await api.setPracticeCap(150_000)
+    await api.pauseAgents()
+    await api.resumeAgents()
+    await api.resetClock()
+    expect(group.runs).toHaveLength(3)
+  })
 
-    const runId = group.runs[0]?.id ?? ''
-    const frames = replay(db, runId)
-    expect(frames.map((f) => f.event)).toContain('done')
-    for (const f of frames) {
-      if (f.event === 'step') parses(S.RunStepEvent, f.data)
-      if (f.event === 'status') parses(S.RunStatusEvent, f.data)
-      if (f.event === 'done') parses(S.RunDoneEvent, f.data)
-      if (f.event === 'counts') parses(S.StripSummary, f.data)
-    }
-    parses(S.RunDetail, db.run(runId))
+  it('in the SSE frames a run streams', async () => {
+    const { runs } = await api.approveGroup(GROUP_DELTA_PA)
+    const runId = runs[0]?.id ?? ''
+    await expect.poll(() => api.run(runId).then((d) => d.run.status), { timeout: 5000 }).toBe('succeeded')
+    const sub = mock.db.subscribeRun(runId, null, () => undefined)
+    sub.unsubscribe()
+    const frames: Record<string, z.ZodTypeAny> = { step: S.RunStepEvent, status: S.RunStatusEvent, done: S.RunDoneEvent, counts: S.StripSummary }
+    expect(sub.replay.map((f) => f.event)).toContain('done')
+    for (const f of sub.replay) parses(frames[f.event] ?? S.ErrorEnvelope, f.data)
   })
 })

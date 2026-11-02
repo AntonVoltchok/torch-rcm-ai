@@ -18,7 +18,9 @@
     "typecheck": "tsr generate && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "gen:api": "node scripts/gen-api.mjs"
+    "gen:api": "node scripts/gen-api.mjs",
+    "check:api": "node scripts/gen-api.mjs && git diff --exit-code -- src/api/generated.ts",
+    "test:contract": "node scripts/contract-real.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.80.0",

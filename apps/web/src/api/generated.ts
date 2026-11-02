@@ -46,8 +46,8 @@ const ClaimSummary = z
     dos: z.string(),
     procedures: z.string(),
     billed_cents: z.number().int(),
-    allowed_cents: z.union([z.number(), z.null()]),
-    paid_cents: z.union([z.number(), z.null()]),
+    allowed_cents: z.union([z.number().int(), z.null()]),
+    paid_cents: z.union([z.number().int(), z.null()]),
     icn: z.union([z.string(), z.null()]),
     reason: z.union([z.string(), z.null()]),
     in_flight: z.union([z.string(), z.null()]),
@@ -311,7 +311,7 @@ const RuleScope = z
   .object({
     payer_key: z.union([PayerKey, z.null()]),
     item_type: z.string().default('all'),
-    max_cents: z.union([z.number(), z.null()]),
+    max_cents: z.union([z.number().int(), z.null()]),
   })
   .partial()
   .strict()
@@ -422,8 +422,8 @@ const ClaimRow = z
     dos: z.string(),
     procedures: z.string(),
     billed_cents: z.number().int(),
-    allowed_cents: z.union([z.number(), z.null()]),
-    paid_cents: z.union([z.number(), z.null()]),
+    allowed_cents: z.union([z.number().int(), z.null()]),
+    paid_cents: z.union([z.number().int(), z.null()]),
     icn: z.union([z.string(), z.null()]),
     reason: z.union([z.string(), z.null()]),
     in_flight: z.union([z.string(), z.null()]),
@@ -477,11 +477,11 @@ const ClaimLine = z
     tooth: z.union([z.string(), z.null()]).optional(),
     surface: z.union([z.string(), z.null()]).optional(),
     fee_cents: z.number().int(),
-    allowed_cents: z.union([z.number(), z.null()]).optional(),
-    paid_cents: z.union([z.number(), z.null()]).optional(),
+    allowed_cents: z.union([z.number().int(), z.null()]).optional(),
+    paid_cents: z.union([z.number().int(), z.null()]).optional(),
     adj: z.array(Adjustment).optional(),
     patient_adj: z.array(Adjustment).optional(),
-    patient_cents: z.union([z.number(), z.null()]).optional(),
+    patient_cents: z.union([z.number().int(), z.null()]).optional(),
     procedure_line_id: z.union([z.string(), z.null()]).optional(),
   })
   .strict()
@@ -543,13 +543,13 @@ const Deadline = z.object({ kind: DeadlineKind, due_on: z.union([z.string(), z.n
 const MoneyMath = z
   .object({
     billed_cents: z.number().int(),
-    allowed_cents: z.union([z.number(), z.null()]),
-    contractual_cents: z.union([z.number(), z.null()]),
-    insurance_est_cents: z.union([z.number(), z.null()]),
-    patient_est_cents: z.union([z.number(), z.null()]),
-    paid_cents: z.union([z.number(), z.null()]),
-    writeoff_cents: z.union([z.number(), z.null()]),
-    patient_resp_cents: z.union([z.number(), z.null()]),
+    allowed_cents: z.union([z.number().int(), z.null()]),
+    contractual_cents: z.union([z.number().int(), z.null()]),
+    insurance_est_cents: z.union([z.number().int(), z.null()]),
+    patient_est_cents: z.union([z.number().int(), z.null()]),
+    paid_cents: z.union([z.number().int(), z.null()]),
+    writeoff_cents: z.union([z.number().int(), z.null()]),
+    patient_resp_cents: z.union([z.number().int(), z.null()]),
     basis: z.string(),
   })
   .strict()
@@ -741,7 +741,7 @@ const RuleChangeList = z.object({ items: z.array(RuleChange), total: z.number().
 const RulePatchIn = z
   .object({
     mode: z.union([RuleMode, z.null()]),
-    max_cents: z.union([z.number(), z.null()]),
+    max_cents: z.union([z.number().int(), z.null()]),
     confidence_floor: z.union([z.number(), z.null()]),
   })
   .partial()
@@ -753,7 +753,7 @@ const PreviewOut = z
   .object({
     rule_id: z.string(),
     mode: RuleMode,
-    max_cents: z.union([z.number(), z.null()]),
+    max_cents: z.union([z.number().int(), z.null()]),
     would_run: z.number().int(),
     total: z.number().int(),
     baseline_would_run: z.number().int(),
@@ -812,7 +812,7 @@ const EligibilityRow = z
     payer: z.union([PayerRef, z.null()]),
     planned: z.array(PlannedProcedure),
     planned_fee_cents: z.number().int(),
-    remaining_max_cents: z.union([z.number(), z.null()]),
+    remaining_max_cents: z.union([z.number().int(), z.null()]),
     status: EligibilityStatus,
     note: z.union([z.string(), z.null()]),
     inbox_item_id: z.union([z.string(), z.null()]),
@@ -837,8 +837,8 @@ const BenefitsPanel = z
     frequencies: z.array(FrequencyRow),
     planned: z.array(PlannedProcedure),
     planned_fee_cents: z.number().int(),
-    insurance_est_cents: z.union([z.number(), z.null()]),
-    patient_est_cents: z.union([z.number(), z.null()]),
+    insurance_est_cents: z.union([z.number().int(), z.null()]),
+    patient_est_cents: z.union([z.number().int(), z.null()]),
     basis: z.string(),
     agent_note: z.union([z.string(), z.null()]),
     inbox_item_id: z.union([z.string(), z.null()]),
@@ -921,7 +921,7 @@ const RemitLine = z
     patient_adj: z.array(Adjustment).optional(),
     patient_cents: z.number().int(),
     match: LineMatch.optional(),
-    variance_cents: z.union([z.number(), z.null()]).optional(),
+    variance_cents: z.union([z.number().int(), z.null()]).optional(),
     rarc: z.union([z.string(), z.null()]).optional(),
     note: z.union([z.string(), z.null()]).optional(),
   })
