@@ -89,7 +89,7 @@ class RunStore:
     def require(self, run_id: str) -> Run:
         return self.store.require(Run, run_id)
 
-    def list(self, *, agent: str | None = None, status: str | None = None, claim_id: str | None = None) -> list[Run]:
+    def find(self, *, agent: str | None = None, status: str | None = None, claim_id: str | None = None) -> list[Run]:
         where: dict[str, Any] = {}
         if agent:
             where["agent"] = agent
@@ -340,7 +340,8 @@ class EventBus:
         `poll_s` without a live event the stored log is re-read, so events published by another bus (another
         process or runtime instance) still arrive."""
         stop_on_done = channel != FIREHOSE if until_done is None else until_done
-        after = int(last_event_id) if str(last_event_id or "").isdigit() else 0
+        cursor = str(last_event_id or "")
+        after = int(cursor) if cursor.isdigit() else 0
         async with self._queue(channel) as q:
             seen = after
             for ev in self.replay(channel, after):
@@ -569,7 +570,7 @@ class AgentRuntime:
         """Agent-started triage of one claim. Skipped (None) while another run on the claim is active."""
         run = self.runs.by_key(key) if key else None
         if run is None:
-            active = [r for r in self.runs.list(claim_id=claim_id) if r.status in ACTIVE_RUN_STATUSES]
+            active = [r for r in self.runs.find(claim_id=claim_id) if r.status in ACTIVE_RUN_STATUSES]
             if active:
                 return None
             run = self.create_triage_run(claim_id, agent=agent, parent_run_id=parent_run_id, key=key, trigger=trigger)
@@ -596,7 +597,7 @@ class AgentRuntime:
             p.agents_paused, p.agents_paused_by, p.agents_paused_at = False, None, None
             self.store.update(p)
             self.queue.unpark()
-            for run in self.runs.list(status=RunStatus.PAUSED.value):
+            for run in self.runs.find(status=RunStatus.PAUSED.value):
                 self.ensure_resume_job(run.id)
         self.bus.publish(FIREHOSE, "agents", {"paused": False, "by": by, "at": self.clock.now().isoformat()})
         return self.status()
@@ -630,7 +631,7 @@ class AgentRuntime:
         checkpoint) are history, not work. Returns how many runs will resume."""
         self.queue.recover()
         n = 0
-        for run in self.runs.list(status=RunStatus.RUNNING.value):
+        for run in self.runs.find(status=RunStatus.RUNNING.value):
             if self.store.get(RunCheckpoint, run.id) is None:
                 continue
             self.ensure_resume_job(run.id)

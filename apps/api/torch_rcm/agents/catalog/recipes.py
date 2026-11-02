@@ -193,7 +193,7 @@ RECIPES: dict[str, tuple[RecipeStep, ...]] = {
                 "claim_id": c.claim_id,
                 "topic": c.p("topic"),
                 "asks": c.p("asks"),
-                "may_agree_to": sorted(MAY_AGREE_TO),
+                "may_agree_to": [*sorted(MAY_AGREE_TO)],
             },
             output_key="call_ref",
         ),

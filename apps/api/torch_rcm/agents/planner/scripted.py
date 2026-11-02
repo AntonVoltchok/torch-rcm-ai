@@ -99,7 +99,7 @@ def code_result(case: CaseFile, outcome: RunOutcome) -> ResultText:
     if not outcome.plan.actions:
         kind = "cannot_decide" if outcome.plan.situation_key == UNKNOWN else "no_action_needed"
         return ResultText(
-            outcome=kind,  # type: ignore[arg-type]
+            outcome=kind,
             recommendation=outcome.plan.no_action_reason or outcome.plan.reviewer_summary,
             explanation=outcome.plan.reviewer_summary,
         )
@@ -117,7 +117,7 @@ def code_result(case: CaseFile, outcome: RunOutcome) -> ResultText:
     )
     cited = tuple(dict.fromkeys(e for a in outcome.plan.actions for e in a.evidence_ids))
     return ResultText(
-        outcome=kind,  # type: ignore[arg-type]
+        outcome=kind,
         recommendation=outcome.plan.reviewer_summary,
         explanation=reasons,
         evidence_ids=cited,

@@ -117,7 +117,7 @@ class Builder:
     # ── people ─────────────────────────────────────────────────────────────────────────────────────────────
 
     def patient(self, pid: str, first: str, last: str, dob: date, location_id: str, contact: str = "text") -> Patient:
-        p = Patient(id=pid, first=first, last=last, dob=dob, location_id=location_id, contact_pref=contact)  # type: ignore[arg-type]
+        p = Patient(id=pid, first=first, last=last, dob=dob, location_id=location_id, contact_pref=contact)
         self.w.add(p)
         return p
 
@@ -169,7 +169,7 @@ class Builder:
             self_funded=self_funded,
             plan=PlanBenefits.model_validate(base),
             verified_at=verified_at,
-            verified_via="portal" if verified_at else None,  # type: ignore[arg-type]
+            verified_via="portal" if verified_at else None,
         )
         self.w.add(cov)
         return cov
@@ -275,7 +275,7 @@ class Builder:
             lines=lines,
             secondary=secondary,
             timely_filing_due=visit.dos + timedelta(days=payer.timely_filing_days),
-            **fields,  # type: ignore[arg-type]
+            **fields,
         )
         self.w.add(claim)
         return claim
@@ -307,7 +307,7 @@ class Builder:
         img = Image(
             id=f"img_{patient.id.removeprefix('pat_')}_{at:%m%d}_{kind}{'_' + tooth if tooth else ''}",
             patient_id=patient.id,
-            kind=kind,  # type: ignore[arg-type]
+            kind=kind,
             tooth=tooth,
             taken_at=at,
             cdt=cdt,
@@ -381,7 +381,7 @@ class Builder:
                 carc=result.denial_carc,
                 rarc=result.denial_rarc,
                 decoded=decode(result.denial_carc, result.denial_rarc),
-                root_cause=root_cause,  # type: ignore[arg-type]
+                root_cause=root_cause,
             )
             claim.reason_text = (
                 f"{result.denial_carc} · {result.denial_rarc}" if result.denial_rarc else result.denial_carc

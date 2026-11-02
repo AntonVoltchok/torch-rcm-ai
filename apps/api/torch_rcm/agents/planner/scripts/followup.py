@@ -107,7 +107,7 @@ def frequency(case: CaseFile) -> ScriptedPlan:
                     "the payer's tooth history conflicts with the PMS history; ask them to correct it",
                     claim_id=claim.id,
                     basis="payer_history_error",
-                    attach=ev.ids("prior_eob"),
+                    attach=[*ev.ids("prior_eob")],
                 )
             ],
             "Send a claim inquiry with the payer's own prior EOB so they correct the tooth history.",

@@ -12,7 +12,16 @@ from datetime import datetime
 
 from torch_rcm.agents.catalog.situations import classify, deadlines, item_type_for, root_cause
 from torch_rcm.agents.tools.adapters import StoreDomain
-from torch_rcm.agents.types import UNKNOWN, AgentKind, CaseFile, Evidence, JsonValue, RootCause, Subject
+from torch_rcm.agents.types import (
+    UNKNOWN,
+    AgentKind,
+    CaseFile,
+    CoverageView,
+    Evidence,
+    JsonValue,
+    RootCause,
+    Subject,
+)
 
 _SUBSCRIBER = re.compile(r"subscriber id\s+([A-Z0-9]+)", re.I)
 
@@ -61,7 +70,7 @@ def build_case(
     stored = dom.stored_root_cause(claim.id)
     cause: RootCause = (
         "ours" if "ours" in (computed, stored) else (computed if computed != "unknown" else stored or "unknown")
-    )  # type: ignore[assignment]
+    )
     evidence = tuple(dom.on_file_evidence(claim.id))
     prior = tuple(dom.prior_procedures(claim.patient_id, claim.dos))
     related = (
@@ -156,8 +165,8 @@ def _benefit_variances(dom: StoreDomain, remit: object) -> list[str]:
 
 
 def _expected_values(
-    coverage_id: str, coverages: tuple, evidence: tuple[Evidence, ...], entity: object
-) -> dict[str, JsonValue]:  # type: ignore[type-arg]
+    coverage_id: str, coverages: tuple[CoverageView, ...], evidence: tuple[Evidence, ...], entity: object
+) -> dict[str, JsonValue]:
     """Values a demographic or amount param must equal (07 §5.1 row 1). Sourced from the PMS, a 271 on file
     or the claim's own adjudicated numbers — never from model text."""
     out: dict[str, JsonValue] = {}

@@ -42,6 +42,7 @@ from torch_rcm.agents.types import (
     PayerView,
     PriorProcedureView,
     Provenance,
+    RootCause,
     RuleScope,
     RuleView,
 )
@@ -343,7 +344,7 @@ class SimWorld:
         if op == "era.get_remittance":
             remit = self.store.require(Remittance, _s(args, "remittance_id"))
             return WorldRead(
-                data={"remittance": cast(JsonValue, _j(remit.model_dump(mode="json")))},
+                data={"remittance": _j(remit.model_dump(mode="json"))},
                 evidence=tuple(self._era_evidence(remit, None)),
             )
         raise ValueError(f"unknown read op {op}")
@@ -891,7 +892,7 @@ class StoreDomain:
             patient_id=c.patient_id,
             visit_id=c.visit_id or "",
             coverage_id=c.coverage_id,
-            payer_key=cast(PayerKey, c.payer_key.value),
+            payer_key=c.payer_key.value,
             status=c.status.value,
             dos=c.dos,
             billed_cents=c.billed_cents,
@@ -922,7 +923,7 @@ class StoreDomain:
             location_id=c.location_id,
         )
 
-    def stored_root_cause(self, claim_id: str) -> str | None:
+    def stored_root_cause(self, claim_id: str) -> RootCause | None:
         c = self.claim_entity(claim_id)
         return c.denial.root_cause.value if c.denial else None
 
@@ -935,7 +936,7 @@ class StoreDomain:
             CoverageView(
                 id=c.id,
                 patient_id=c.patient_id,
-                payer_key=cast(PayerKey, c.payer_key.value),
+                payer_key=c.payer_key.value,
                 order=cast(Any, c.order.value),
                 subscriber_id=c.subscriber_id,
                 group_no=c.group_no,
@@ -1134,7 +1135,7 @@ def rule_view(r: Rule) -> RuleView:
         action=r.action.value,
         label=r.label,
         scope=RuleScope(
-            payer_key=cast(PayerKey | None, r.scope.payer_key.value if r.scope.payer_key else None),
+            payer_key=r.scope.payer_key.value if r.scope.payer_key else None,
             item_type=r.scope.item_type,
             max_cents=r.scope.max_cents,
         ),

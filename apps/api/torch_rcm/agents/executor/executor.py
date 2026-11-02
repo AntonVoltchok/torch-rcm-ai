@@ -127,7 +127,7 @@ def to_evidence(
         source=c.source,
         untrusted=c.untrusted,
         suspicious=candidate_is_suspicious(c),
-        gathered_by=gathered_by,  # type: ignore[arg-type]
+        gathered_by=gathered_by,
         run_id=run_id,
         step_idx=step_idx,
         claim_id=claim_id,
@@ -389,7 +389,7 @@ class Executor:
             subject=subject,
             now=self.rt.clock.now(),
             trigger_kind=trigger,
-        )  # type: ignore[arg-type]
+        )
 
     def _planner(self, case: CaseFile, run: Run, state: dict[str, Any], advance_id: str | None) -> Planner:
         if run.trigger is RunTrigger.APPROVAL:
@@ -903,7 +903,7 @@ class Executor:
         rt = self.rt
         run = rt.runs.require(run_id)
         results = tuple(
-            StepResult(step=s.name, status=s.status.value, summary=s.output_summary)  # type: ignore[arg-type]
+            StepResult(step=s.name, status=s.status.value, summary=s.output_summary)
             for s in run.steps
             if s.name.startswith("act:")
         )

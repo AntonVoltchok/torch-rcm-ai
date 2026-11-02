@@ -93,7 +93,7 @@ def eval_cmd() -> None:
 def _agents_commands() -> None:
     """torch_rcm.agents may add commands (e.g. `torch cassette record`) by exposing `register(cli)`."""
     try:
-        from torch_rcm.agents.cli import register  # type: ignore[import-not-found]
+        from torch_rcm.agents.cli import register
     except ImportError:
         return
     register(cli)

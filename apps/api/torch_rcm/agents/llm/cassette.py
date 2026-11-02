@@ -21,7 +21,7 @@ they replay cassettes. A cassette is one JSONL file:
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -73,7 +73,7 @@ def skeleton(messages: Iterable[Mapping[str, Any]]) -> list[Any]:
     return out
 
 
-def request_hash(messages: list[Mapping[str, Any]], mode: HashMode) -> str:
+def request_hash(messages: Sequence[Mapping[str, Any]], mode: HashMode) -> str:
     payload: Any = messages if mode == "full" else skeleton(messages)
     return "sha256:" + sha(payload)
 

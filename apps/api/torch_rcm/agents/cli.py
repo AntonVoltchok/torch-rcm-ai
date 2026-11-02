@@ -10,7 +10,10 @@ Typer is imported lazily so this module imports without it.
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from typer import Typer
 
 __all__ = ["record_cassettes_command", "register", "run_eval_command"]
 
@@ -26,7 +29,7 @@ def run_eval_command(echo: Any = print) -> int:
 
 def record_cassettes_command(scenario: str | None = None, agent: str | None = None, echo: Any = print) -> int:
     try:
-        from torch_rcm.agents.llm import cassette  # type: ignore[attr-defined]
+        from torch_rcm.agents.llm import cassette
     except ImportError:
         echo("cassette recording not available (torch_rcm.agents.llm.cassette is not installed)")
         return 0
@@ -47,7 +50,7 @@ def _names(app: Any) -> set[str]:
     return {n.replace("_cmd", "").replace("_", "-") for n in names if n}
 
 
-def register(app: Any) -> None:
+def register(app: Typer) -> None:
     """Add the agent commands to the host typer app (idempotent per name)."""
     import typer
 
