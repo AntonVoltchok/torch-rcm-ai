@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from torch_rcm.api.schemas import TimelineEntry
-from torch_rcm.domain.entities import AuditEvent, Claim, Remittance
+from torch_rcm.domain.entities import ROOT_CAUSE_RECORDED, AuditEvent, Claim, Remittance
 from torch_rcm.domain.enums import RootCause, RunStatus
 from torch_rcm.readmodels.snapshot import Snapshot
 
@@ -93,28 +93,19 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                 root_cause=root,
             )
         )
-        if root is RootCause.OURS:
-            out.append(
-                TimelineEntry(
-                    id=f"rootcause_{claim.id}",
-                    at=remit.received_at,
-                    lane="agent",
-                    kind="root_cause",
-                    title="Root cause: ours — our Claims agent sent the wrong attachment for the payer's rule",
-                    root_cause=RootCause.OURS,
-                )
-            )
     for ev in snap.of(AuditEvent):
         if ev.subject_id == claim.id or ev.data.get("claim_id") == claim.id:
             user = snap.users.get(ev.actor)
+            found = ev.action == ROOT_CAUSE_RECORDED
             out.append(
                 TimelineEntry(
                     id=ev.id,
                     at=ev.at,
-                    lane="human",
-                    kind=ev.action,
+                    lane="agent" if found else "human",
+                    kind="root_cause" if found else ev.action,
                     title=ev.detail,
                     actor=user.name if user else ev.actor,
+                    root_cause=RootCause(ev.data["after"]) if found else None,
                 )
             )
     for entry in snap.file_entries_by_claim.get(claim.id, []):

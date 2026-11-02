@@ -371,13 +371,33 @@ def list_proposals(ctx: Ctx) -> ProposalList:
     return ProposalList(items=rows, total=len(rows))
 
 
-def accept_proposal(ctx: Ctx, proposal_id: str) -> ProposalOut:
-    proposal = _proposal(ctx, proposal_id)
-    if proposal.root_cause_guard:
+def guard_learning(ctx: Ctx, claim_id: str | None, *stated: str | None, **details: Any) -> None:
+    """`ours` never learns: every recorded cause, and the one code computes now, through the agents' one guard.
+    Imported here because the API boots without agents only when TORCH_ALLOW_WORLD_ONLY asks it to."""
+    from torch_rcm.agents.learning import assert_learnable
+    from torch_rcm.agents.policy import RootCauseGuardError
+    from torch_rcm.agents.tools.adapters import SimWorld, StoreDomain
+
+    try:
+        assert_learnable(StoreDomain(ctx.rt.store, SimWorld(ctx.rt.world)), claim_id, *stated)
+    except RootCauseGuardError as exc:
         raise unprocessable(
             "root_cause_guard",
             "Root cause is ours: fix the upstream rule. This slice can never run without review.",
-        )
+            **details,
+        ) from exc
+
+
+def accept_proposal(ctx: Ctx, proposal_id: str) -> ProposalOut:
+    proposal = _proposal(ctx, proposal_id)
+    source = ctx.rt.store.get(InboxItem, proposal.source_item_id or "")
+    guard_learning(
+        ctx,
+        source.claim_id if source else None,
+        "ours" if proposal.root_cause_guard else None,
+        proposal.rule_draft.get("root_cause_class"),
+        source.payload.get("root_cause") if source else None,
+    )
     if proposal.watching:
         raise unprocessable(
             "not_enough_evidence",

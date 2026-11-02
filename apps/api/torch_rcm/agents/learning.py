@@ -15,8 +15,10 @@ from __future__ import annotations
 import math
 from fractions import Fraction
 
+from torch_rcm.agents.case import claim_root_cause
 from torch_rcm.agents.catalog.actions import ACTIONS
 from torch_rcm.agents.policy import guard_root_cause_ours
+from torch_rcm.agents.tools.adapters import StoreDomain
 from torch_rcm.agents.types import Frozen, OutcomeMetric, PayerKey, RuleScope
 
 MIN_N = 20
@@ -85,6 +87,13 @@ def acceptable(s: SliceStats) -> bool:
     except ValueError:
         return False
     return True
+
+
+def assert_learnable(dom: StoreDomain, claim_id: str | None, *stated: str | None) -> None:
+    """Every cause on record for a slice, and the one code computes now, through the one guard."""
+    for cause in (*stated, claim_root_cause(dom, claim_id) if claim_id else None):
+        if cause:
+            guard_root_cause_ours(cause)
 
 
 class RuleDraft(Frozen):

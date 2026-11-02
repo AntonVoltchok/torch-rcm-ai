@@ -623,6 +623,9 @@ class RunEvent(Entity):
     at: datetime
 
 
+ROOT_CAUSE_RECORDED = "root_cause.recorded"  # AuditEvent.action: `detail` is the finding the claim's timeline shows
+
+
 class AuditEvent(Entity):
     __table__ = "audit_events"
     __indexed__ = ("subject_id", "at", "actor")

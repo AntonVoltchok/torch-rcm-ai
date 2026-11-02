@@ -19,7 +19,7 @@ from torch_rcm.api.services.claims import triage
 from torch_rcm.api.services.context import Ctx
 from torch_rcm.domain import invariants as inv
 from torch_rcm.domain.entities import InboxItem, Rule, Run, WorldCallLog
-from torch_rcm.domain.enums import RunStatus, Tier
+from torch_rcm.domain.enums import RuleMode, RunStatus, Tier
 
 DANA = "usr_dana"
 POST = ProposedAction(action="post_era_line", params={"remittance_id": "rem_t"})
@@ -35,7 +35,7 @@ def set_modes(rt: Any, mode: str, *rule_ids: str) -> None:
     """Every rule that may leave `human_only`, or just `rule_ids`, on `mode`."""
     for r in rt.store.all(Rule):
         if r.tier is not Tier.THREE and (not rule_ids or r.id in rule_ids):
-            rt.store.update(r.model_copy(update={"mode": mode, "signed_by": None, "signed_at": None}))
+            rt.store.update(r.model_copy(update={"mode": RuleMode(mode), "signed_by": None, "signed_at": None}))
 
 
 def triaged(rt: Any, claim_id: str) -> Run:

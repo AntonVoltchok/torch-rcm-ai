@@ -10,7 +10,7 @@ from torch_rcm.api.errors import conflict, forbidden, not_found, unprocessable
 from torch_rcm.api.schemas import ApproveOut, GroupApproveOut, InboxItemDetail, InboxList, ItemOut, ProposalOut
 from torch_rcm.api.services.context import Ctx
 from torch_rcm.api.services.idempotency import idempotent
-from torch_rcm.api.services.rules import apply_rule_change
+from torch_rcm.api.services.rules import apply_rule_change, guard_learning
 from torch_rcm.domain.entities import InboxItem, Rule, RuleProposal, Run
 from torch_rcm.domain.enums import (
     AgentKind,
@@ -18,7 +18,6 @@ from torch_rcm.domain.enums import (
     InboxItemState,
     ProposalState,
     Role,
-    RootCause,
     RunStatus,
     RunTrigger,
     Tier,
@@ -274,19 +273,7 @@ def always_auto_run(ctx: Ctx, item_id: str) -> ProposalOut:
             "tier_not_learnable",
             "Only tier-1 actions under a rule with an outcome metric can learn to run without review.",
         )
-    root = item.payload.get("root_cause")
-    claim_root = None
-    if item.claim_id:
-        from torch_rcm.domain.entities import Claim
-
-        claim = ctx.rt.store.get(Claim, item.claim_id)
-        claim_root = claim.denial.root_cause.value if claim and claim.denial else None
-    if RootCause.OURS.value in (root, claim_root):
-        raise unprocessable(
-            "root_cause_guard",
-            "Root cause is ours: fix the upstream rule; this slice can never run without review.",
-            rule_id=item.rule_id,
-        )
+    guard_learning(ctx, item.claim_id, item.payload.get("root_cause"), rule_id=item.rule_id)
     rule = ctx.rt.store.require(Rule, item.rule_id)
     if rule.outcome_metric.value == "none":
         raise unprocessable(

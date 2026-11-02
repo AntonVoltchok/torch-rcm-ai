@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from torch_rcm.agents.case import build_case
 from torch_rcm.agents.catalog.actions import spec_for
 from torch_rcm.agents.catalog.recipes import DOMAIN_OP_HOLD, RecipeCtx, RecipeStep, recipe_for
-from torch_rcm.agents.catalog.situations import is_judgment, label_for
+from torch_rcm.agents.catalog.situations import is_judgment, label_for, root_cause_finding
 from torch_rcm.agents.guardrails import guard_draft
 from torch_rcm.agents.planner.base import EvidenceSet, Planner, PlannerFallback, Reader, ReadResult
 from torch_rcm.agents.planner.scripted import (
@@ -51,7 +51,7 @@ from torch_rcm.agents.types import (
     StepResult,
     Subject,
 )
-from torch_rcm.domain.entities import Claim, InboxItem, Run
+from torch_rcm.domain.entities import ROOT_CAUSE_RECORDED, AuditEvent, Claim, InboxItem, Run
 from torch_rcm.domain.enums import (
     InboxItemKind,
     InboxItemState,
@@ -497,64 +497,86 @@ class Executor:
     def _open_item(
         self, run: Run, case: CaseFile, plan: Plan, action: ProposedAction, decision: Decision, draft: Draft | None
     ) -> str:
-        """Exactly one open item per (claim, action): an existing open item is reused."""
+        """Exactly one open item per (claim, action): an existing open item is reused. The item and the root cause
+        recorded with it commit together, and a reused item takes what this run found."""
         store = self.rt.store
         spec = spec_for(action.action)
         claim = case.claim
-        if claim is not None:
-            for it in store.find(InboxItem, {"claim_id": claim.id, "state": InboxItemState.OPEN}):
-                if it.proposed_action and it.proposed_action.action.value == action.action:
-                    return it.id
-        iid = "itm_" + hashlib.sha256(f"{run.id}:{action.action}".encode()).hexdigest()[:10]
-        if store.get(InboxItem, iid) is not None:
-            return iid
-        payer = case.payer.short if case.payer else ""
-        store.insert(
-            InboxItem(
-                id=iid,
-                kind=InboxItemKind.REVIEW_DRAFT if decision.as_review_draft else InboxItemKind.APPROVE_ACTION,
-                state=InboxItemState.OPEN,
-                claim_id=claim.id if claim else None,
-                patient_id=case.patient.id if case.patient else None,
-                agent=run.agent,
-                title=f"{spec.label if spec else action.action} · {payer} · #{claim.number}"
-                if claim
-                else (spec.label if spec else action.action),
-                summary=decision.reason,
-                recommendation=plan.reviewer_summary,
-                confidence=DomainConfidence(**decision.confidence.model_dump()) if decision.confidence else None,
-                evidence=list(action.evidence_ids),
-                proposed_action=DomainProposedAction(
-                    action=RuleAction(action.action),
-                    params=dict(action.params),
+        rule_mode = next((r.mode for r in case.rules_snapshot if r.id == decision.rule_id), None)
+        found = {
+            "situation_key": plan.situation_key,
+            "root_cause": case.root_cause,
+            "policy_row": decision.policy_row,
+            "rule_mode": rule_mode,
+        }
+        with store.tx():
+            self._record_root_cause(run, case)
+            if claim is not None:
+                for it in store.find(InboxItem, {"claim_id": claim.id, "state": InboxItemState.OPEN}):
+                    if it.proposed_action and it.proposed_action.action.value == action.action:
+                        store.update(it.model_copy(update={"payload": {**it.payload, **found}}))
+                        return it.id
+            iid = "itm_" + hashlib.sha256(f"{run.id}:{action.action}".encode()).hexdigest()[:10]
+            if store.get(InboxItem, iid) is not None:
+                return iid
+            payer = case.payer.short if case.payer else ""
+            store.insert(
+                InboxItem(
+                    id=iid,
+                    kind=InboxItemKind.REVIEW_DRAFT if decision.as_review_draft else InboxItemKind.APPROVE_ACTION,
+                    state=InboxItemState.OPEN,
+                    claim_id=claim.id if claim else None,
+                    patient_id=case.patient.id if case.patient else None,
+                    agent=run.agent,
+                    title=f"{spec.label if spec else action.action} · {payer} · #{claim.number}"
+                    if claim
+                    else (spec.label if spec else action.action),
+                    summary=decision.reason,
+                    recommendation=plan.reviewer_summary,
+                    confidence=DomainConfidence(**decision.confidence.model_dump()) if decision.confidence else None,
+                    evidence=list(action.evidence_ids),
+                    proposed_action=DomainProposedAction(
+                        action=RuleAction(action.action),
+                        params=dict(action.params),
+                        cents=case.cents,
+                        requires_hold_window=bool(spec and spec.needs_hold_window),
+                    ),
+                    tier=Tier(spec.tier) if spec and spec.tier else None,
+                    rule_id=decision.rule_id,
                     cents=case.cents,
-                    requires_hold_window=bool(spec and spec.needs_hold_window),
-                ),
-                tier=Tier(spec.tier) if spec and spec.tier else None,
-                rule_id=decision.rule_id,
-                cents=case.cents,
-                created_at=self.rt.clock.now(),
-                run_id=run.id,
-                payload={
-                    "situation_key": plan.situation_key,
-                    "root_cause": case.root_cause,
-                    "policy_row": decision.policy_row,
-                    "rule_mode": next((r.mode for r in case.rules_snapshot if r.id == decision.rule_id), None),
-                    **({"draft": draft.model_dump(mode="json")} if draft else {}),
-                },
+                    created_at=self.rt.clock.now(),
+                    run_id=run.id,
+                    payload={**found, **({"draft": draft.model_dump(mode="json")} if draft else {})},
+                )
             )
-        )
-        self._record_root_cause(case)
         return iid
 
-    def _record_root_cause(self, case: CaseFile) -> None:
-        """A finding on an item is on the claim too, so every screen agrees and it outlives the item."""
+    def _record_root_cause(self, run: Run, case: CaseFile) -> None:
+        """A finding on an item is on the claim too, so every screen agrees and it outlives the item. A recorded
+        `ours` is never replaced, and the audit event is what the claim's timeline shows."""
         if case.claim is None or case.root_cause == "unknown":
             return
         claim = self.rt.store.require(Claim, case.claim.id)
-        if claim.denial is not None and claim.denial.root_cause.value != case.root_cause:
-            denial = claim.denial.model_copy(update={"root_cause": RootCause(case.root_cause)})
-            self.rt.store.update(claim.model_copy(update={"denial": denial}))
+        if claim.denial is None or claim.denial.root_cause in (RootCause.OURS, RootCause(case.root_cause)):
+            return
+        before = claim.denial.root_cause.value
+        denial = claim.denial.model_copy(update={"root_cause": RootCause(case.root_cause)})
+        payer = case.payer.short if case.payer else claim.payer_key.value
+        self.rt.store.update(claim.model_copy(update={"denial": denial}))
+        self.rt.store.insert(
+            AuditEvent(
+                id=f"aud_{run.id}_root_cause",
+                at=self.rt.clock.now(),
+                actor=run.agent.value,
+                action=ROOT_CAUSE_RECORDED,
+                subject_type="claim",
+                subject_id=claim.id,
+                detail=root_cause_finding(
+                    case.root_cause, case.claim, case.payer_rules, self.rt.dom.provenance(claim.id), payer
+                ),
+                data={"before": before, "after": case.root_cause, "run_id": run.id},
+            )
+        )
 
     def _failed_item(self, run: Run, case: CaseFile, title: str, recommendation: str, explanation: str) -> str:
         """At most one `run_failed` item per run (07 §9)."""

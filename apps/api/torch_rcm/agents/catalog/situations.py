@@ -207,12 +207,38 @@ def root_cause(claim: ClaimView | None, rules: Sequence[PayerRuleView], provenan
         return "patient"
     if claim.denial.carc != "16":
         return "payer"
-    sent = [p for p in provenance if p.actor == "agent" and p.attachment_kind]
+    sent = _sent_by_agent(provenance)
     required = _rule_attachment(claim, rules)
     if required and sent and not any(p.attachment_kind == required for p in sent):
         return "ours"
-    stale = [p for p in sent if p.attachment_date and p.attachment_date < claim.dos - STALE_ATTACHMENT]
-    return "ours" if stale else "payer"
+    return "ours" if _stale(claim, sent) else "payer"
+
+
+def _sent_by_agent(provenance: Sequence[Provenance]) -> list[Provenance]:
+    return [p for p in provenance if p.actor == "agent" and p.attachment_kind]
+
+
+def _stale(claim: ClaimView, sent: Sequence[Provenance]) -> list[Provenance]:
+    return [p for p in sent if p.attachment_date and p.attachment_date < claim.dos - STALE_ATTACHMENT]
+
+
+def root_cause_finding(
+    cause: RootCause, claim: ClaimView, rules: Sequence[PayerRuleView], provenance: Sequence[Provenance], payer: str
+) -> str:
+    """One line for the claim's timeline: what a run found, from the facts `root_cause` decided on."""
+    if cause == "patient":
+        return "Root cause: patient — the denial is patient responsibility"
+    if cause != "ours":
+        return f"Root cause: {cause} — nothing we sent caused this denial"
+    sent = _sent_by_agent(provenance)
+    required = _rule_attachment(claim, rules)
+    if required and sent and not any(p.attachment_kind == required for p in sent):
+        kinds = ", ".join(sorted({str(p.attachment_kind).upper() for p in sent}))
+        return f"Root cause: ours — we sent {kinds}; {payer}'s rule asks for {required.upper()}"
+    stale = _stale(claim, sent)
+    if stale:
+        return f"Root cause: ours — the {str(stale[0].attachment_kind).upper()} we sent is too old for this visit"
+    return "Root cause: ours — found on an earlier denial of this claim"
 
 
 def deadlines(claim: ClaimView | None, payer: PayerView | None) -> tuple[DeadlineView, ...]:

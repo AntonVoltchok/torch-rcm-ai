@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from torch_rcm.domain.entities import (
+    ROOT_CAUSE_RECORDED,
     Appointment,
     AuditEvent,
     Claim,
@@ -1951,6 +1952,19 @@ class AgentSeed:
                     subject_type=stype,
                     subject_id=sid,
                     detail=detail,
+                )
+            )
+        for number in (4821, 4836, 4840):
+            self.b.w.add(
+                AuditEvent(
+                    id=f"aud_root_cause_{number}",
+                    at=dt(date(2026, 10, 28), "06:15"),
+                    actor="followup",
+                    action=ROOT_CAUSE_RECORDED,
+                    subject_type="claim",
+                    subject_id=f"clm_{number}",
+                    detail="Root cause: ours — we sent BWX; Delta's rule asks for PA",
+                    data={"before": "payer", "after": "ours", "run_id": f"run_followup_{number}_1028"},
                 )
             )
 
