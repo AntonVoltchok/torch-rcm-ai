@@ -75,14 +75,22 @@ export function useRun(runId: string | undefined): { run: RunView | undefined; m
   const hasSnapshot = query.data !== undefined
   const terminal = query.data ? isTerminal(query.data.status) : false
 
+  // The API ends a run with a terminal `status`, then `counts`, then `done`. Only `done` ends the stream, so `terminal`
+  // must not be a dependency here: closing on the status frame would drop the two frames that refresh the app.
   useEffect(() => {
-    if (!runId || !hasSnapshot || terminal) return
+    if (!runId || !hasSnapshot) return
+    const opened = qc.getQueryData<RunView>(qk.run(runId))
+    if (opened && isTerminal(opened.status)) return
     const ctrl = new AbortController()
     let attempt = 0
     void (async () => {
       while (!ctrl.signal.aborted) {
         const cached = qc.getQueryData<RunView>(qk.run(runId))
-        if (cached && isTerminal(cached.status)) break
+        // The connection dropped between the terminal status and `done`: nothing more is coming, so refresh here.
+        if (cached && isTerminal(cached.status)) {
+          invalidateAfterRun(qc, runId, { refetchRun: false })
+          break
+        }
         let finished = 'continue' as RunMessageResult
         try {
           await connectSse({
@@ -118,7 +126,7 @@ export function useRun(runId: string | undefined): { run: RunView | undefined; m
     return () => {
       ctrl.abort()
     }
-  }, [qc, runId, hasSnapshot, terminal])
+  }, [qc, runId, hasSnapshot])
 
   // Polling (fallback or after a desync) has no `done` event: do the same invalidation once the server's status is terminal.
   useEffect(() => {

@@ -100,7 +100,7 @@ def required_evidence(agent: AgentKind, key: str) -> tuple[EvidenceKind, ...]:
 
 def label_for(agent: AgentKind, key: str) -> str:
     s = situation(agent, key)
-    return s.label if s else "situation Torch cannot name"
+    return s.label if s else "unknown to Torch's classifier"
 
 
 def is_judgment(agent: AgentKind, key: str) -> bool:

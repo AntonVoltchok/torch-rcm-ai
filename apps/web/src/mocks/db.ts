@@ -535,7 +535,7 @@ export class MockDb {
         patient_est_cents: c.patient_resp_cents,
         paid_cents: c.paid_cents,
         writeoff_cents: c.writeoff_cents,
-        patient_resp_cents: c.patient_resp_cents,
+        patient_resp_cents: c.status === 'denied' ? 0 : c.patient_resp_cents, // as an 835 denial says until the claim is reprocessed
         basis: c.status === 'paid' || c.status === 'partial' ? 'per 835' : `estimate from contract allowed · ${coverageFor(c).plan_name}`,
       },
       timeline: c.timeline.map((e) => ({ ...e, kind: e.lane })),
@@ -1553,8 +1553,8 @@ export class MockDb {
   private finishRun(run: RunView, plan: RunPlan) {
     plan.onDone(this, run)
     run.finished_at = this.s.now
-    this.emit(run.id, 'counts', this.counts(USERS_BY_ID[run.actor ?? ''] ?? 'usr_dana'))
     this.setRunStatus(run, 'succeeded')
+    this.emit(run.id, 'counts', this.counts(USERS_BY_ID[run.actor ?? ''] ?? 'usr_dana'))
     this.emit(run.id, 'done', { status: 'succeeded', audit_line: run.audit_line, result_summary: run.result_summary })
     this.plans.delete(run.id)
   }
