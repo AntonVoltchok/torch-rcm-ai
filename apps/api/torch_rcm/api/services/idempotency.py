@@ -2,9 +2,11 @@
 
 The web client sends a fresh key per user intent (`client.ts`), so a retried request (network blip, double
 click, a re-sent optimistic mutation) returns the first response instead of acting twice. Only successful
-responses are stored: a refused mutation changed nothing, so a retry runs again and gets a fresh answer.
+responses are stored; a refusal raised in `run()` rolls back, so a retry runs again and gets a fresh answer.
 The whole mutation runs inside one write transaction, so two concurrent requests with one key serialize and the
 second one replays. Run-level dedupe (`approval:{item_id}`) stays as the second line of defence.
+
+A refusal that must leave a record cannot be raised in `run()`: see `rules.patch_rule` and its sign-off request.
 """
 
 from __future__ import annotations

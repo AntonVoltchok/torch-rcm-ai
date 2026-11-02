@@ -169,12 +169,23 @@ def _summary(rule: Rule, before: dict[str, Any], after: dict[str, Any]) -> str:
 
 
 def patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn, *, idempotency_key: str | None = None) -> RulePatchOut:
+    rule, change = _checked_patch(ctx, rule_id, patch)
+    if rule.tier is Tier.TWO and ctx.user.role is not Role.OWNER:
+        # Outside `idempotent`: this refusal writes the request, and one raised inside that transaction rolls it back.
+        # A retry is safe without a key because `request_signoff` returns the open request for the same change.
+        item = request_signoff(ctx, rule, change)
+        raise conflict(
+            "owner_signoff_required",
+            "Tier-2 rules need Dr. Morgan's signature; sent to her for sign-off.",
+            inbox_item_id=item.id,
+            rule_id=rule.id,
+        )
     body = patch.model_dump(mode="json", exclude_unset=True)
     scope = f"PATCH /rules/{rule_id}"
-    return idempotent(ctx, idempotency_key, scope, body, RulePatchOut, lambda: _patch_rule(ctx, rule_id, patch))
+    return idempotent(ctx, idempotency_key, scope, body, RulePatchOut, lambda: _apply_patch(ctx, rule_id, change))
 
 
-def _patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn) -> RulePatchOut:
+def _checked_patch(ctx: Ctx, rule_id: str, patch: RulePatchIn) -> tuple[Rule, dict[str, Any]]:
     rule = ctx.rt.store.get(Rule, rule_id)
     if rule is None:
         raise not_found("rule", rule_id)
@@ -185,14 +196,11 @@ def _patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn) -> RulePatchOut:
         raise forbidden("human_only", "Tier-3 rules are human-only; they cannot be changed.")
     if ctx.user.role not in (Role.OWNER, Role.BILLING):
         raise forbidden("forbidden", f"{ctx.user.name} cannot change agent rules")
-    if rule.tier is Tier.TWO and ctx.user.role is not Role.OWNER:
-        item = request_signoff(ctx, rule, change)
-        raise conflict(
-            "owner_signoff_required",
-            "Tier-2 rules need Dr. Morgan's signature; sent to her for sign-off.",
-            inbox_item_id=item.id,
-            rule_id=rule.id,
-        )
+    return rule, change
+
+
+def _apply_patch(ctx: Ctx, rule_id: str, change: dict[str, Any]) -> RulePatchOut:
+    rule = ctx.rt.store.require(Rule, rule_id)
     rule, rc = apply_rule_change(ctx, rule, change, sign=rule.tier is Tier.TWO)
     return RulePatchOut(rule=rule, change=rc, meta=ctx.meta())
 
@@ -234,6 +242,11 @@ def _patch_practice(ctx: Ctx, body: PracticeSettingsIn) -> PracticeSettingsOut:
 
 
 def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
+    """One open request per (rule, change). Ids count requests: the clock is frozen, so a timestamp would repeat."""
+    asked = [i for i in ctx.rt.store.all(InboxItem) if i.kind is InboxItemKind.OWNER_SIGNOFF and i.rule_id == rule.id]
+    for item in asked:
+        if item.state is InboxItemState.OPEN and item.payload.get("change") == change:
+            return item
     owner = next(u for u in ctx.snapshot().users.values() if u.role is Role.OWNER)
     preview = preview_counts(
         ctx.snapshot(),
@@ -242,7 +255,7 @@ def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
         change.get("max_cents", rule.scope.max_cents),
     )
     item = InboxItem(
-        id=f"itm_signoff_{rule.id}_{ctx.now:%m%d%H%M%S}",
+        id=f"itm_signoff_{rule.id}_{len(asked) + 1}",
         kind=InboxItemKind.OWNER_SIGNOFF,
         state=InboxItemState.OPEN,
         agent=None,
