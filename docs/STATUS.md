@@ -2,6 +2,53 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-02 — First real run: green against the real API (coordinator: Opus 5.5)
+
+**State:** the toolchain ran for the first time, on the owner's laptop. Everything below passed on the final code, on branch `chore/first-run`. Nothing is pushed or merged to `main`.
+
+| Check | Result |
+|---|---|
+| `make lint` | clean (ruff, mypy strict on `domain` and `agents`, eslint, tsc) |
+| `make test` | 556 API + 103 web, 0 skipped; web also on Node 22 (CI) and 24 (laptop) |
+| `make eval` | OK in deterministic and cassette modes |
+| `E2E_TARGET=real pnpm e2e --grep @demo` | 3 of 3 against the real API |
+| `pnpm e2e` (MSW) | 3 of 3 (stop `make dev` first, or it attaches to the real stack) |
+| `pnpm test:contract` | 51 of 51 against the real API |
+| `pnpm check:api`, `pnpm build` | clean |
+| By hand | Demo steps 1–8 in the browser against the real API; Activity and Denials read on Thursday; Cash only through e2e |
+| `kill -9` the API mid-run, restart | resumed at step 3 of 8, finished, one NEA upload |
+
+**Decisions:** ADR-0004 (one async advance path), ADR-0005 (web follows the generated contract), ADR-0006 (first-run hardening). Red-team reports are in `docs/design/red-team/`, dated 2026-11-02. Spec edits: 02 (reset refusals, `signoff_stale`), 05 (outage banner, `meta.counts`), 06 (the group opens on #4840, days in A/R 26 on Thursday, an advance takes about 20 s), 07 (Observe rows).
+
+**Real bugs found** (the tests were green for most of them)
+- Agent runs: the stream closed before `counts` and `done`, so nothing refreshed after a run; run steps carrying evidence were dropped; the firehose listened for an event the API never sends.
+- Authority: billing could sign a tier-2 rule by replaying an approval; the tier-3 role check had the same hole.
+- Trust: a sign-off request vanished under an Idempotency-Key, so Dana saw "Sent to Dr. Morgan" and nothing was sent; a repeat returned 500.
+- Observe: an observe rule could still open an item and contact a payer.
+- Clock and restart: the clock could move under a running approval; a reset during a run killed the worker for good; a restarted API reused call ids; a restart mid-advance left every later advance at 409.
+- Consistency: Castillo read "ours" in the Inbox and "theirs" on Denials; a 10/12 timeline entry listed an attachment made on 10/28; visits finished after their claims were built.
+
+**Not proven**
+- **Live mode has never called the real API.** No `ANTHROPIC_API_KEY` on this machine, so step 4 of the session was skipped: cassettes are still `synthetic: true`, and `make eval` compares shapes against hand-authored cassettes. Castillo and Moreno replay as `scripted_fallback`.
+- **CI has never run on GitHub.** `act` ran it locally in part; the new `contract` job was run only as local commands.
+- **CI has no e2e step**, so the real-API demo script is a local check.
+- `docker compose up` was not tried.
+- `file_departed` is asserted only against the mock: the canonical seed has no open hold-window item with a queued file.
+
+**Known and accepted** (ADR-0006)
+- Under an observe rule, an `unknown` case reaches nobody, only a row in Activity. A partial Observe thins a run's evidence.
+- An Observe run can find `ours` while Denials shows `payer`: fixing it would need a write under Observe.
+- Mock Thursday A/R reads $73,220 where the API reads $70,869. Both give 26 days; only a basis line differs between modes.
+
+**Next**
+1. Set `ANTHROPIC_API_KEY`, then `cd apps/api && uv run torch cassette record --scenario canonical` and `make eval`. Expect first-contact work: live mode has never run.
+2. Push, and watch the first CI run.
+3. API, recorded not done: make OpenAPI true for error responses and `default_factory` fields (`errors=` already exists in the route table); handlers for `visit.checked_out` and `eligibility.sweep`.
+4. Web: tighten ESLint to `strictTypeChecked`. Splitting `make lint` into `lint-api` and `lint-web` would let CI call make targets.
+5. Rehearse the onsite: `docs/WALKTHROUGH.md`, and the ten questions in the repo-review report.
+
+The sections below are the history of the first build pass. Where they disagree with this one, this one is right; `?wait=true` on advance, for one, is gone (ADR-0004).
+
 ## 2026-11-01 — End of first build pass (coordinator: Fable 5.1)
 
 **State:** API 391 pure tests + eval green; web written and reviewed, never compiled (no registry access). Repo review red team + fix pass applied. Read `docs/WALKTHROUGH.md`, then `docs/FIRST_RUN.md`.

@@ -34,6 +34,8 @@ Every time a choice needed judgment, an independent agent playing the person mos
 6. **Agent architecture: the model proposes, code gates and executes** (staff AI engineer, who also corrected the doc's claims about the Anthropic API). Every money-touching action is a fixed, idempotent recipe; the model earns its place on ambiguous cases and free-text evidence.
 7. **The Thursday inbox is 17, not the mocks' 16** (coordinator, ADR-0002). The number is computed from the seed; nothing is invented to hit a target.
 8. **Repo review fixes** (hiring Director of Engineering persona): a real streaming bug, API↔web shape drift, a package named `torch` (now `torch_rcm`), Observe mode on approvals, missing claim transitions, an unhonored Idempotency-Key, a 230-line executor method, and docs that overclaimed codegen and SQLModel. All fixed; the review is saved with its ten onsite questions and the answers you should be able to give.
+9. **The web follows the generated contract, and a suite proves it** (hiring Director of Engineering persona, ADR-0005). A mock that agrees with the schemas proves the mock, so `pnpm test:contract` parses what the real API sends.
+10. **First-run hardening** (staff engineer persona, ADR-0006). A walk through the demo against the real API found what the green tests hid, and the red team then found that several of the fixes' safety claims were false. Billing could sign a tier-2 rule by replaying an approval. The clock could move under a running approval. An observe rule could still open an item, and there the hard rule beat the spec.
 
 ## What the agents do and don't do
 
@@ -52,5 +54,7 @@ Then follow `docs/spec/06-demo-script.md`: approve the Delta group and watch the
 
 - **Defend**: build-at-checkout; the tiered table over per-agent dials; "model proposes, code gates".
 - **Be ready to reconsider**: Denials as top-level nav (could be a saved view of Claims); `Partial` as a status (could be Paid + flag); the mock layer's size (could be fixtures only).
+- **Say about Observe**: an `unknown` case under an observe rule reaches nobody, only a row in Activity, and a partial Observe thins a run's evidence. Those are real costs of "Observe does nothing", and you chose them (ADR-0006).
+- **Tell the first-run story**: the tests were green and the demo was still broken, because the mock agreed with its own assumptions. The fix was a suite against the real API plus a walk through the demo by hand.
 - **Say plainly**: what you decided, what the red teams changed, what was built by parallel Claude Code sessions you coordinated, and what you verified yourself on first run.
 - The ten questions in `docs/design/red-team/challenge-repo-review-2026-11-01.md` are the ones to rehearse.
