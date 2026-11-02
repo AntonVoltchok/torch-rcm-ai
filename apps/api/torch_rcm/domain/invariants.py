@@ -82,6 +82,18 @@ def needs_action_iff_open_item(claims: Sequence[Claim], items: Sequence[InboxIte
     return bad
 
 
+def item_root_cause_matches_claim(claims: Sequence[Claim], items: Sequence[InboxItem]) -> list[str]:
+    """Every screen reads the claim's denial, so a finding held only on an item would show two answers."""
+    by_id = {c.id: c for c in claims}
+    out: list[str] = []
+    for item in items:
+        claim = by_id.get(item.claim_id or "")
+        found = item.payload.get("root_cause")
+        if item.state is InboxItemState.OPEN and claim and claim.denial and found and found != claim.denial.root_cause:
+            out.append(f"{item.id}: item says {found}, claim {claim.number} says {claim.denial.root_cause}")
+    return out
+
+
 def would_have_run_iff_observe(runs: Iterable[Run], rules: dict[str, Rule]) -> list[str]:
     bad: list[str] = []
     for run in runs:

@@ -51,8 +51,17 @@ from torch_rcm.agents.types import (
     StepResult,
     Subject,
 )
-from torch_rcm.domain.entities import InboxItem, Run
-from torch_rcm.domain.enums import InboxItemKind, InboxItemState, RuleAction, RunStatus, RunTrigger, StepStatus, Tier
+from torch_rcm.domain.entities import Claim, InboxItem, Run
+from torch_rcm.domain.enums import (
+    InboxItemKind,
+    InboxItemState,
+    RootCause,
+    RuleAction,
+    RunStatus,
+    RunTrigger,
+    StepStatus,
+    Tier,
+)
 from torch_rcm.domain.values import Confidence as DomainConfidence
 from torch_rcm.domain.values import ProposedAction as DomainProposedAction
 from torch_rcm.domain.values import Usage as DomainUsage
@@ -534,7 +543,17 @@ class Executor:
                 },
             )
         )
+        self._record_root_cause(case)
         return iid
+
+    def _record_root_cause(self, case: CaseFile) -> None:
+        """A finding on an item is on the claim too, so every screen agrees and it outlives the item."""
+        if case.claim is None or case.root_cause == "unknown":
+            return
+        claim = self.rt.store.require(Claim, case.claim.id)
+        if claim.denial is not None and claim.denial.root_cause.value != case.root_cause:
+            denial = claim.denial.model_copy(update={"root_cause": RootCause(case.root_cause)})
+            self.rt.store.update(claim.model_copy(update={"denial": denial}))
 
     def _failed_item(self, run: Run, case: CaseFile, title: str, recommendation: str, explanation: str) -> str:
         """At most one `run_failed` item per run (07 §9)."""

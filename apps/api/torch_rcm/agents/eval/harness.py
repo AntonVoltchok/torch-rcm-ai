@@ -251,6 +251,7 @@ def invariant_failures(rt: Any) -> list[str]:
         "claim lines balance": inv.claim_lines_balance(s.of(Claim)),
         "strip = group by": inv.strip_equals_group_by(s.of(Claim), tiles),
         "needs_action ⇔ open item": inv.needs_action_iff_open_item(s.of(Claim), s.of(InboxItem), flagged),
+        "item root cause = claim": inv.item_root_cause_matches_claim(s.of(Claim), s.of(InboxItem)),
         "would_have_run ⇔ observe": inv.would_have_run_iff_observe(s.of(Run), rules),
         "rules valid": inv.rules_valid(s.of(Rule), owners),
         "guarded proposals": inv.guarded_proposals_unaccepted(s.of(RuleProposal)),
