@@ -60,17 +60,6 @@ def start_advance(ctx: Ctx, minutes: int | None, to: datetime | None) -> Advance
     return AdvanceAccepted(advance_id=advance.id, **{"from": advance.from_at}, to=advance.to_at)
 
 
-async def run_advance_inline(ctx: Ctx, minutes: int | None, to: datetime | None) -> AdvanceOut:
-    """`?wait=true`: the same advance, awaited (CLI, tests, e2e)."""
-    target = advance_target(ctx, minutes, to)
-    try:
-        advance = ctx.rt.scheduler.begin_advance(target, ctx.user.id)
-    except AdvanceInProgressError as exc:
-        raise conflict("advance_in_progress", str(exc), advance_id=exc.advance_id) from exc
-    advance = await ctx.rt.scheduler.execute_advance(advance)
-    return advance_out(ctx, advance, with_meta=True)
-
-
 def get_advance(ctx: Ctx, advance_id: str) -> AdvanceOut:
     advance = ctx.rt.store.get(Advance, advance_id)
     if advance is None:

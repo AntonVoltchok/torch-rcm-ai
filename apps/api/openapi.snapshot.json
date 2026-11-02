@@ -2566,19 +2566,9 @@
           "clock"
         ],
         "summary": "Advance",
-        "description": "Async (ADR-0001): 202 + advance id; progress on `/runs/stream` (`event: advance`) and\n`GET /clock/advance/{id}`. `?wait=true` awaits it and returns the final snapshot (CLI, tests, e2e).",
+        "description": "Async (ADR-0001): 202 + advance id; progress on `/runs/stream` (`event: advance`) and\n`GET /clock/advance/{id}`.",
         "operationId": "advance_api_v1_clock_advance_post",
         "parameters": [
-          {
-            "name": "wait",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Wait"
-            }
-          },
           {
             "name": "x-torch-user",
             "in": "header",
@@ -2614,21 +2604,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "title": "Response Advance Api V1 Clock Advance Post",
                   "$ref": "#/components/schemas/AdvanceAccepted"
                 }
               }
             }
-          },
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdvanceOut"
-                }
-              }
-            },
-            "description": "OK"
           },
           "422": {
             "description": "Validation Error",
@@ -2910,10 +2889,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Server-sent events",
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -3027,10 +3008,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Server-sent events",
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },

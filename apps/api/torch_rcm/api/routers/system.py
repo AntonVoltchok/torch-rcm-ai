@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Query, Request
-from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from torch_rcm.api.deps import CtxDep
@@ -32,6 +31,19 @@ from torch_rcm.events import FIREHOSE, replay
 router = APIRouter()
 TERMINAL = {RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELLED, RunStatus.WOULD_HAVE_RUN}
 POLL_SECONDS = 0.3
+SSE_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: {"description": "Server-sent events", "content": {"text/event-stream": {"schema": {"type": "string"}}}}
+}
+
+
+def _resume_point(last_event_id: str | None) -> tuple[int, int]:
+    """(`run_events` seq, stored-step idx) the client already has. Ids are `<seq>` or `s<idx>`; others mean neither."""
+    value = last_event_id or ""
+    if value.isdigit():
+        return int(value), -1
+    if value.startswith("s") and value[1:].isdigit():
+        return 0, int(value[1:])
+    return 0, -1
 
 
 # ── clock ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -42,20 +54,11 @@ def get_clock(ctx: CtxDep) -> ClockOut:
     return svc.clock(ctx)
 
 
-@router.post(
-    "/clock/advance",
-    status_code=202,
-    tags=["clock"],
-    responses={202: {"model": AdvanceAccepted}, 200: {"model": AdvanceOut}},
-)
-async def advance(ctx: CtxDep, body: AdvanceIn, wait: bool = False) -> Any:
+@router.post("/clock/advance", response_model=AdvanceAccepted, status_code=202, tags=["clock"])
+async def advance(ctx: CtxDep, body: AdvanceIn) -> AdvanceAccepted:
     """Async (ADR-0001): 202 + advance id; progress on `/runs/stream` (`event: advance`) and
-    `GET /clock/advance/{id}`. `?wait=true` awaits it and returns the final snapshot (CLI, tests, e2e)."""
-    if wait:
-        out = await svc.run_advance_inline(ctx, body.minutes, body.to)
-        return JSONResponse(out.model_dump(mode="json", by_alias=True), status_code=200)
-    accepted = svc.start_advance(ctx, body.minutes, body.to)
-    return JSONResponse(accepted.model_dump(mode="json", by_alias=True), status_code=202)
+    `GET /clock/advance/{id}`."""
+    return svc.start_advance(ctx, body.minutes, body.to)
 
 
 @router.get("/clock/advance/{advance_id}", response_model=AdvanceOut, tags=["clock"])
@@ -83,7 +86,7 @@ def list_runs(
     return svc.list_runs(ctx, agent, status, since, claim_id, limit)
 
 
-@router.get("/runs/stream", tags=["runs"])
+@router.get("/runs/stream", tags=["runs"], response_class=EventSourceResponse, responses=SSE_RESPONSE)
 async def runs_stream(
     request: Request, last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None
 ) -> EventSourceResponse:
@@ -92,7 +95,7 @@ async def runs_stream(
     store = request.app.state.runtime.store
 
     async def events() -> AsyncIterator[dict[str, Any]]:
-        seq = int(last_event_id or 0)
+        seq, _ = _resume_point(last_event_id)
         while not await request.is_disconnected():
             for ev in replay(store, FIREHOSE, seq):
                 seq = ev.seq
@@ -107,7 +110,7 @@ def get_run(ctx: CtxDep, run_id: str) -> RunDetail:
     return svc.get_run(ctx, run_id)
 
 
-@router.get("/runs/{run_id}/events", tags=["runs"])
+@router.get("/runs/{run_id}/events", tags=["runs"], response_class=EventSourceResponse, responses=SSE_RESPONSE)
 async def run_events(
     request: Request, run_id: str, last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None
 ) -> EventSourceResponse:
@@ -116,7 +119,7 @@ async def run_events(
     store = request.app.state.runtime.store
 
     async def events() -> AsyncIterator[dict[str, Any]]:
-        seq = int(last_event_id or 0)
+        seq, last_step = _resume_point(last_event_id)
         run = store.get(Run, run_id)
         if run is None:
             yield {
@@ -126,6 +129,8 @@ async def run_events(
             return
         if seq == 0 and not replay(store, run_id, 0, limit=1):
             for step in run.steps:
+                if step.idx <= last_step:
+                    continue
                 yield {
                     "id": f"s{step.idx}",
                     "event": "step",

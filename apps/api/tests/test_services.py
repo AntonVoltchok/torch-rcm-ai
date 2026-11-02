@@ -272,9 +272,14 @@ def test_activity_and_patients(rt: Runtime) -> None:
 # ── system ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 
-def test_advance_inline_and_clock(rt: Runtime) -> None:
-    out = asyncio.run(system.run_advance_inline(ctx(rt, "usr_morgan"), None, THURSDAY_0710))
-    assert out.done and out.now == THURSDAY_0710 and out.meta
+def test_advance_and_clock(rt: Runtime) -> None:
+    async def advance() -> str:
+        accepted = system.start_advance(ctx(rt, "usr_morgan"), None, THURSDAY_0710)
+        await rt.scheduler.wait()
+        return accepted.advance_id
+
+    out = system.get_advance(ctx(rt, "usr_morgan"), asyncio.run(advance()))
+    assert out.done and out.state == "done" and out.error is None and out.now == THURSDAY_0710 and out.meta
     assert {t.status: t.count for t in out.meta.counts.tiles}[ClaimStatus.DENIED] == 9
     assert system.clock(ctx(rt)).now == THURSDAY_0710
     with pytest.raises(ApiError) as exc:

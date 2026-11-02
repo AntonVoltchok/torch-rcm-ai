@@ -37,7 +37,7 @@ def _ensure_seeded(runtime: Runtime) -> None:
         runtime.reload_world()
 
 
-def _load_agents(settings: Settings) -> bool:
+def load_agents(settings: Settings) -> bool:
     """Import torch_rcm.agents and register its job handlers (run.start, triage, era.arrived).
 
     An import failure is logged and re-raised: an API without agents boots "fine" and the demo is inert, so it
@@ -56,7 +56,7 @@ def _load_agents(settings: Settings) -> bool:
     return True
 
 
-def _wire_agent_runtime(rt: Runtime) -> None:
+def wire_agent_runtime(rt: Runtime) -> None:
     """Attach the shared AgentRuntime: model client per TORCH_AGENT_MODE, then resume checkpointed runs."""
     from torch_rcm.agents.config import AgentConfig
     from torch_rcm.agents.runtime import AgentRuntime
@@ -93,10 +93,10 @@ def create_app(
         rt = runtime or Runtime.open(settings)
         _ensure_seeded(rt)
         app.state.runtime = rt
-        agents = _load_agents(settings)
-        rt.scheduler.queue.recover()
+        agents = load_agents(settings)
+        rt.scheduler.recover()
         if agents:
-            _wire_agent_runtime(rt)
+            wire_agent_runtime(rt)
         stop = asyncio.Event()
         worker = None
         if start_worker if start_worker is not None else settings.worker:

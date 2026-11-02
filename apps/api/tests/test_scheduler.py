@@ -11,7 +11,7 @@ import pytest
 
 from conftest import THURSDAY_0710, snap
 from torch_rcm.domain.entities import Advance, Claim, FileEntry, Job
-from torch_rcm.domain.enums import ClaimStatus, FileEntryKind, FileEntryState, JobState
+from torch_rcm.domain.enums import AdvanceState, ClaimStatus, FileEntryKind, FileEntryState, JobState
 from torch_rcm.readmodels.claims import strip
 from torch_rcm.runtime import Runtime
 from torch_rcm.scheduler import kinds as K
@@ -190,3 +190,24 @@ def test_file_departure_closes_the_hold_window(rt: Runtime) -> None:
     entry = rt.store.find(FileEntry, {"claim_id": "clm_4859"})[0]
     assert entry.state is FileEntryState.DEPARTED
     assert rt.store.require(Claim, "clm_4859").status is S.SENT
+
+
+def test_a_cancelled_advance_is_failed_not_left_holding_the_lock(rt: Runtime) -> None:
+    async def never_returns(until: datetime, advance: Advance | None = None) -> None:
+        await asyncio.Event().wait()
+
+    rt.scheduler.run_due = never_returns  # type: ignore[method-assign,assignment]
+
+    async def cancel_mid_advance() -> Advance:
+        advance = rt.scheduler.start_advance(THURSDAY_0710, "usr_morgan")
+        await asyncio.sleep(0)
+        assert rt.scheduler._task is not None
+        rt.scheduler._task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await rt.scheduler.wait()
+        return advance
+
+    advance = asyncio.run(cancel_mid_advance())
+    stored = rt.store.require(Advance, advance.id)
+    assert (stored.state, stored.error) == (AdvanceState.FAILED, "interrupted by shutdown")
+    assert rt.scheduler.current_advance() is None
