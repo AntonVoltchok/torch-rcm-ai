@@ -9,6 +9,7 @@ import { api } from '@/api/endpoints'
 import { isApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import type { AdvanceSnapshot } from '@/api/schema'
+import { launchStore } from '@/state/launches'
 import { useFirehoseState } from '@/state/live'
 import { toast } from '@/state/toast'
 
@@ -78,6 +79,7 @@ export function useResetDemo() {
   return useMutation({
     mutationFn: api.resetClock,
     onSuccess: async () => {
+      launchStore.clear() // their runs no longer exist on the server
       qc.removeQueries()
       await qc.invalidateQueries()
       toast('Demo reset to Wed 10/28 10:40.', { tone: 'ok' })
