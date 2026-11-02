@@ -1,25 +1,46 @@
 name: ci
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Mirrors `make lint` (api half), `make test-api`, `make eval`.
   api:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults: { run: { working-directory: apps/api } }
+    env:
+      # uv fails instead of silently rewriting uv.lock when pyproject.toml and the lock disagree.
+      UV_LOCKED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true, cache-dependency-glob: apps/api/uv.lock }
       - run: uv python install 3.13
       - run: uv sync
-      - run: uv run ruff check . && uv run ruff format --check .
-      - run: uv run mypy torch_rcm
+      - run: uv run ruff check . && uv run ruff format --check . && uv run mypy torch_rcm
       - run: uv run pytest -q
       - run: uv run torch eval
+
+  # Mirrors `make lint` (web half) and `make test-web`; `pnpm build` is CI-only (the Makefile has no build target).
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults: { run: { working-directory: apps/web } }
     steps:
       - uses: actions/checkout@v4
+      # No `version:` — pnpm is pinned by `packageManager` in apps/web/package.json, which the action only finds via package_json_file.
       - uses: pnpm/action-setup@v4
-        with: { version: 10 }
+        with: { package_json_file: apps/web/package.json }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm, cache-dependency-path: apps/web/pnpm-lock.yaml }
       - run: pnpm install --frozen-lockfile
