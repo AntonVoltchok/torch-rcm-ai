@@ -44,19 +44,22 @@ test('demo steps 1–10 @demo', async ({ page }) => {
     await expect(page.getByTestId('agents-indicator')).toContainText('5 agents · 1 running')
   })
 
-  await test.step('2 · open the Delta group: #4821 with 92% basis, three evidence cards, owned root cause', async () => {
+  await test.step('2 · open the Delta group, select #4821: 92% basis, five evidence cards, owned root cause', async () => {
     const group = page.locator('[data-group-key]').filter({ hasText: 'missing PA x-ray (3)' })
     await expect(group).toContainText('$3,730')
     await group.getByRole('button', { name: /missing PA x-ray \(3\)/ }).click()
+    await page.locator('[data-item-id="itm_4821"]').click() // the group opens on its top-priority member, #4840
     await expect(page).toHaveURL(/item=itm_4821/)
     const detail = page.getByRole('article', { name: /#4821/ })
     await expect(detail.getByRole('heading', { name: '#4821 · K. Owens' })).toBeVisible()
     await expect(detail.getByText(/Why 92%:/)).toBeVisible()
     await expect(detail.getByText(/23 of 25/)).toBeVisible()
-    await expect(detail.locator('[data-evidence-kind]')).toHaveCount(3)
+    await expect(detail.locator('[data-evidence-kind]')).toHaveCount(5)
     await expect(detail.locator('[data-evidence-kind="portal_screenshot"]')).toBeVisible()
-    await expect(detail.locator('[data-evidence-kind="pms_record"]')).toContainText('PMS imaging')
+    await expect(detail.locator('[data-evidence-kind="pms_record"]')).toContainText('PA x-ray, tooth #19')
     await expect(detail.locator('[data-evidence-kind="era_line"]')).toContainText('CO-16')
+    await expect(detail.locator('[data-evidence-kind="ivr_transcript"]')).toContainText('IVR-1027-1602')
+    await expect(detail.locator('[data-evidence-kind="rep_call"]')).toContainText('DD-1027-88412')
     await expect(detail.getByTestId('audit-note')).toContainText('root cause: ours')
   })
 
@@ -66,11 +69,11 @@ test('demo steps 1–10 @demo', async ({ page }) => {
     const panel = page.getByRole('region', { name: 'Agent progress' })
     await expect(panel).toBeVisible()
     const owens = panel.locator('section[data-run]').first()
-    for (const step of ['fetch_pa_from_pms_imaging', 'upload_to_nea', 'write_nea_to_remarks', 'queue_for_delta_file']) {
-      await expect(owens.locator(`[data-step="${step}"]`)).toHaveAttribute('data-status', 'ok', { timeout: 20_000 })
+    for (const step of ['act:fetch_image', 'act:nea_upload', 'act:write_remarks', 'act:queue_for_file']) {
+      await expect(owens.locator(`[data-step="${step}"]`)).toHaveAttribute('data-status', 'ok', { timeout: 45_000 }) // the group runs one at a time
     }
     await expect(owens.getByText(/NEA# \d+/).first()).toBeVisible()
-    await expect(owens.getByTestId('audit-line')).toContainText('11:15 Delta file')
+    await expect(owens.getByTestId('audit-line')).toContainText('until the 11:15 file leaves')
     await expect(panel.getByText(/you can leave/)).toBeVisible()
     await expect(badge).toHaveText('9')
     await expect(strip.getByRole('link', { name: 'Denied 5', exact: true })).toBeVisible()

@@ -76,11 +76,11 @@ describe('Inbox approve', () => {
     expect(await screen.findByTestId('guard-reason')).toHaveTextContent(/Root cause is ours/)
   })
 
-  it('renders the three evidence kinds for #4821', async () => {
+  it('renders every evidence kind for #4821', async () => {
     renderApp('/inbox?item=itm_4821&group=delta_ny%3Aresubmit_with_attachment')
     const article = await screen.findByRole('article', { name: /#4821/ })
-    await waitFor(() => expect(article.querySelectorAll('[data-evidence-kind]')).toHaveLength(3))
-    expect([...article.querySelectorAll('[data-evidence-kind]')].map((e) => e.getAttribute('data-evidence-kind'))).toEqual(['portal_screenshot', 'pms_record', 'era_line'])
+    await waitFor(() => expect(article.querySelectorAll('[data-evidence-kind]')).toHaveLength(5))
+    expect([...article.querySelectorAll('[data-evidence-kind]')].map((e) => e.getAttribute('data-evidence-kind'))).toEqual(['portal_screenshot', 'pms_record', 'era_line', 'ivr_transcript', 'rep_call'])
     expect(within(article).getByText(/23 of 25/)).toBeInTheDocument()
     expect(within(article).getByTestId('audit-note')).toHaveTextContent('root cause: ours')
   })

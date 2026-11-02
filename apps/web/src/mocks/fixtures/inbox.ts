@@ -41,7 +41,7 @@ function paEvidence(n: number, tooth: string, date: string): Evidence[] {
     {
       id: `ev_${n}_pms`,
       kind: 'pms_record',
-      title: `PA x-ray, tooth #${tooth} · PMS imaging`,
+      title: `PA x-ray, tooth #${tooth}`,
       excerpt: `D0220 periapical #${tooth} · captured ${date} 10:41 · not sent with the claim`,
       captured_at: at('2026-10-28', '06:15'),
       reference: `IMG-${n}-PA`,
@@ -63,6 +63,22 @@ export const EVIDENCE: Evidence[] = [
   ...paEvidence(4821, '19', '10/12'),
   ...paEvidence(4836, '3', '10/14'),
   ...paEvidence(4840, '14', '10/19'),
+  {
+    id: 'ev_4821_ivr',
+    kind: 'ivr_transcript',
+    title: 'Delta IVR · status check',
+    excerpt: '16:02:11 IVR: Claim 26299-041833 for date of service October 12 was denied on October 26. Amount paid: zero dollars. Reason: additional information required.',
+    captured_at: at('2026-10-27', '16:02'),
+    reference: 'IVR-1027-1602',
+  },
+  {
+    id: 'ev_4821_rep',
+    kind: 'rep_call',
+    title: 'Delta rep call · ref DD-1027-88412',
+    excerpt: '16:20 Rep: …send the PA through FastAttach and resubmit with the claim number. No appeal needed for a missing x-ray. (6 m 12 s)',
+    captured_at: at('2026-10-27', '16:20'),
+    reference: 'DD-1027-88412',
+  },
   {
     id: 'ev_4733_prior',
     kind: 'prior_eob',
@@ -174,7 +190,7 @@ function paItem(n: number, patient: string, tooth: string, cents: number, pct: n
     recommendation: `Upload the PA of #${tooth} to NEA; resubmit with the NEA# and the original claim number.`,
     summary: 'Denied CO-16 · N29: pre-op radiograph required. Our Claims agent sent the BWX, not the PA; rule fixed 10/26.',
     confidence: { pct, basis: PA_BASIS },
-    evidence_ids: [`ev_${n}_portal`, `ev_${n}_pms`, `ev_${n}_era`],
+    evidence_ids: [`ev_${n}_portal`, `ev_${n}_pms`, `ev_${n}_era`, ...(n === 4821 ? ['ev_4821_ivr', 'ev_4821_rep'] : [])],
     proposed_action: { action: 'resubmit_with_attachment', params: { attachment: 'pa', tooth, file: 'delta_ny 11:15' }, cents, requires_hold_window: true },
     plan_steps: [
         `Upload PA #${tooth} (PMS imaging, ${created} 10:41) to NEA FastAttach`,

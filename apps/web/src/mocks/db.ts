@@ -115,6 +115,7 @@ export interface SseRecord {
 
 interface StepPlan {
   name: string
+  label?: string
   output: string
   progress?: string[]
   evidence?: Evidence
@@ -1427,7 +1428,7 @@ export class MockDb {
       mode: 'deterministic',
       planner: r.trigger === 'manual' ? 'recorded_plan' : 'scripted',
       started_at: this.s.now,
-      steps: r.plan.steps.map((st, idx) => newStep(idx, st.name)),
+      steps: r.plan.steps.map((st, idx) => ({ ...newStep(idx, st.name), label: st.label ?? '' })),
       action_label: '',
       result_summary: '',
       audit_line: '',
@@ -1626,14 +1627,14 @@ export class MockDb {
       const neaEvidence: Evidence = { id: `ev_${claim.number}_nea`, kind: 'nea_attachment', title: `PA #${tooth} uploaded to NEA FastAttach`, excerpt: `NEA# ${nea} · periapical #${tooth} · from PMS imaging`, captured_at: this.s.now, reference: nea, gathered_by: 'code' }
       return {
         steps: [
-          { name: 'fetch_pa_from_pms_imaging', output: `PA #${tooth} · PMS imaging · ${claim.number === 4821 ? '10/12 10:41' : 'on file'}` },
-          { name: 'upload_to_nea', output: `NEA# ${nea}`, evidence: neaEvidence },
-          { name: 'write_nea_to_remarks', output: `Remarks: NEA# ${nea} · orig. ICN ${claim.icn ?? '—'}` },
-          { name: 'queue_for_delta_file', output: 'Queued for the 11:15 Delta file via Vyne' },
+          { name: 'act:fetch_image', label: 'fetch PA from PMS imaging', output: `PA #${tooth} · PMS imaging · ${claim.number === 4821 ? '10/12 10:41' : 'on file'}` },
+          { name: 'act:nea_upload', label: 'upload to NEA', output: `NEA# ${nea}`, evidence: neaEvidence },
+          { name: 'act:write_remarks', label: 'write NEA# to remarks', output: `Remarks: NEA# ${nea} · orig. ICN ${claim.icn ?? '—'}` },
+          { name: 'act:queue_for_file', label: 'queue for 11:15 Delta file', output: 'Queued for the 11:15 Delta file via Vyne' },
         ],
         onDone: (db, run) => {
           run.result_summary = `Resubmit queued · leaves 11:15`
-          run.audit_line = `Resubmitted #${claim.number} with PA #${tooth} (NEA# ${nea}) citing ICN ${claim.icn ?? '—'} · queued for the 11:15 Delta file · approved by ${USER_NAME[user]} · tier 1 · resubmit with attachment`
+          run.audit_line = `Follow-up · Resubmit with attachment · #${claim.number} · Delta · PA via NEA# ${nea} · approved by ${USER_NAME[user]} · until the 11:15 file leaves`
           claim.attachments = [...claim.attachments, { id: db.id('att'), kind: 'pa', nea_number: nea, source: 'pms_imaging', created_at: db.now, note: `PA #${tooth} · uploaded via NEA` }]
           claim.in_flight = 'resubmit queued · leaves 11:15'
           claim.queued_file = { at: at(db.now.slice(0, 10), '11:15'), kind: 'resubmit' }
