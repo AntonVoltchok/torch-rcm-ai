@@ -381,7 +381,7 @@ A violation raises `PolicyInvariantError` at boot and in the rules repository.
 
 ### 5.2 Owner sign-off and rep-call bounds
 
-- **Sign-off.** A non-owner `PATCH /rules/{id}` on a tier-2 row returns `409 owner_signoff_required` and creates an `owner_signoff` item for Dr. Morgan. The item shows before → after and this week's preview. Her approval writes a `RuleChange{by: usr_morgan}` with `signed_by/signed_at`. Any later change to scope, cap or mode clears the signature and drops the row to `ask`. Tier-3 rows reject every PATCH (`403 human_only`, plus a DB check constraint).
+- **Sign-off.** A non-owner `PATCH /rules/{id}` on a tier-2 row returns `409 owner_signoff_required` and creates an `owner_signoff` item for Dr. Morgan. The item shows before → after and this week's preview. The request pins the rule's version and its `before` values, and her approval of a rule that has since changed is `409 signoff_stale`: she signs what she read, or Dana asks again. Her approval writes a `RuleChange{by: usr_morgan}` with `signed_by/signed_at`. Any later change to scope, cap or mode clears the signature and drops the row to `ask`. Tier-3 rows reject every PATCH (`403 human_only`, plus a DB check constraint).
 - **Rep calls.** The `payer.call_rep` adapter receives the plan's `asks` and a hard `may_agree_to = {reprocessing, send_records, resubmit, confirm_status, send_835}`. If the simulated rep offers anything else (refund offset, recoupment, "write it off and rebill"), the **adapter** answers "I'll need to confirm with the practice" and returns `requires_human=true`, which produces an `approve_action` quoting the offer. Call references (`DD-1027-88412`) and transcripts become `rep_call` and `ivr_transcript` evidence.
 
 ### 5.3 Text guard

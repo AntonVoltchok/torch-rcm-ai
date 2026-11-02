@@ -50,7 +50,7 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 ## Settings › Agents
 
 - `GET /rules` → tiers with rows, `base_rate`, `ran_without_review_7d`, change log pointer.
-- `PATCH /rules/{id} {mode | max_cents | confidence_floor}` → `409 owner_signoff_required` creates an `owner_signoff` InboxItem for Dr. Morgan instead; tier 3 → `403 human_only`.
+- `PATCH /rules/{id} {mode | max_cents | confidence_floor}` → `409 owner_signoff_required` creates an `owner_signoff` InboxItem for Dr. Morgan instead (approving one after the rule changed is `409 signoff_stale`); tier 3 → `403 human_only`.
 - `GET /rules/changes` · `GET /settings/preview?rule_id&mode&max_cents` → `{would_run, total, baseline_would_run, held_by_root_cause}` over this week's decisions (seeded triage runs, including those whose items Dana since approved; approval runs are not counted twice). `would_run` is net of the root-cause guard: the UI shows `baseline_would_run → would_run + Σheld` and "N held (root cause: ours) · net `would_run`".
 - `PATCH /settings/practice {practice_cap_cents}` → `{practice_cap_cents, meta}`: the practice-wide tier-2 cap (tier 1 is exempt); owner only (`403 owner_only`), `422 invalid_cap` outside $0–$25,000; writes an audit event.
 - `GET /proposals` · `POST /proposals/{id}:accept|dismiss` (`422 root_cause_guard`).
@@ -70,5 +70,5 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 ## Conventions
 
 - OpenAPI at `/api/openapi.json`; `pnpm gen:api` regenerates Zod + typed client.
-- Idempotency: `Idempotency-Key` is honoured on approve, approve-group, reject, snooze, `PATCH /rules/{id}` and `PATCH /settings/practice` — the first successful response per `(user, key)` is stored (`idempotency` table, `api/services/idempotency.py`) and replayed byte-for-byte; the same key on a different request is `422 idempotency_key_reused`; refusals are not stored. Other mutations ignore the header. Approve is also idempotent per item without a key (run key `approval:{item_id}`).
+- Idempotency: `Idempotency-Key` is honoured on approve, approve-group, reject, snooze, `PATCH /rules/{id}` and `PATCH /settings/practice` — the first successful response per `(user, key)` is stored (`idempotency` table, `api/services/idempotency.py`) and replayed byte-for-byte; the same key on a different request is `422 idempotency_key_reused`; refusals are not stored, except `409 owner_signoff_required`, which leaves a request: the same key returns that request in any state. Other mutations ignore the header. Approve is also idempotent per item without a key (run key `approval:{item_id}`).
 - All timestamps ISO-8601 with offset; the server never uses wall-clock time.

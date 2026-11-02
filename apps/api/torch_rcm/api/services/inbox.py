@@ -149,11 +149,21 @@ def _approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None) -> ApproveOut
 
 
 def _approve_signoff(ctx: Ctx, item: InboxItem) -> ApproveOut:
-    rule = ctx.rt.store.get(Rule, item.rule_id or "")
-    if rule is None:
-        raise not_found("rule", item.rule_id or "")
-    rule, _ = apply_rule_change(ctx, rule, item.payload.get("change", {}), sign=True)
-    _resolve(ctx, item, InboxItemState.APPROVED, "signed")
+    """She signs the rule she was shown: if it has moved since the request, the before → after she read is wrong."""
+    with ctx.rt.store.tx():
+        rule = ctx.rt.store.get(Rule, item.rule_id or "")
+        if rule is None:
+            raise not_found("rule", item.rule_id or "")
+        pinned = item.payload.get("rule_version")
+        if pinned != rule.version:
+            raise conflict(
+                "signoff_stale",
+                f"{rule.label} changed after this was requested; ask again.",
+                rule_version=pinned,
+                current_version=rule.version,
+            )
+        rule, _ = apply_rule_change(ctx, rule, item.payload.get("change", {}), sign=True)
+        _resolve(ctx, item, InboxItemState.APPROVED, "signed")
     return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, meta=ctx.meta())
 
 

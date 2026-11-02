@@ -20,7 +20,7 @@ from torch_rcm.api.schemas import (
     WeekDecisions,
 )
 from torch_rcm.api.services.context import Ctx
-from torch_rcm.api.services.idempotency import idempotent
+from torch_rcm.api.services.idempotency import check_key, idempotent, stored_record, write_record
 from torch_rcm.domain.entities import InboxItem, Practice, Rule, RuleChange, RuleProposal, Run
 from torch_rcm.domain.enums import (
     InboxItemKind,
@@ -113,12 +113,7 @@ def _change_dict(patch: RulePatchIn) -> dict[str, Any]:
 def apply_rule_change(ctx: Ctx, rule: Rule, change: dict[str, Any], *, sign: bool) -> tuple[Rule, RuleChange]:
     """Apply a change, bump the version, write the RuleChange. Tier-2 edits clear the signature and fall back to
     `ask` unless an owner signs them in the same change (07-agents §5.2)."""
-    before = {
-        "mode": rule.mode.value,
-        "max_cents": rule.scope.max_cents,
-        "confidence_floor": rule.confidence_floor,
-        "signed_by": rule.signed_by,
-    }
+    before = _rule_state(rule)
     if "mode" in change:
         rule.mode = RuleMode(change["mode"])
     if "max_cents" in change:
@@ -135,12 +130,7 @@ def apply_rule_change(ctx: Ctx, rule: Rule, change: dict[str, Any], *, sign: boo
     rule.version += 1
     rule.changed_by, rule.changed_at = ctx.user.id, ctx.now
     check_rule(rule)
-    after = {
-        "mode": rule.mode.value,
-        "max_cents": rule.scope.max_cents,
-        "confidence_floor": rule.confidence_floor,
-        "signed_by": rule.signed_by,
-    }
+    after = _rule_state(rule)
     affected = sum(1 for r in ctx.rt.store.find(Run, {"agent": rule.agent}) if r.rule_id == rule.id)
     rc = RuleChange(
         id=f"rch_{rule.id}_{rule.version}",
@@ -159,6 +149,15 @@ def apply_rule_change(ctx: Ctx, rule: Rule, change: dict[str, Any], *, sign: boo
     return rule, rc
 
 
+def _rule_state(rule: Rule) -> dict[str, Any]:
+    return {
+        "mode": rule.mode.value,
+        "max_cents": rule.scope.max_cents,
+        "confidence_floor": rule.confidence_floor,
+        "signed_by": rule.signed_by,
+    }
+
+
 def _summary(rule: Rule, before: dict[str, Any], after: dict[str, Any]) -> str:
     parts = [
         f"{k}: {before[k]} → {after[k]}" for k in ("mode", "max_cents", "confidence_floor") if before[k] != after[k]
@@ -169,19 +168,19 @@ def _summary(rule: Rule, before: dict[str, Any], after: dict[str, Any]) -> str:
 
 
 def patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn, *, idempotency_key: str | None = None) -> RulePatchOut:
+    check_key(idempotency_key)
     rule, change = _checked_patch(ctx, rule_id, patch)
+    body = patch.model_dump(mode="json", exclude_unset=True)
+    scope = f"PATCH /rules/{rule_id}"
     if rule.tier is Tier.TWO and ctx.user.role is not Role.OWNER:
         # Outside `idempotent`: this refusal writes the request, and one raised inside that transaction rolls it back.
-        # A retry is safe without a key because `request_signoff` returns the open request for the same change.
-        item = request_signoff(ctx, rule, change)
+        item = request_signoff(ctx, rule_id, change, key=idempotency_key, scope=scope, request=body)
         raise conflict(
             "owner_signoff_required",
             "Tier-2 rules need Dr. Morgan's signature; sent to her for sign-off.",
             inbox_item_id=item.id,
             rule_id=rule.id,
         )
-    body = patch.model_dump(mode="json", exclude_unset=True)
-    scope = f"PATCH /rules/{rule_id}"
     return idempotent(ctx, idempotency_key, scope, body, RulePatchOut, lambda: _apply_patch(ctx, rule_id, change))
 
 
@@ -241,12 +240,35 @@ def _patch_practice(ctx: Ctx, body: PracticeSettingsIn) -> PracticeSettingsOut:
     return PracticeSettingsOut(practice_cap_cents=cap, meta=ctx.meta())
 
 
-def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
-    """One open request per (rule, change). Ids count requests: the clock is frozen, so a timestamp would repeat."""
-    asked = [i for i in ctx.rt.store.all(InboxItem) if i.kind is InboxItemKind.OWNER_SIGNOFF and i.rule_id == rule.id]
-    for item in asked:
-        if item.state is InboxItemState.OPEN and item.payload.get("change") == change:
-            return item
+def request_signoff(
+    ctx: Ctx, rule_id: str, change: dict[str, Any], *, key: str | None, scope: str, request: dict[str, Any]
+) -> InboxItem:
+    """One request per key, in any state, and one open request per (rule version, change). Reading and inserting
+    share a transaction, so concurrent duplicates serialize. Ids count requests: the clock is frozen, so a timestamp
+    would repeat. The key's record points at the request, which it outlives."""
+    store = ctx.rt.store
+    with store.tx():
+        stored = stored_record(ctx, key, scope, request) if key else None
+        if stored is not None:
+            return store.require(InboxItem, stored.body["inbox_item_id"])
+        rule = store.require(Rule, rule_id)
+        asked = [i for i in store.all(InboxItem) if i.kind is InboxItemKind.OWNER_SIGNOFF and i.rule_id == rule.id]
+        item = next(
+            (
+                i
+                for i in asked
+                if i.state is InboxItemState.OPEN
+                and i.payload.get("change") == change
+                and i.payload.get("rule_version") == rule.version
+            ),
+            None,
+        ) or _new_signoff(ctx, rule, change, len(asked) + 1)
+        if key:
+            write_record(ctx, key, scope, request, 409, {"inbox_item_id": item.id})
+    return item
+
+
+def _new_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any], number: int) -> InboxItem:
     owner = next(u for u in ctx.snapshot().users.values() if u.role is Role.OWNER)
     preview = preview_counts(
         ctx.snapshot(),
@@ -255,7 +277,7 @@ def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
         change.get("max_cents", rule.scope.max_cents),
     )
     item = InboxItem(
-        id=f"itm_signoff_{rule.id}_{len(asked) + 1}",
+        id=f"itm_signoff_{rule.id}_{number}",
         kind=InboxItemKind.OWNER_SIGNOFF,
         state=InboxItemState.OPEN,
         agent=None,
@@ -270,17 +292,22 @@ def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
         assignee_user_id=owner.id,
         required_role=Role.OWNER,
         created_at=ctx.now,
-        payload={"change": change, "requested_by": ctx.user.id, "preview": preview.model_dump()},
+        payload={
+            "change": change,
+            "before": _rule_state(rule),
+            "rule_version": rule.version,
+            "requested_by": ctx.user.id,
+            "preview": preview.model_dump(),
+        },
     )
-    with ctx.rt.store.tx():
-        ctx.rt.store.insert(item)
-        ctx.audit(
-            "rule.signoff_requested",
-            "rule",
-            rule.id,
-            f"{ctx.user.name} requested sign-off: {rule.label}",
-            change=change,
-        )
+    ctx.rt.store.insert(item)
+    ctx.audit(
+        "rule.signoff_requested",
+        "rule",
+        rule.id,
+        f"{ctx.user.name} requested sign-off: {rule.label}",
+        change=change,
+    )
     return item
 
 
