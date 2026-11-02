@@ -222,11 +222,11 @@ test('demo steps 1–10 @demo', async ({ page }) => {
     await expect(log.locator('tr[data-style="observe_preview"]').first()).toContainText('would have run')
   })
 
-  await test.step('10 · Cash as Dr. Morgan (days in A/R 27 with its formula, write-offs, estimate); Denials by next action, Ito’s formal appeal', async () => {
+  await test.step('10 · Cash as Dr. Morgan (days in A/R 26 with its formula, write-offs, estimate); Denials by next action, Ito’s formal appeal', async () => {
     await switchUser(page, 'usr_morgan')
     await nav(page, /Cash/).click()
     const days = page.locator('[data-kpi="days_in_ar"]')
-    await expect(days).toContainText('27')
+    await expect(days).toContainText('26') // the API's Thursday number: 27 on Wednesday, before the night's six paid claims
     await expect(days).toContainText('= (insurance A/R + patient A/R) ÷ average daily net production (90 d)')
     await expect(page.getByRole('region', { name: 'Write-offs by type' })).toBeVisible()
     await expect(page.getByTestId('agent-impact')).toBeVisible()

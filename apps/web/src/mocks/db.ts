@@ -497,7 +497,15 @@ export class MockDb {
     const offset = Number(p.cursor ?? 0) || 0
     const limit = p.limit ?? 200
     const page = rows.slice(offset, offset + limit)
-    return { items: page.map((c) => this.row(c)), total: rows.length, next_cursor: offset + limit < rows.length ? String(offset + limit) : null }
+    const flagged = rows.filter((c) => this.needsAction(c.id))
+    return {
+      items: page.map((c) => this.row(c)),
+      total: rows.length,
+      total_cents: rows.reduce((a, c) => a + c.billed_cents, 0),
+      flagged_count: flagged.length,
+      flagged_cents: flagged.reduce((a, c) => a + c.billed_cents, 0),
+      next_cursor: offset + limit < rows.length ? String(offset + limit) : null,
+    }
   }
 
   /** GET /claims/{id}, as the API's `claim_detail`: the summary plus everything the page needs, in one request. */

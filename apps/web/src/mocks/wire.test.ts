@@ -28,7 +28,7 @@ function reads(db: MockDb) {
   parses(S.InboxList, inbox)
   for (const item of inbox.items) parses(S.InboxItemDetail, db.inboxItem(item.id))
   const claims = db.claims({ limit: 10_000 })
-  parses(S.ClaimList, { ...claims, total_cents: 0, flagged_count: 0, flagged_cents: 0 })
+  parses(S.ClaimList, claims)
   for (const c of claims.items) parses(S.ClaimDetail, db.claim(c.id))
   parses(S.ViewList, db.views())
   parses(S.RulesOut, db.rules())
