@@ -11,7 +11,7 @@ from torch_rcm.domain.entities import Claim, Coverage, PayerClaim, Visit, WorldC
 from torch_rcm.domain.enums import ClaimStatus, PayerKey, RootCause
 from torch_rcm.runtime import Runtime
 from torch_rcm.world.calendar import FILE_TIMES, is_business_day, next_file_time
-from torch_rcm.world.calllog import WorldUnavailableError
+from torch_rcm.world.calllog import CallLog, WorldUnavailableError
 from torch_rcm.world.rng import keyed_int
 
 
@@ -109,3 +109,15 @@ def test_a_second_denial_keeps_a_recorded_ours(rt: Runtime, stored: RootCause, k
 
     denial = rt.store.require(Claim, claim.id).denial
     assert denial is not None and denial.carc == "CO-16" and denial.root_cause is kept
+
+
+def test_call_ids_stay_unique_across_a_restart_on_the_frozen_clock(rt: Runtime) -> None:
+    def read() -> dict[str, str]:
+        return {"ok": "yes"}
+
+    def calls(log: CallLog, n: int) -> None:
+        for _ in range(n):
+            log.record("payer:delta_ny", "portal.read", read, mutation=False)
+
+    calls(CallLog(rt.store, rt.clock), 4)
+    calls(CallLog(rt.store, rt.clock), 4)  # a new process: the clock has not moved, and the rows are still there
