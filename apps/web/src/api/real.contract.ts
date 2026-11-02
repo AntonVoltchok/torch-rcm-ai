@@ -16,6 +16,7 @@ interface HttpRecord {
   schema: string
   status: number
   body: unknown
+  refused?: { status: number; code: string }
 }
 interface EvidenceRecord {
   kind: 'timeline_evidence'
@@ -31,6 +32,7 @@ interface Frame {
 const load = <T,>(file: string) => JSON.parse(readFileSync(join(process.env.CONTRACT_DUMP ?? '', file), 'utf8')) as T
 const records = load<(HttpRecord | EvidenceRecord)[]>('http.json')
 const http = records.filter((r): r is HttpRecord => !('kind' in r))
+const refusals = http.filter((r) => r.refused)
 const { run_id: runId, frames: runFrames } = load<{ run_id: string; frames: Frame[] }>('run_frames.json')
 const firehose = load<Frame[]>('firehose.json')
 
@@ -49,13 +51,27 @@ const cash = (i: number) => {
 
 describe('the real API', () => {
   it('answers every call as expected', () => {
-    const wrong = http.filter((r) => r.status >= (r.schema === 'ErrorEnvelope' ? 500 : 400)).map((r) => `${r.method} ${r.path} ${r.status}`)
+    const wrong = http.filter((r) => (r.refused ? r.status !== r.refused.status : r.status >= 400)).map((r) => `${r.method} ${r.path} ${r.status}`)
     expect(wrong).toEqual([])
     expect(http.length).toBeGreaterThan(500)
   })
 
   it.each([...new Set(http.map((r) => r.schema))])('sends %s as the web parses it', (name) => {
     for (const r of http.filter((x) => x.schema === name)) parses(schemaOf(name), r.body)
+  })
+
+  it.each(refusals.map((r) => [`${r.refused?.status ?? ''} ${r.refused?.code ?? ''}`, r] as const))('refuses with %s as the web reads it', (_, r) => {
+    const { error } = S.ErrorEnvelope.parse(r.body)
+    expect(error.code).toBe(r.refused?.code)
+    expect(error.message).not.toBe('')
+  })
+
+  it('names Dr. Morgan’s sign-off item in a 409 owner_signoff_required, and the same one on a repeat', () => {
+    const [first, repeat] = refusals.filter((r) => r.refused?.code === 'owner_signoff_required').map((r) => S.ErrorEnvelope.parse(r.body).error.details)
+    expect(first).toMatchObject({ rule_id: 'rule_t2_post_era', inbox_item_id: expect.any(String) as string })
+    expect(repeat).toEqual(first)
+    const inbox = http.filter((r) => r.schema === 'InboxItemDetail').map((r) => S.InboxItemDetail.parse(r.body))
+    expect(inbox.find((i) => i.id === first?.inbox_item_id)).toMatchObject({ kind: 'owner_signoff', required_role: 'owner' })
   })
 
   it('streams run frames the reducer folds to a finished view', () => {

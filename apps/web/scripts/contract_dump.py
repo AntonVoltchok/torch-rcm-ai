@@ -27,12 +27,29 @@ TERMINAL = ("succeeded", "failed", "cancelled", "would_have_run")
 records: list[dict[str, Any]] = []
 
 
-def call(client: TestClient, method: str, path: str, schema: str, *, user: dict[str, str] = DANA, **kw: Any) -> Any:
+def call(
+    client: TestClient,
+    method: str,
+    path: str,
+    schema: str,
+    *,
+    user: dict[str, str] = DANA,
+    refused: tuple[int, str] | None = None,
+    **kw: Any,
+) -> Any:
     headers = {**user, "Idempotency-Key": f"contract-{len(records)}"}
     res = client.request(method, API_PREFIX + path, headers=headers, **kw)
     body = res.json()
-    records.append({"method": method, "path": path, "schema": schema, "status": res.status_code, "body": body})
+    record = {"method": method, "path": path, "schema": schema, "status": res.status_code, "body": body}
+    if refused:
+        record["refused"] = {"status": refused[0], "code": refused[1]}
+    records.append(record)
     return body
+
+
+def refuse(client: TestClient, method: str, path: str, status: int, code: str, **kw: Any) -> Any:
+    """A refusal the app has a path for: `real.contract.ts` asserts its status, its code and the envelope."""
+    return call(client, method, path, "ErrorEnvelope", refused=(status, code), **kw)
 
 
 def reads(client: TestClient) -> None:
@@ -82,7 +99,24 @@ def wait_for_run(client: TestClient, run_id: str) -> None:
     raise TimeoutError(run_id)
 
 
+def refusals_before_approval(client: TestClient) -> None:
+    ask = {"mode": "ask"}
+    signoff = refuse(client, "PATCH", "/rules/rule_t2_post_era", 409, "owner_signoff_required", json=ask)
+    refuse(client, "PATCH", "/rules/rule_t2_post_era", 409, "owner_signoff_required", json=ask)  # a repeat is safe
+    call(client, "GET", f"/inbox/{signoff['error']['details']['inbox_item_id']}", "InboxItemDetail", user=MORGAN)
+    refuse(client, "PATCH", "/rules/rule_t3_formal_appeal", 403, "human_only", user=MORGAN, json={"mode": "auto"})
+    refuse(client, "PATCH", "/settings/practice", 403, "owner_only", json={"practice_cap_cents": 100_000})
+    refuse(client, "PATCH", "/settings/practice", 422, "invalid_cap", user=MORGAN, json={"practice_cap_cents": -1})
+    refuse(client, "POST", "/agents:pause", 403, "forbidden")
+    refuse(client, "POST", "/inbox/itm_4611:approve", 403, "tier_requires_owner", json={})
+    refuse(client, "POST", "/inbox/itm_4821:always-auto-run", 422, "root_cause_guard")
+    refuse(client, "POST", "/proposals/prop_delta_pa_ours:accept", 422, "root_cause_guard")
+    refuse(client, "POST", "/proposals/prop_guardian_5mm:accept", 422, "not_enough_evidence")
+    refuse(client, "GET", "/claims/does-not-exist", 404, "not_found")
+
+
 def mutations(client: TestClient) -> str:
+    refusals_before_approval(client)
     inbox = client.get(f"{API_PREFIX}/inbox?group=true&state=open", headers=DANA).json()
     group = inbox["groups"][0]["group_key"]
     approved = call(client, "POST", "/inbox:approve-group", "ApproveGroupResponse", json={"group_key": group})
@@ -90,6 +124,7 @@ def mutations(client: TestClient) -> str:
         wait_for_run(client, run["id"])
     singles = [i for i in inbox["items"] if not i.get("group_key") and i["claim"] and i["tier"] == 1]
     call(client, "POST", f"/inbox/{singles[0]['id']}:reject", "ItemResponse", json={"reason": "contract check"})
+    refuse(client, "POST", f"/inbox/{singles[0]['id']}:approve", 409, "already_resolved", json={})
     call(client, "POST", f"/inbox/{singles[1]['id']}:snooze", "ItemResponse", json={"until": THURSDAY})
     call(client, "POST", f"/inbox/{singles[1]['id']}:reopen", "ItemResponse")
     call(client, "POST", "/views", "SavedView", json={"name": "Denied", "search_params": {"status": ["denied"]}})
@@ -100,8 +135,8 @@ def mutations(client: TestClient) -> str:
     call(client, "POST", "/proposals/prop_guardian_5mm:dismiss", "ProposalResponse")
     call(client, "PATCH", "/settings/practice", "PracticeSettings", user=MORGAN, json={"practice_cap_cents": 100_000})
     call(client, "POST", "/agents:pause", "AgentsStatus", user=MORGAN)
+    refuse(client, "POST", "/claims/clm_4733:triage", 409, "agents_paused", json={"agent": "followup"})
     call(client, "POST", "/agents:resume", "AgentsStatus", user=MORGAN)
-    call(client, "GET", "/claims/does-not-exist", "ErrorEnvelope")
     return str(approved["runs"][0]["id"])
 
 
@@ -113,6 +148,7 @@ def main(out: Path) -> None:
         run_id = mutations(client)
         call(client, "GET", f"/runs/{run_id}", "RunDetail")
         accepted = call(client, "POST", "/clock/advance", "ClockAdvanceAccepted", user=MORGAN, json={"to": THURSDAY})
+        refuse(client, "POST", "/clock/advance", 409, "advance_in_progress", user=MORGAN, json={"to": THURSDAY})
         path = f"{API_PREFIX}/clock/advance/{accepted['advance_id']}"
         for _ in range(1200):
             if client.get(path, headers=MORGAN).json()["done"]:
