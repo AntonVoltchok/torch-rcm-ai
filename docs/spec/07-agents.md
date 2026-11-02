@@ -292,7 +292,7 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
 ]
 ```
 
-`submit_plan`'s enum and union are generated per agent from the catalog, so each schema is static (followup's is shown). No schema has a confidence, tier, root-cause or amount field. `status_check` and `payer_rep_call` are actions, not reads, so Observe mode never contacts a payer.
+`submit_plan`'s enum and union are generated per agent from the catalog, so each schema is static (followup's is shown). No schema has a confidence, tier, root-cause or amount field. `status_check` and `payer_rep_call` are actions, not reads, and the one read that reaches a payer (`claim_get_history`'s `correspondence`) is withheld while any rule that could decide the run is on `observe`, so Observe mode never contacts a payer.
 
 ---
 
@@ -356,8 +356,8 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 | 1 | Action not in the agent's catalog; params fail validation; subject outside the run's scope; a demographic or amount param differs from its evidence value | **refuse** (step `failed`, guardrail logged; other actions continue) |
 | 2 | Tier 3, agent-started | **propose** to a role holder; never executes |
 | 3 | Tier 3, human-started by an actor with the role | **execute** |
-| 4 | Posting from a paper EOB | **propose** |
-| 5 | Classifier returned `unknown` (the model named the situation) | **propose**: never executes, whatever the rule says |
+| 4 | Posting from a paper EOB, unless the matching rule is `observe` (row 7) | **propose** |
+| 5 | Classifier returned `unknown` (the model named the situation), unless the matching rule is `observe` (row 7) | **propose**: never executes, whatever the rule says |
 | 6 | No matching rule | **propose** ("no rule") |
 | 7 | `mode=observe` | **observe**: run `would_have_run`, recipe steps `skipped` ("would have: upload PA to NEA") |
 | 8 | `mode=human_only` or `ask` | **propose** |
@@ -374,6 +374,8 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 - No learned rule has `outcome_metric=none`.
 - No tier-3 rule leaves `human_only`.
 A violation raises `PolicyInvariantError` at boot and in the rules repository.
+
+**Observe opens no item.** Rows 4 and 5 yield to row 7 under an `observe` rule: Observe does nothing except record `would_have_run` runs, and that outranks sending the case to a person. Row 6 still proposes, because no rule is observing. The plan does not exist when the run reads, so the rule that will decide it is not known yet: a portal read is withheld if any rule that could decide this run (each of the agent's actions, matched on payer and item type) is on `observe`. The run says so on `investigate` ("portal correspondence not read · Observe mode"). The cost is that an unrelated action's `observe` rule costs a run its portal evidence, even if the run then proposes under another rule. `make eval` holds all of this with every rule on `observe`.
 
 **Approval runs** re-check rows 0, 1, 3, 7 and 14 at execution time (then row 15). Row 7 is re-checked because Observe mode does nothing: approving an item whose governing rule has since become `observe` records a `would_have_run` run, executes nothing, and marks the item `approval_outcome: would_have_run`. **"Propose"** creates or updates exactly one open InboxItem per `(claim_id, action)`.
 
@@ -703,7 +705,7 @@ class AgentConfig(BaseSettings):
 3. **Live mode is for claims, followup and appeals drafting.** Eligibility and posting stay scripted. Posting variance is the next live candidate.
 4. **Static model profiles, no sampling parameters, no thinking text in the UI** (`between_tools` rejects `display`). The chosen reads and the rationale are the visible reasoning.
 5. **One plan per run.** New payer information spawns a child triage run instead of a second round.
-6. **Payer contact is an action**, so Observe mode never calls a payer.
+6. **Payer contact is rule-governed**, so Observe mode never calls a payer: status checks and rep calls are actions, and a portal read is withheld while a rule that could decide the run is on `observe`.
 7. **Labeled scripted fallback** instead of a failed run when the model misbehaves or the API is down.
 8. **Mechanical fields are not agent text.** This keeps the Owens resubmit and the Webb inquiry tier 1.
 9. **`clock/advance` is async with per-event barriers.** Causality wins over speed. Live runs per advance are capped.

@@ -196,6 +196,20 @@ def _carries_text(spec: ActionSpec, ctx: PolicyCtx) -> bool:
     return spec.carries_text is not None or ctx.draft_guard is not None
 
 
+def _observes(rule: RuleView | None) -> bool:
+    """Observe does nothing, so rows 4 and 5, which would open an item, yield to row 7 (07 §5.1)."""
+    return rule is not None and rule.mode == "observe"
+
+
+def observing_rule(
+    rules: tuple[RuleView, ...] | list[RuleView], agent: AgentKind, payer_key: PayerKey | None, item_type: str
+) -> RuleView | None:
+    """A rule on `observe` that could decide this run. Reading a payer's portal is payer contact and it comes
+    before the plan, so the deciding rule is not known yet: any rule that could be it withholds the read."""
+    matched = (match_rule(rules, action, payer_key, item_type) for action in AGENT_ACTIONS[agent])
+    return next((r for r in matched if _observes(r)), None)
+
+
 def _row0(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
     return "agents paused by the practice" if ctx.paused else None
 
@@ -218,10 +232,14 @@ def _row3(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) 
 
 
 def _row4(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
+    if _observes(r):
+        return None
     return "paper EOB is never auto-posted" if ctx.paper_eob and s.name == "post_era_line" else None
 
 
 def _row5(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
+    if _observes(r):
+        return None
     if ctx.classifier_situation == UNKNOWN:
         return "situation unknown to Torch's classifier · a person reviews"
     if _cites_only_suspicious(ctx, a):
@@ -234,7 +252,7 @@ def _row6(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) 
 
 
 def _row7(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
-    return f"observe mode · rule {r.label}" if r and r.mode == "observe" else None
+    return f"observe mode · rule {r.label}" if r and _observes(r) else None
 
 
 def _row8(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:

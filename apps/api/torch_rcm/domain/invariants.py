@@ -103,6 +103,21 @@ def would_have_run_iff_observe(runs: Iterable[Run], rules: dict[str, Rule]) -> l
     return bad
 
 
+def observe_opens_no_item(items: Iterable[InboxItem]) -> list[str]:
+    """`rule_mode` is the mode the deciding rule had when its run opened the item (seeded items carry none: an item
+    that predates a switch to `observe` is fine, and approving it records `would_have_run`)."""
+    return [f"{i.id}: opened under {i.rule_id} on observe" for i in items if i.payload.get("rule_mode") == "observe"]
+
+
+def observe_contacts_no_payer(runs: Iterable[Run], calls: Iterable[WorldCallLog]) -> list[str]:
+    observed = {r.id for r in runs if r.status is RunStatus.WOULD_HAVE_RUN}
+    return [
+        f"{c.run_id}: {c.operation} on {c.system}"
+        for c in calls
+        if c.run_id in observed and c.system.startswith("payer:")
+    ]
+
+
 def check_rule(rule: Rule) -> None:
     """Raise InvariantError for a rule that may not exist (the DB-level check constraint, in code)."""
     if rule.action in TIER3_ACTIONS and rule.mode is not RuleMode.HUMAN_ONLY:

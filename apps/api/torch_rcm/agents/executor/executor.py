@@ -539,6 +539,7 @@ class Executor:
                     "situation_key": plan.situation_key,
                     "root_cause": case.root_cause,
                     "policy_row": decision.policy_row,
+                    "rule_mode": next((r.mode for r in case.rules_snapshot if r.id == decision.rule_id), None),
                     **({"draft": draft.model_dump(mode="json")} if draft else {}),
                 },
             )
