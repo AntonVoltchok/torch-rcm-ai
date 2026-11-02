@@ -1,7 +1,6 @@
 // Regenerates Zod schemas from the API's OpenAPI snapshot (apps/api/openapi.snapshot.json → src/api/generated.ts).
-// Needs registry access (openapi-zod-client, prettier). Until it has run, src/api/schema.ts is the hand-maintained
-// mirror of the snapshot; afterwards schema.ts should re-export from ./generated.ts. Objects are generated strict,
-// like the mirror: an unknown key fails the parse instead of rendering empty.
+// src/api/schema.ts names them for the app. Objects are generated strict: an unknown key fails the parse instead of
+// rendering empty.
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -13,8 +12,8 @@ const snapshot = resolve(here, '../../api/openapi.snapshot.json')
 const out = resolve(here, '../src/api/generated.ts')
 
 if (!existsSync(snapshot)) {
-  console.log(`gen:api: ${snapshot} not found — keeping the hand-written src/api/schema.ts.`)
-  process.exit(0)
+  console.error(`gen:api: ${snapshot} not found. Run \`make gen-api\` from the repo root, or \`torch openapi\` in apps/api.`)
+  process.exit(1)
 }
 const require = createRequire(import.meta.url)
 const pkgDir = dirname(require.resolve('openapi-zod-client/package.json'))
@@ -25,4 +24,4 @@ execFileSync(
   { stdio: 'inherit' },
 )
 execFileSync('pnpm', ['exec', 'prettier', '--write', out], { stdio: 'inherit' })
-console.log(`gen:api: wrote ${out}. Re-point src/api/schema.ts exports at it and run pnpm typecheck.`)
+console.log(`gen:api: wrote ${out}. Run pnpm typecheck.`)

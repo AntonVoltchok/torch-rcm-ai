@@ -973,6 +973,13 @@ const AdvanceIn = z
   .object({ minutes: z.union([z.number(), z.null()]), to: z.union([z.string(), z.null()]) })
   .partial()
   .strict()
+const AdvanceAccepted = z
+  .object({
+    advance_id: z.string(),
+    from: z.string().datetime({ offset: true }),
+    to: z.string().datetime({ offset: true }),
+  })
+  .strict()
 const EventFired = z
   .object({
     at: z.string().datetime({ offset: true }),
@@ -996,13 +1003,6 @@ const AdvanceOut = z
     done: z.boolean(),
     error: z.union([z.string(), z.null()]).optional(),
     meta: z.union([Meta, z.null()]).optional(),
-  })
-  .strict()
-const AdvanceAccepted = z
-  .object({
-    advance_id: z.string(),
-    from: z.string().datetime({ offset: true }),
-    to: z.string().datetime({ offset: true }),
   })
   .strict()
 const ReseedOut = z.object({ scenario: z.string(), now: z.string().datetime({ offset: true }), meta: Meta }).strict()
@@ -1196,9 +1196,9 @@ export const schemas = {
   Advancing,
   ClockOut,
   AdvanceIn,
+  AdvanceAccepted,
   EventFired,
   AdvanceOut,
-  AdvanceAccepted,
   ReseedOut,
   RunList,
   RunDetail,
