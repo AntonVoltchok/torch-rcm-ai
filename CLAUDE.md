@@ -14,7 +14,7 @@ Torch is a believable, interactive demo of an agentic-AI revenue-cycle product f
 
 ```text
 apps/api/        FastAPI + pydantic, JSON document store on SQLite (`db/store.py`) · torch_rcm/{domain,world,seed,agents,api,scheduler}
-apps/web/        Vite + React 19 + TS · TanStack Router/Query/Table · Zod mirror of the API's OpenAPI (hand-maintained until `make gen-api` runs; see docs/FIRST_RUN.md)
+apps/web/        Vite + React 19 + TS · TanStack Router/Query/Table · Zod schemas generated from the API's OpenAPI snapshot (`src/api/generated.ts`, named in `schema.ts`; `pnpm check:api` and `pnpm test:contract` hold them to the API)
 packages/        (none yet; shared contracts live in the API's OpenAPI → web codegen)
 docs/            spec/ (contracts) · adr/ · design/ (mocks, red-team reports, decisions log) · SESSIONS.md
 infra/           docker-compose, Dockerfiles, deploy configs (Fly for api, Vercel for web — not deployed)
@@ -27,9 +27,9 @@ Makefile         make dev | seed | test | eval | gen-api | lint | e2e
 make dev          # api on :8000 (uv run uvicorn), web on :5173 (pnpm dev), seeds canonical scenario if DB missing
 make seed         # reseed canonical scenario (destroys local DB)
 make test         # pytest (api) + vitest (web)
-make e2e          # playwright demo script against make dev
+make e2e          # playwright against MSW; stop make dev first (it reuses :5173). Real API: `E2E_TARGET=real pnpm e2e --grep @demo` with make dev running
 make eval         # replay canonical scenario through deterministic + live(cassette) modes; assert identical run shapes + invariants
-make gen-api      # regenerate apps/web/src/api/* from /api/openapi.json — run after ANY API schema change
+make gen-api      # regenerate apps/api/openapi.snapshot.json, then apps/web/src/api/generated.ts — run after ANY API schema change
 make lint         # ruff + mypy (api); eslint + tsc --noEmit (web)
 ```
 

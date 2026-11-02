@@ -47,3 +47,25 @@ jobs:
       - run: pnpm lint && pnpm typecheck
       - run: pnpm test -- --run
       - run: pnpm build
+
+  # `generated.ts` matches the committed snapshot, and the web's schemas parse what the real API sends. Needs both toolchains.
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults: { run: { working-directory: apps/web } }
+    env:
+      UV_LOCKED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true, cache-dependency-glob: apps/api/uv.lock }
+      - run: uv python install 3.13
+      - run: uv sync
+        working-directory: apps/api
+      - uses: pnpm/action-setup@v4
+        with: { package_json_file: apps/web/package.json }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: apps/web/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:api
+      - run: pnpm test:contract

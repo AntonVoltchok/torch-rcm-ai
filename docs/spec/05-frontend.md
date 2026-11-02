@@ -52,7 +52,7 @@ Inbox: `j/k` move, `enter` open, `a` approve, `e` edit, `r` reject, `s` snooze, 
 
 ## Loading / error / empty states (every interactive screen)
 
-Skeleton rows (not spinners) for lists; inline error with retry per query; empty Inbox → "Nothing needs you — agents handled 41 items this week" with a link to Activity; outage → `OutageBanner` ("Vyne is unreachable since 10:52 — sends are queued") driven by `/_world` state; Observe mode → Activity rows styled as "would have run".
+Skeleton rows (not spinners) for lists; inline error with retry per query; empty Inbox → "Nothing needs you — agents handled 41 items this week" with a link to Activity; outage → `OutageBanner` from `GET /_world/payers` ("Cigna Dental portal is unreachable — steps that need it come back to the Inbox"; a Vyne outage is not staged by the contract) driven by `/_world` state; Observe mode → Activity rows styled as "would have run".
 
 ## Testing
 
