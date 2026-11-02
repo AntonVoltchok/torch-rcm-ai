@@ -31,7 +31,9 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
             kind="built",
             title=f"Claims agent built claim #{claim.number} at checkout",
             detail=", ".join(
-                a.kind.value.upper() + (f" NEA# {a.nea_number}" if a.nea_number else "") for a in claim.attachments
+                a.kind.value.upper() + (f" NEA# {a.nea_number}" if a.nea_number else "")
+                for a in claim.attachments
+                if a.created_at <= claim.built_at  # what left with the claim, not what was added later
             )
             or None,
         )

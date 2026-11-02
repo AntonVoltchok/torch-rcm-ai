@@ -184,6 +184,7 @@ class Builder:
         lines: Lines,
         *,
         at: str = "10:00",
+        minutes: int = 50,
         note: str = "",
         signed_by: str | None = None,
         self_pay: bool = False,
@@ -194,7 +195,7 @@ class Builder:
         base = vid or f"vis_{dos:%m%d}_{last}"
         self._visit_n[base] += 1
         visit_id = base if self._visit_n[base] == 1 else f"{base}_{self._visit_n[base]}"
-        completed = dt(dos, at) + timedelta(minutes=50)
+        completed = dt(dos, at) + timedelta(minutes=minutes)
         visit = Visit(
             id=visit_id,
             appointment_id=None,

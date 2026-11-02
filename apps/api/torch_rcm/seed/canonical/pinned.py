@@ -86,12 +86,13 @@ class PinnedBuilder:
         *,
         provider: str = PRV_MORGAN,
         at: str = "10:00",
+        visit_minutes: int = 50,
         coverage: Coverage | None = None,
         note: str = "",
         **fields: Any,
     ) -> Claim:
         patient, cov = self.pc(key)
-        visit, procs = self.b.visit(patient, dos, provider, lines, at=at, note=note)
+        visit, procs = self.b.visit(patient, dos, provider, lines, at=at, minutes=visit_minutes, note=note)
         claim = self.b.claim(number, visit, procs, coverage or cov, status, **fields)
         self.out.claims[number] = claim
         return claim
@@ -167,7 +168,7 @@ class PinnedBuilder:
                 date(2026, 10, 12),
                 [("D2740", "19"), ("D2950", "19"), ("D0220", "19")],
                 PRV_MORGAN,
-                "10:00",
+                "09:50",
                 "10:45",
                 "26299-041833",
                 "47720913",
@@ -178,7 +179,7 @@ class PinnedBuilder:
                 date(2026, 10, 14),
                 [("D2750", "3"), ("D2950", "3")],
                 PRV_LEE,
-                "11:00",
+                "10:50",
                 "11:45",
                 "26288-052207",
                 "47731154",
@@ -189,7 +190,7 @@ class PinnedBuilder:
                 date(2026, 10, 19),
                 [("D2740", "14"), ("D2950", "14"), ("D0140", None)],
                 PRV_MORGAN,
-                "13:30",
+                "13:20",
                 "14:15",
                 "26293-061947",
                 "47748802",
@@ -207,7 +208,7 @@ class PinnedBuilder:
                 S.DENIED,
                 provider=provider,
                 at=at,
-                built_at=dt(dos, at) + timedelta(minutes=43),
+                built_at=dt(dos, at) + timedelta(minutes=53),  # three minutes after the visit, as everywhere
             )
             patient, cov = self.pc(key)
             tooth = lines[0][1]
@@ -416,6 +417,7 @@ class PinnedBuilder:
             [("D2740", "30"), ("D2950", "30"), ("D0220", "30")],
             S.READY,
             at="10:00",
+            visit_minutes=35,
             built_at=dt(TODAY, "10:38"),
         )
         b.attach(o, AttachmentKind.PA, dt(TODAY, "10:38"), nea="26-4471982", image_id=pa30.id)

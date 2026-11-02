@@ -56,6 +56,15 @@ def test_inbox_badge_equals_open_items_and_activity_awaiting(canonical: Snapshot
     assert s.inbox_open == len(canonical.open_items) == activity(canonical).summary.awaiting_you == 12
 
 
+def test_every_claim_is_built_at_checkout_after_its_visit(canonical: Snapshot) -> None:
+    early = [
+        c.number
+        for c in canonical.claims.values()
+        if (v := canonical.visits.get(c.visit_id or "")) is not None and c.built_at < v.completed_at
+    ]
+    assert early == []
+
+
 def test_no_tier3_rule_leaves_human_only(canonical: Snapshot) -> None:
     tier3 = [r for r in canonical.of(Rule) if int(r.tier) == 3]
     assert len(tier3) == 3

@@ -16,8 +16,8 @@ from torch_rcm.api.services import inbox as inbox_svc
 from torch_rcm.api.services import rules as rules_svc
 from torch_rcm.api.services import screens, system
 from torch_rcm.api.services.context import Ctx
-from torch_rcm.domain.entities import InboxItem, Job, Rule, Run
-from torch_rcm.domain.enums import ClaimStatus, InboxItemState, RuleMode
+from torch_rcm.domain.entities import Attachment, Claim, InboxItem, Job, Rule, Run
+from torch_rcm.domain.enums import AttachmentKind, AttachmentSource, ClaimStatus, InboxItemState, RuleMode
 from torch_rcm.readmodels.claims import ClaimQuery
 from torch_rcm.runtime import Runtime
 from torch_rcm.scheduler import kinds as K
@@ -188,6 +188,20 @@ def test_claims_filters_sort_and_cursor(rt: Runtime) -> None:
     assert claims_svc.list_claims(ctx(rt), ClaimQuery(q="4744")).items[0].id == "clm_4744"
     by_age = claims_svc.list_claims(ctx(rt), ClaimQuery(status=(ClaimStatus.PENDING,), sort="-age", limit=1))
     assert by_age.items[0].id == "clm_3561"
+
+
+def test_the_built_entry_lists_what_left_with_the_claim_not_what_came_later(rt: Runtime) -> None:
+    claim = rt.store.require(Claim, "clm_4821")
+    later = Attachment(
+        id="att_later",
+        kind=AttachmentKind.PA,
+        nea_number="26-4463084",
+        source=AttachmentSource.PMS_IMAGING,
+        created_at=rt.clock.now(),
+    )
+    rt.store.update(claim.model_copy(update={"attachments": [*claim.attachments, later]}))
+    d = claims_svc.claim_detail(ctx(rt), "clm_4821")
+    assert next(e for e in d.timeline if e.kind == "built").detail == "BWX NEA# 47720913"
 
 
 def test_claim_detail_tells_the_owens_story(rt: Runtime) -> None:
