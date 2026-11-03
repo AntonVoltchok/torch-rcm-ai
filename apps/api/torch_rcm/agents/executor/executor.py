@@ -507,6 +507,7 @@ class Executor:
             "situation_key": plan.situation_key,
             "root_cause": case.root_cause,
             "policy_row": decision.policy_row,
+            "policy_reason": decision.reason,
             "rule_mode": rule_mode,
         }
         with store.tx():

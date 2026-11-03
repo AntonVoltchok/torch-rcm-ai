@@ -2,11 +2,27 @@ import { describe, expect, it } from 'vitest'
 import { InboxList } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { GROUP_DELTA_PA } from '@/mocks/fixtures/inbox'
-import { entries, inboxGroups, itemOrder, keyOrder, nextSelection, withoutItems } from './selectors'
+import { draftOf, entries, inboxGroups, inboxMix, itemOrder, keyOrder, nextSelection, withoutItems } from './selectors'
 
 const list = () => InboxList.parse(new MockDb({ stepDelayMs: 0, schedule: () => undefined }).inbox({}))
 
 describe('inbox selectors', () => {
+  it('reconciles the 12 items with the 9 claims on the strip', () => {
+    const { items } = InboxList.parse(new MockDb().inbox({}))
+    expect(items).toHaveLength(12)
+    expect(inboxMix(items)).toBe('9 claims, 3 upcoming visits')
+  })
+
+  it('reads a draft with the evidence each sentence cites', () => {
+    const evidence = [{ id: 'ev_a', title: 'Delta EOB · 03/2022' }] as Parameters<typeof draftOf>[1]
+    const payload = { draft: { segments: [{ text: 'Crown was on #31.', evidence_ids: ['ev_a', 'ev_gone'] }, { text: 'Please reprocess.', evidence_ids: [] }], human_must_complete: ['sign below'] } }
+    expect(draftOf(payload, evidence)).toEqual({
+      segments: [{ text: 'Crown was on #31.', cites: ['Delta EOB · 03/2022'] }, { text: 'Please reprocess.', cites: [] }],
+      mustComplete: ['sign below'],
+    })
+    expect(draftOf({ root_cause: 'ours' }, evidence)).toBeNull()
+  })
+
   it('shows the Delta group once, first, with its three members', () => {
     const e = entries(list())
     expect(e).toHaveLength(10)

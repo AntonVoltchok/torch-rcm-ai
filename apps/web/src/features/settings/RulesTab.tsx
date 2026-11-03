@@ -127,8 +127,17 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                 <td className={cn('px-2 text-sm', r.floor.tone === 'warn' ? 'font-semibold text-warn' : r.floor.tone === 'muted' ? 'text-soft' : 'text-ink')}>{r.floor.text}</td>
                 <td className="px-2 text-sm text-mid">{r.outcome}</td>
                 <td className="px-2 text-sm text-mid">{r.reverses}</td>
-                <td className="px-2 text-right text-sm" title={`${r.ran} ran without review this week · ${r.waiting} waiting in the Inbox`}>
-                  <b>{count(r.ran)}</b>
+                <td
+                  className="px-2 text-right text-sm"
+                  title={r.routine > 0 ? `${r.routine} routine runs this week. Routine payer contact is not a decision, so it stays out of the decisions below · ${r.waiting} waiting in the Inbox` : `${r.ran} ran without review this week · ${r.waiting} waiting in the Inbox`}
+                >
+                  {r.routine > 0 ? (
+                    <>
+                      <b>{count(r.routine)}</b> routine
+                    </>
+                  ) : (
+                    <b>{count(r.ran)}</b>
+                  )}
                   <span className="text-soft"> · {count(r.waiting)} waiting</span>
                 </td>
                 <td className="px-2 text-sm text-mid">{r.changed}</td>

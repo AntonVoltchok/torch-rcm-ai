@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/Button'
 import { SkeletonBlock } from '@/components/ui/Skeleton'
 import { ConfidenceMeter } from '@/components/ConfidenceMeter'
 import { EvidenceList } from '@/components/EvidenceCard'
+import { DraftText } from './DraftText'
+import { draftOf } from './selectors'
 import { FlagPill } from '@/components/FlagPill'
 import { StatusChip } from '@/components/StatusChip'
 import { TierBadge } from '@/components/TierBadge'
@@ -50,6 +52,7 @@ export function InboxDetail(p: Props) {
   const planSteps = detail.data?.plan_steps ?? []
   const auditNote = detail.data?.audit_note
   const hold = detail.data?.hold_window
+  const draft = detail.data ? draftOf(detail.data.payload, detail.data.evidence) : null
   const ownerOnly = item.tier === 3 && user.role !== 'owner'
   const guardReason = isApiError(autoRun.error, 'root_cause_guard') || isApiError(autoRun.error, 'tier_not_learnable') ? autoRun.error.message : null
 
@@ -115,7 +118,12 @@ export function InboxDetail(p: Props) {
           )}
           {item.kind === 'owner_signoff' ? 'Nothing changes until you sign.' : 'Nothing sent yet.'}
         </p>
+        <p className="m-0 mt-1 text-xs text-mid" data-testid="stopped-by">
+          <b className="text-ink">Why it stopped here:</b> {item.stopped_by}
+        </p>
       </section>
+
+      {draft && <DraftText draft={draft} payer={claim ? PAYER_NAME[claim.payer.key] : null} />}
 
       {auditNote && (
         <p className="m-0 text-sm" data-testid="audit-note">

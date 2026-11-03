@@ -1,0 +1,402 @@
+{
+ "items": {
+  "itm_4611": {
+   "who": "R. Diaz",
+   "treatment": "Crown, tooth 30",
+   "headline": "Annual maximum is used up, so the balance goes to the patient",
+   "why": "Delta paid nothing because R. Diaz has used the full $1,500 maximum for the year. The portal confirmed it on 10/27.",
+   "action": "Sign write-off and bill patient",
+   "signerNote": "Writing off money commits the practice, so only Dr. Morgan can sign this.",
+   "runSteps": [
+    {
+     "text": "Record Dr. Morgan's signature"
+    },
+    {
+     "text": "Write off $228 contractual",
+     "detail": "posted to the PMS ledger"
+    },
+    {
+     "text": "Move $1,012 to the patient balance"
+    }
+   ],
+   "doneLine": "Write-off signed. R. Diaz owes $1,012.",
+   "stoppedBy": "Write-offs are tier 3. No agent can ever do this.",
+   "touches": [
+    "$228 written off",
+    "$1,012 moved to patient balance"
+   ]
+  },
+  "itm_4733": {
+   "who": "J. Webb",
+   "treatment": "Crown, tooth 30",
+   "headline": "Delta mixed up two teeth and denied this crown as too soon",
+   "why": "Delta thinks tooth 30 was crowned in 2022. That crown was on tooth 31. The real crown on 30 dates from 2019 and fractured.",
+   "action": "Send this note to Delta",
+   "runSteps": [
+    {
+     "text": "Lock the approved wording",
+     "detail": "4 sentences, 3 cited"
+    },
+    {
+     "text": "Attach Delta's 03/2022 EOB"
+    },
+    {
+     "text": "Submit the inquiry on the Delta portal",
+     "detail": "reference DD-1028-20417"
+    },
+    {
+     "text": "Set a status check for day 30"
+    }
+   ],
+   "doneLine": "Sent to Delta. Status check set for 11/27.",
+   "stoppedBy": "Agent-written text to a payer always goes to a person.",
+   "touches": [
+    "1 note sent to Delta",
+    "Claim stays denied until Delta replies",
+    "Cannot be recalled once sent"
+   ]
+  },
+  "itm_4840": {
+   "who": "F. Diaz",
+   "treatment": "Crown, tooth 14",
+   "headline": "Delta needs the PA x-ray for this crown",
+   "why": "Our Claims agent attached bitewings. Delta requires a periapical x-ray for a crown. The rule was fixed on 10/26, and the right image is already in imaging.",
+   "action": "Send x-ray and resubmit",
+   "runSteps": [
+    {
+     "text": "Fetch the PA of tooth 14 from imaging"
+    },
+    {
+     "text": "Upload to NEA",
+     "detail": "NEA# 26-4470811"
+    },
+    {
+     "text": "Write the NEA# on the claim"
+    },
+    {
+     "text": "Queue for the 11:15 AM Delta file"
+    }
+   ],
+   "doneLine": "Queued. Leaves in the 11:15 AM Delta file.",
+   "stoppedBy": "The Missing PA x-ray rule is set to Ask Dana.",
+   "touches": [
+    "1 x-ray uploaded to NEA",
+    "1 claim resubmitted",
+    "Next Delta file, 11:15 AM"
+   ]
+  },
+  "itm_4821": {
+   "who": "K. Owens",
+   "treatment": "Crown, tooth 19",
+   "headline": "Delta needs the PA x-ray for this crown",
+   "why": "Our Claims agent attached bitewings. Delta requires a periapical x-ray for a crown. The rule was fixed on 10/26, and the right image is already in imaging.",
+   "action": "Send x-ray and resubmit",
+   "runSteps": [
+    {
+     "text": "Fetch the PA of tooth 19 from imaging"
+    },
+    {
+     "text": "Upload to NEA",
+     "detail": "NEA# 26-4470812"
+    },
+    {
+     "text": "Write the NEA# on the claim"
+    },
+    {
+     "text": "Queue for the 11:15 AM Delta file"
+    }
+   ],
+   "doneLine": "Queued. Leaves in the 11:15 AM Delta file.",
+   "stoppedBy": "The Missing PA x-ray rule is set to Ask Dana.",
+   "touches": [
+    "1 x-ray uploaded to NEA",
+    "1 claim resubmitted",
+    "Next Delta file, 11:15 AM"
+   ]
+  },
+  "itm_4836": {
+   "who": "L. Grant",
+   "treatment": "Crown, tooth 3",
+   "headline": "Delta needs the PA x-ray for this crown",
+   "why": "Our Claims agent attached bitewings. Delta requires a periapical x-ray for a crown. The rule was fixed on 10/26, and the right image is already in imaging.",
+   "action": "Send x-ray and resubmit",
+   "runSteps": [
+    {
+     "text": "Fetch the PA of tooth 3 from imaging"
+    },
+    {
+     "text": "Upload to NEA",
+     "detail": "NEA# 26-4470813"
+    },
+    {
+     "text": "Write the NEA# on the claim"
+    },
+    {
+     "text": "Queue for the 11:15 AM Delta file"
+    }
+   ],
+   "doneLine": "Queued. Leaves in the 11:15 AM Delta file.",
+   "stoppedBy": "The Missing PA x-ray rule is set to Ask Dana.",
+   "touches": [
+    "1 x-ray uploaded to NEA",
+    "1 claim resubmitted",
+    "Next Delta file, 11:15 AM"
+   ]
+  },
+  "itm_4705": {
+   "who": "T. Brooks",
+   "treatment": "Root canal, tooth 3",
+   "headline": "MetLife has gone 64 days without paying a clean claim",
+   "why": "The claim is clean and MetLife has asked for nothing. New York's prompt-pay law lets us demand reprocessing.",
+   "action": "Send prompt-pay request",
+   "runSteps": [
+    {
+     "text": "Build the §3224-a request"
+    },
+    {
+     "text": "Upload through NEA",
+     "detail": "NEA# 26-4470814"
+    },
+    {
+     "text": "Set a status check for day 30"
+    }
+   ],
+   "doneLine": "Prompt-pay request sent to MetLife.",
+   "stoppedBy": "The Prompt-pay reprocessing rule is set to Ask Dana.",
+   "touches": [
+    "1 request sent to MetLife",
+    "Cannot be recalled once sent"
+   ]
+  },
+  "itm_4748": {
+   "who": "L. Osei",
+   "treatment": "Filling, tooth 14",
+   "headline": "Move $38 to the patient, as the signed estimate said",
+   "why": "Aetna paid the alternate benefit. The $38 difference was on the estimate the patient signed.",
+   "action": "Move $38 to patient",
+   "runSteps": [
+    {
+     "text": "Post the Aetna line"
+    },
+    {
+     "text": "Move $38 to the patient balance"
+    }
+   ],
+   "doneLine": "L. Osei's balance is updated.",
+   "stoppedBy": "Only 4 past cases like this, so there is no base rate yet.",
+   "touches": [
+    "$38 moved to patient balance"
+   ]
+  },
+  "itm_4772": {
+   "who": "D. Foster",
+   "treatment": "Filling, tooth 19",
+   "headline": "Cigna charged a deductible the patient already met",
+   "why": "The deductible was met on 05/12, so the $32 is Cigna's error. Hold it for reprocessing and don't write it off.",
+   "action": "Hold for reprocessing",
+   "runSteps": [
+    {
+     "text": "Hold the line for reprocessing"
+    },
+    {
+     "text": "Bill the patient $27.20"
+    },
+    {
+     "text": "Record the $6.40 refund owed"
+    }
+   ],
+   "doneLine": "Held. $32 stays disputed with Cigna.",
+   "stoppedBy": "Only 3 past cases like this, so there is no base rate yet.",
+   "touches": [
+    "$32 held as disputed",
+    "$27.20 billed to patient",
+    "$6.40 refund recorded"
+   ]
+  },
+  "itm_4851": {
+   "who": "I. Moreau",
+   "treatment": "New-patient exam",
+   "headline": "Cigna rejected the subscriber ID, and the correct one is on file",
+   "why": "The eligibility response shows a different ID than the PMS. The agent can't change a value that didn't come from the PMS without you.",
+   "action": "Update ID and resend",
+   "runSteps": [
+    {
+     "text": "Confirm the ID on the Cigna portal",
+     "fails": "Cigna portal is unreachable. Nothing was changed or sent. This stays in your Inbox and retries when the portal is back."
+    },
+    {
+     "text": "Update the subscriber ID",
+     "detail": "U48213370"
+    },
+    {
+     "text": "Queue for the next Cigna file"
+    }
+   ],
+   "doneLine": "Queued for the next Cigna file.",
+   "stoppedBy": "The new ID came from the 271, and the rule only resends PMS values.",
+   "touches": [
+    "Subscriber ID updated in the PMS",
+    "1 claim resent in the next Cigna file"
+   ]
+  },
+  "itm_elig_chen": {
+   "who": "J. Chen",
+   "treatment": "Filling, Thu 10/29 at 9:00 AM",
+   "headline": "This visit runs over the annual maximum, so quote $470 at check-in",
+   "why": "Only $180 of the maximum is left for a $650 plan.",
+   "action": "Note it for the front desk",
+   "runSteps": [
+    {
+     "text": "Add the quote to Thursday's check-in note"
+    }
+   ],
+   "doneLine": "Front desk will quote $470.",
+   "stoppedBy": "What a patient is quoted is a person’s call.",
+   "touches": [
+    "Note added for the front desk"
+   ]
+  },
+  "itm_elig_park": {
+   "who": "N. Park",
+   "treatment": "Visit Fri 10/30 at 9:00 AM",
+   "headline": "Couldn't verify coverage because MetLife is unreachable",
+   "why": "The portal and phone line have been down since 5:40 AM. Verify at check-in or call MetLife.",
+   "action": "Flag for check-in",
+   "runSteps": [
+    {
+     "text": "Add verification to Friday's check-in note"
+    }
+   ],
+   "doneLine": "Flagged for check-in.",
+   "stoppedBy": "Coverage could not be verified, so a person decides.",
+   "touches": [
+    "Note added for the front desk"
+   ]
+  },
+  "itm_elig_kim": {
+   "who": "S. Kim",
+   "treatment": "Bitewings, Thu 10/29 at 1:00 PM",
+   "headline": "Bitewings aren't covered until 11/03, four days after this visit",
+   "why": "Skip the bitewings or have the patient sign the non-covered acknowledgment.",
+   "action": "Note it for the front desk",
+   "runSteps": [
+    {
+     "text": "Add the acknowledgment to Thursday's check-in note"
+    }
+   ],
+   "doneLine": "Front desk has the acknowledgment.",
+   "stoppedBy": "What a patient is asked to sign is a person’s call.",
+   "touches": [
+    "Note added for the front desk"
+   ]
+  }
+ },
+ "groups": {
+  "delta_ny:denied:CO-16:N29:pa_missing": {
+   "headline": "3 Delta crowns denied for the same missing x-ray",
+   "why": "Our Claims agent attached bitewings on all three. Delta requires a periapical x-ray for a crown. The rule was fixed on 10/26, and every image is already in imaging.",
+   "action": "Send 3 x-rays and resubmit",
+   "runSteps": [
+    {
+     "text": "Fetch 3 PA x-rays from imaging",
+     "detail": "3 of 3 found"
+    },
+    {
+     "text": "Upload to NEA",
+     "detail": "NEA# 26-4470811, 26-4470812, 26-4470813"
+    },
+    {
+     "text": "Write each NEA# on its claim"
+    },
+    {
+     "text": "Queue for the 11:15 AM Delta file"
+    }
+   ],
+   "doneLine": "3 claims leave in the 11:15 AM Delta file. They stay denied until Delta reprocesses.",
+   "stoppedBy": "The Missing PA x-ray rule is set to Ask Dana.",
+   "touches": [
+    "3 x-rays uploaded to NEA",
+    "3 claims resubmitted",
+    "Next Delta file, 11:15 AM",
+    "Cannot be recalled after 11:15 AM"
+   ]
+  }
+ },
+ "gloss": {
+  "CO-16": "Delta needs more information",
+  "CO-119": "Benefit maximum or frequency reached",
+  "PR-119": "Annual maximum met, patient responsibility",
+  "PR-1": "Deductible",
+  "N29": "Missing documentation",
+  "BWX": "Bitewing x-ray",
+  "PA": "Periapical x-ray, a single-tooth image",
+  "NEA": "The service that delivers attachments to payers",
+  "ICN": "The payer's number for this claim",
+  "EOB": "Explanation of benefits",
+  "ERA": "Electronic remittance from the payer",
+  "835": "Electronic remittance file",
+  "277CA": "Payer's acknowledgment of a claim",
+  "999": "Clearinghouse's acknowledgment of a file",
+  "DOS": "Date of service",
+  "IVR": "Payer's automated phone line",
+  "PMS": "The practice management system",
+  "T1": "Tier 1. Agents may run this under a rule.",
+  "T2": "Tier 2. Touches the ledger or patients, needs a signed rule or a person.",
+  "T3": "Tier 3. Human only. No agent can ever do this."
+ },
+ "agentNames": {
+  "claims": "Claims",
+  "followup": "Follow-up",
+  "appeals": "Appeals",
+  "posting": "Posting",
+  "eligibility": "Eligibility"
+ },
+ "users": [
+  {
+   "id": "usr_dana",
+   "name": "Dana S.",
+   "role": "billing",
+   "title": "Billing coordinator"
+  },
+  {
+   "id": "usr_morgan",
+   "name": "Dr. Morgan",
+   "role": "owner",
+   "title": "Practice owner"
+  }
+ ],
+ "week": {
+  "decisions": 53,
+  "ranAlone": 41,
+  "cameToYou": 12,
+  "statusChecks": 2,
+  "payerCalls": 1,
+  "claimsSent": 11,
+  "remittancesPosted": 5
+ },
+ "outage": "Cigna portal is unreachable. Steps that need it come back to the Inbox.",
+ "policy": {
+  "pa": {
+   "rule": "Missing PA x-ray",
+   "canLearn": false,
+   "reason": "Root cause is ours, so this slice can never run without review.",
+   "preview": {
+    "from": 41,
+    "to": 44,
+    "total": 53,
+    "held": 3,
+    "net": 41
+   }
+  },
+  "itm_4705": {
+   "rule": "Prompt-pay reprocessing",
+   "canLearn": true,
+   "reason": "22 of 25 paid within 30 days. Dr. Morgan is not needed for a tier 1 rule."
+  },
+  "itm_4851": {
+   "rule": "Clearinghouse reject",
+   "canLearn": true,
+   "reason": "16 of 19 resends were accepted. Dr. Morgan is not needed for a tier 1 rule."
+  }
+ }
+}

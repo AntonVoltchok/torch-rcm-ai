@@ -3,7 +3,7 @@ import { cdtName } from '@/lib/cdt'
 import { dateTime, money } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
-export function LinesTable({ lines }: { lines: ClaimLine[] }) {
+export function LinesTable({ lines, estimate }: { lines: ClaimLine[]; estimate: boolean }) {
   const sum = (pick: (l: ClaimLine) => number | null | undefined) => {
     const vals = lines.map(pick)
     return vals.every((v) => v === null || v === undefined) ? null : vals.reduce<number>((a, v) => a + (v ?? 0), 0)
@@ -16,10 +16,10 @@ export function LinesTable({ lines }: { lines: ClaimLine[] }) {
           <th className="py-1 pr-2">Tooth</th>
           <th className="py-1 pr-2">Description</th>
           <th className="py-1 pr-2 text-right">Billed</th>
-          <th className="py-1 pr-2 text-right">Allowed</th>
+          <th className="py-1 pr-2 text-right">{estimate ? 'Allowed · est.' : 'Allowed'}</th>
           <th className="py-1 pr-2 text-right">Paid</th>
           <th className="py-1 pr-2">Adjustments</th>
-          <th className="py-1 text-right">Patient</th>
+          <th className="py-1 text-right">Patient · 835</th>
         </tr>
       </thead>
       <tbody>

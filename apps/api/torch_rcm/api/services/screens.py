@@ -115,6 +115,8 @@ def ledger_today(ctx: Ctx) -> LedgerToday:
     departed = [
         e.file_time for e in _entries(snap) if e.state is FileEntryState.DEPARTED and e.file_time.date() == today
     ]
+    # Today's seeded sends carry their file time on the claim, with no file entry.
+    departed += [r.file_time for r in sent if r.file_time and r.file_time <= snap.now and r.file_time.date() == today]
     return LedgerToday(
         date=today,
         sent=sent,

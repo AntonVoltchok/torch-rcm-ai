@@ -3,7 +3,45 @@
  * groups them; these functions only arrange that for display and keyboard order. No counting:
  * group counts and cents are the server's.
  */
-import type { InboxGroup, InboxItem, InboxList } from '@/api/schema'
+import { z } from 'zod'
+import type { Evidence, InboxGroup, InboxItem, InboxList } from '@/api/schema'
+
+/** "12 items": what they are, so the Inbox reconciles with the strip's claims. */
+export function inboxMix(items: InboxItem[]): string {
+  const claims = new Set(items.flatMap((i) => (i.claim ? [i.claim.id] : []))).size
+  const visits = items.filter((i) => !i.claim && i.appointment_id).length
+  const other = items.filter((i) => !i.claim && !i.appointment_id).length
+  return [
+    claims ? `${claims} ${claims === 1 ? 'claim' : 'claims'}` : null,
+    visits ? `${visits} upcoming ${visits === 1 ? 'visit' : 'visits'}` : null,
+    other ? `${other} other` : null,
+  ]
+    .filter(Boolean)
+    .join(', ')
+}
+
+const DraftPayload = z.object({
+  draft: z.object({
+    segments: z.array(z.object({ text: z.string(), evidence_ids: z.array(z.string()) })),
+    human_must_complete: z.array(z.string()).optional(),
+  }),
+})
+
+export interface Draft {
+  segments: { text: string; cites: string[] }[]
+  mustComplete: string[]
+}
+
+/** The agent's text from `payload.draft`, each sentence with the titles of the evidence it cites. */
+export function draftOf(payload: Record<string, unknown> | undefined, evidence: Evidence[]): Draft | null {
+  const parsed = DraftPayload.safeParse(payload)
+  if (!parsed.success) return null
+  const title = new Map(evidence.map((e) => [e.id, e.title]))
+  return {
+    segments: parsed.data.draft.segments.map((s) => ({ text: s.text, cites: s.evidence_ids.flatMap((id) => title.get(id) ?? []) })),
+    mustComplete: parsed.data.draft.human_must_complete ?? [],
+  }
+}
 
 /** The API sends `groups` only for `?group=true`; every list here asks for them, so absent means none. */
 export const inboxGroups = (list: InboxList): InboxGroup[] => list.groups ?? []

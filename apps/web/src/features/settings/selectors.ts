@@ -85,6 +85,7 @@ export interface RuleRowView {
   outcome: string
   reverses: string
   ran: number
+  routine: number
   waiting: number
   changed: string
   signoff: ReturnType<typeof signoffLabel>
@@ -109,6 +110,7 @@ export function rowView(row: RuleRow, viewer: Role): RuleRowView {
     outcome: r.tier === 3 ? '—' : outcomeLabel(r.outcome_metric ?? 'none'),
     reverses: reversesLabel(r.reverses_in ?? 'none'),
     ran: row.ran_without_review_7d,
+    routine: row.routine_runs_7d,
     waiting: row.waiting,
     changed: changedLabel(r),
     signoff: signoffLabel(row),

@@ -19,6 +19,7 @@ from torch_rcm.api.services.context import Ctx
 from torch_rcm.domain.entities import Attachment, Claim, InboxItem, Job, Rule, Run
 from torch_rcm.domain.enums import AttachmentKind, AttachmentSource, ClaimStatus, InboxItemState, RuleMode
 from torch_rcm.readmodels.claims import ClaimQuery
+from torch_rcm.readmodels.inbox import _policy_sentence as stopped_sentence
 from torch_rcm.runtime import Runtime
 from torch_rcm.scheduler import kinds as K
 
@@ -243,6 +244,37 @@ def test_ledger_today(rt: Runtime) -> None:
     assert {h.claim.number for h in out.held} == {4842, 4847, 4849}
     assert [n.cdt for n in out.not_billable] == ["D4341"]
     assert out.next_file_time and out.next_file_time.strftime("%H:%M") == "10:45"
+
+
+def test_ledger_last_file_is_the_latest_file_sent_today(rt: Runtime) -> None:
+    out = screens.ledger_today(ctx(rt))
+    assert out.sent and out.last_file_time == max(r.file_time for r in out.sent if r.file_time)
+    assert out.next_file_time is None or out.last_file_time < out.next_file_time
+
+
+def test_every_open_item_says_why_it_stopped(rt: Runtime) -> None:
+    items = {i.id: i for i in inbox_svc.get_inbox(ctx(rt), "open", None, None, True).items}
+    assert all(i.stopped_by.endswith(".") for i in items.values())
+    assert "human only" in items["itm_4611"].stopped_by
+    assert "goes to a person" in items["itm_4733"].stopped_by
+    assert "Missing PA x-ray" in items["itm_4821"].stopped_by and "set to Ask" in items["itm_4821"].stopped_by
+    assert "Outside the rule" in items["itm_4851"].stopped_by and "271" in items["itm_4851"].stopped_by
+
+
+def test_an_item_opened_by_a_run_quotes_the_policy(rt: Runtime) -> None:
+    item = rt.store.require(InboxItem, "itm_4821")
+    rt.store.update(item.model_copy(update={"payload": {**item.payload, "policy_reason": "rule Missing PA is ask"}}))
+    assert inbox_svc.get_item(ctx(rt), "itm_4821").stopped_by == "Rule Missing PA is set to Ask."
+    assert stopped_sentence("root cause: ours · fix the upstream rule") == "Root cause: ours. Fix the upstream rule."
+
+
+def test_routine_runs_match_activity_and_stay_out_of_the_decision_count(rt: Runtime) -> None:
+    rules = rules_svc.list_rules(ctx(rt))
+    rows = {r.rule.id: r for g in rules.tiers for r in g.rows}
+    summary = screens.activity(ctx(rt), None, None, None).summary
+    assert rows["rule_t1_status_check"].routine_runs_7d == summary.status_checks
+    assert rows["rule_t1_payer_rep_call"].routine_runs_7d == summary.payer_calls
+    assert sum(r.ran_without_review_7d for r in rows.values()) == rules.this_week.ran
 
 
 def test_eligibility_and_benefits(rt: Runtime) -> None:

@@ -11,7 +11,7 @@ import { at } from './claims'
  * (`InboxItemOut` = row + `claim`/`patient` refs + priority; `InboxItemDetail` adds hydrated evidence and the
  * hold window). Nothing outside src/mocks sees this type.
  */
-type Row = Omit<InboxItemDetail, 'claim' | 'patient' | 'priority' | 'suspicious_evidence' | 'evidence' | 'hold_window' | 'payload' | 'summary'>
+type Row = Omit<InboxItemDetail, 'claim' | 'patient' | 'priority' | 'stopped_by' | 'suspicious_evidence' | 'evidence' | 'hold_window' | 'payload' | 'summary'>
 type Always = 'id' | 'kind' | 'state' | 'title' | 'recommendation' | 'cents' | 'created_at' | 'evidence_ids' | 'plan_steps'
 export type MockInboxItem = Pick<Row, Always> & Partial<Omit<Row, Always>> & {
   claim_id?: string | null
@@ -225,6 +225,15 @@ export function buildInbox(): MockInboxItem[] {
       evidence_ids: ['ev_4733_prior', 'ev_4733_era'],
       proposed_action: { action: 'send_claim_agent_text', params: { channel: 'portal inquiry' }, cents: 0, requires_hold_window: false },
       plan_steps: ['Attach the 03/2022 EOB', 'Send the inquiry text (drafted, cites the EOB)'],
+      payload: {
+        draft: {
+          segments: [
+            { text: 'Claim 26265-030412 (DOS 09/21/2026, D2740 #30) was denied CO-119.', fact_type: 'administrative', evidence_ids: ['ev_4733_era'] },
+            { text: 'Delta’s 03/08/2022 EOB shows the prior crown on tooth #31.', fact_type: 'clinical', evidence_ids: ['ev_4733_prior'] },
+            { text: 'Please correct the tooth history and reprocess.', fact_type: 'none', evidence_ids: [] },
+          ],
+        },
+      },
       tier: 2,
       created_at: at('2026-10-28', '06:40'),
       cents: 124000,

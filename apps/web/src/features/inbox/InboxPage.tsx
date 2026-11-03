@@ -26,7 +26,7 @@ import { SkeletonRows } from '@/components/ui/Skeleton'
 import { InboxDetail, type DetailPanel } from './InboxDetail'
 import { InboxListView } from './InboxList'
 import { RecentRuns } from './RecentRuns'
-import { groupFor, groupRowId, inboxGroups, itemOrder, keyOrder, nextSelection } from './selectors'
+import { groupFor, groupRowId, inboxGroups, inboxMix, itemOrder, keyOrder, nextSelection } from './selectors'
 
 const route = getRouteApi('/inbox')
 
@@ -129,7 +129,7 @@ export function InboxPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title="Inbox" sub={inboxOpen !== null ? `${plural(inboxOpen, 'item')} need you` : undefined} />
+      <PageHeader title="Inbox" sub={inboxOpen !== null ? `${plural(inboxOpen, 'item')} need you${items.length > 0 ? ` · ${inboxMix(items)}` : ''}` : undefined} />
       <div className="flex flex-none items-center gap-3.5 border-b border-line bg-fill px-[18px] py-2 text-sm text-mid">
         {ranAlone !== null && inboxOpen !== null && (
           <span>

@@ -55,7 +55,7 @@ import { CLAIM_STATUSES, Evidence as EvidenceSchema } from '@/api/schema'
 import type { ClaimsApiParams } from '@/features/claims/search'
 import { at, buildClaims, FROZEN_NOW, OWENS_RUNS, paidTileCents, PROVIDER_ID, STATUS_CHECK_CLAIMS, type MockClaim, type MockTimelineEntry } from './fixtures/claims'
 import { buildInbox, EVIDENCE, GROUP_META, type MockInboxItem } from './fixtures/inbox'
-import { buildProposals, buildRuleChanges, buildRules, ITEM_RULE, PRACTICE_CAP_CENTS, TIER_TEXT } from './fixtures/settings'
+import { buildProposals, buildRuleChanges, buildRules, ITEM_RULE, PRACTICE_CAP_CENTS, ROUTINE_RUNS, TIER_TEXT } from './fixtures/settings'
 import {
   benefitsFor,
   buildWeek,
@@ -274,6 +274,17 @@ export class MockDb {
     return item.claim_id ? this.s.claims.find((c) => c.id === item.claim_id) : undefined
   }
   /** The API sets an item's patient from its claim, or from the appointment for eligibility flags. */
+  /** Same order as `stopped_by` in the API's read model. */
+  private stoppedBy(item: MockInboxItem): string {
+    if (item.kind === 'eligibility_flag') return 'What a patient is quoted or asked to sign is a person’s call.'
+    if (item.kind === 'owner_signoff') return 'A tier 2 rule changes only with the owner’s signature.'
+    if (item.tier === 3) return 'Tier 3 is human only. No rule can run this.'
+    if (item.kind === 'review_draft') return 'Agent-written text to a payer goes to a person.'
+    const rule = this.s.rules.find((r) => r.id === item.rule_id)
+    if (!rule) return 'No rule covers this, so a person decides.'
+    return rule.mode === 'ask' ? `Rule “${rule.label}” is set to Ask.` : `Outside the rule “${rule.label}”.`
+  }
+
   private patientOf(item: MockInboxItem): PatientRef | null {
     const claim = this.claimOf(item)
     if (claim) return this.summary(claim).patient
@@ -309,6 +320,7 @@ export class MockDb {
       assignee_user_id: item.assignee_user_id ?? null,
       deadline_on: item.deadline_on ?? null,
       created_at: item.created_at,
+      stopped_by: this.stoppedBy(item),
       snoozed_until: item.snoozed_until ?? null,
       resolved_by: item.resolved_by ?? null,
       resolved_at: item.resolved_at ?? null,
@@ -1041,6 +1053,7 @@ export class MockDb {
         .map((rule) => ({
           rule,
           ran_without_review_7d: decisions.filter((d) => d.rule_id === rule.id && d.ran).length,
+          routine_runs_7d: ROUTINE_RUNS[rule.id] ?? 0,
           waiting: open.filter((i) => i.rule_id === rule.id).length,
           confidence: this.confidenceOf(rule),
           signed_by_name: nameOf(rule.signed_by),

@@ -4,17 +4,20 @@ import { cn } from '@/lib/cn'
 
 const minus = (cents: number | null) => (cents === null ? null : -cents)
 
+// Once an 835 is final the API sends the estimate equal to the patient responsibility, so a difference means estimate.
+export const moneyIsEstimate = (money: Money) => money.patient_est_cents !== money.patient_resp_cents
+
 /** billed → allowed → paid / write-off / patient, all from server cents; "—" where the payer hasn't said. */
 export function MoneyMath({ money, className }: { money: Money; className?: string }) {
-  // Once an 835 is final the API sends the estimate equal to the patient responsibility, so a difference means estimate.
-  const estimate = money.patient_est_cents !== money.patient_resp_cents
+  const estimate = moneyIsEstimate(money)
+  const est = estimate ? 'est.' : undefined
   const cells: [string, number | null, string?][] = [
     ['Billed', money.billed_cents],
-    ['Allowed', money.allowed_cents],
-    ['Contractual w/o', minus(money.contractual_cents)],
+    ['Allowed', money.allowed_cents, est],
+    ['Contractual w/o', minus(money.contractual_cents), est],
     ['Write-off', minus(money.writeoff_cents)],
     ['Paid', money.paid_cents],
-    ['Patient', estimate ? money.patient_est_cents : money.patient_resp_cents, estimate ? 'est.' : undefined],
+    ['Patient', estimate ? money.patient_est_cents : money.patient_resp_cents, est],
   ]
   return (
     <dl className={cn('m-0 flex gap-0 overflow-hidden rounded-lg border border-line', className)} title={money.basis}>

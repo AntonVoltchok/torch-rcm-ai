@@ -23,6 +23,7 @@ from torch_rcm.api.services.context import Ctx
 from torch_rcm.api.services.idempotency import check_key, idempotent, stored_record, write_record
 from torch_rcm.domain.entities import InboxItem, Practice, Rule, RuleChange, RuleProposal, Run
 from torch_rcm.domain.enums import (
+    ROUTINE_ACTIONS,
     InboxItemKind,
     InboxItemState,
     OutcomeMetric,
@@ -34,7 +35,7 @@ from torch_rcm.domain.enums import (
 )
 from torch_rcm.domain.invariants import check_rule
 from torch_rcm.domain.values import Confidence, RuleScope
-from torch_rcm.readmodels.activity import ran_without_review, this_week, week_decisions
+from torch_rcm.readmodels.activity import ran_without_review, this_week, week_decisions, week_start
 from torch_rcm.readmodels.snapshot import Snapshot
 
 TIER_TEXT = {
@@ -55,6 +56,9 @@ TIER_TEXT = {
 def list_rules(ctx: Ctx) -> RulesOut:
     snap = ctx.snapshot()
     runs = this_week(snap)
+    start = week_start(snap.today)
+    # Status checks and payer calls are routine: counted apart, so the rows still sum to the decisions that ran.
+    routine = [r for r in snap.of(Run) if r.action in ROUTINE_ACTIONS and r.started_at.date() >= start]
     open_items = snap.open_items
     groups: list[TierGroup] = []
     for tier in Tier:
@@ -76,6 +80,7 @@ def list_rules(ctx: Ctx) -> RulesOut:
                 RuleRow(
                     rule=rule,
                     ran_without_review_7d=ran,
+                    routine_runs_7d=sum(1 for r in routine if r.rule_id == rule.id),
                     waiting=waiting,
                     confidence=conf,
                     signed_by_name=signer.name if signer else None,

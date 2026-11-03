@@ -136,3 +136,6 @@ export const ITEM_RULE: Record<string, string> = {
   itm_4772: 'rule_t2_post_era',
   itm_4748: 'rule_t2_patient_transfer',
 }
+
+/** This week's routine runs, as Activity counts them: status checks on #4821 and #4705, the rep call on #4821. */
+export const ROUTINE_RUNS: Record<string, number> = { rule_t1_status_check: 2, rule_t1_payer_rep_call: 1 }

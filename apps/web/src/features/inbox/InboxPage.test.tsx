@@ -76,6 +76,22 @@ describe('Inbox approve', () => {
     expect(await screen.findByTestId('guard-reason')).toHaveTextContent(/Root cause is ours/)
   })
 
+  it('shows the words of a review draft, each sentence with its evidence', async () => {
+    renderApp('/inbox?item=itm_4733')
+    const article = await screen.findByRole('article', { name: /#4733/ })
+    const sentences = await within(article).findAllByTestId('draft-segment')
+    expect(sentences).toHaveLength(3)
+    expect(sentences[1]).toHaveTextContent('Delta’s 03/08/2022 EOB shows the prior crown on tooth #31.')
+    expect(sentences[1]?.querySelector('cite')).not.toBeNull()
+    expect(sentences[2]?.querySelector('cite')).toBeNull()
+  })
+
+  it('says why an item stopped at a person', async () => {
+    renderApp('/inbox?item=itm_4611')
+    const article = await screen.findByRole('article', { name: /#4611/ })
+    expect(within(article).getByTestId('stopped-by')).toHaveTextContent('Tier 3 is human only')
+  })
+
   it('renders every evidence kind for #4821', async () => {
     renderApp('/inbox?item=itm_4821&group=delta_ny%3Aresubmit_with_attachment')
     const article = await screen.findByRole('article', { name: /#4821/ })

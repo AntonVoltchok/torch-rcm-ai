@@ -49,7 +49,7 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 
 ## Settings › Agents
 
-- `GET /rules` → tiers with rows, `base_rate`, `ran_without_review_7d`, change log pointer.
+- `GET /rules` → tiers with rows, `base_rate`, `ran_without_review_7d` (decisions; rows sum to `this_week.ran`), `routine_runs_7d` (status checks and payer calls, shown beside decisions and never added to them), change log pointer.
 - `PATCH /rules/{id} {mode | max_cents | confidence_floor}` → `409 owner_signoff_required` creates an `owner_signoff` InboxItem for Dr. Morgan instead (approving one after the rule changed is `409 signoff_stale`); tier 3 → `403 human_only`.
 - `GET /rules/changes` · `GET /settings/preview?rule_id&mode&max_cents` → `{would_run, total, baseline_would_run, held_by_root_cause}` over this week's decisions (seeded triage runs, including those whose items Dana since approved; approval runs are not counted twice). `would_run` is net of the root-cause guard: the UI shows `baseline_would_run → would_run + Σheld` and "N held (root cause: ours) · net `would_run`".
 - `PATCH /settings/practice {practice_cap_cents}` → `{practice_cap_cents, meta}`: the practice-wide tier-2 cap (tier 1 is exempt); owner only (`403 owner_only`), `422 invalid_cap` outside $0–$25,000; writes an audit event.

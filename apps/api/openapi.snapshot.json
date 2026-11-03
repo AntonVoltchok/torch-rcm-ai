@@ -6490,6 +6490,10 @@
               }
             ]
           },
+          "stopped_by": {
+            "type": "string",
+            "title": "Stopped By"
+          },
           "suspicious_evidence": {
             "type": "boolean",
             "title": "Suspicious Evidence",
@@ -6568,6 +6572,7 @@
           "resolved_at",
           "priority",
           "root_cause",
+          "stopped_by",
           "plan_steps",
           "audit_note",
           "evidence",
@@ -6837,6 +6842,10 @@
               }
             ]
           },
+          "stopped_by": {
+            "type": "string",
+            "title": "Stopped By"
+          },
           "suspicious_evidence": {
             "type": "boolean",
             "title": "Suspicious Evidence",
@@ -6874,7 +6883,8 @@
           "resolved_by",
           "resolved_at",
           "priority",
-          "root_cause"
+          "root_cause",
+          "stopped_by"
         ],
         "title": "InboxItemOut"
       },
@@ -8586,6 +8596,10 @@
             "type": "integer",
             "title": "Ran Without Review 7D"
           },
+          "routine_runs_7d": {
+            "type": "integer",
+            "title": "Routine Runs 7D"
+          },
           "waiting": {
             "type": "integer",
             "title": "Waiting"
@@ -8621,6 +8635,7 @@
         "required": [
           "rule",
           "ran_without_review_7d",
+          "routine_runs_7d",
           "waiting",
           "confidence",
           "signed_by_name",

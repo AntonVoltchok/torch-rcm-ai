@@ -121,6 +121,7 @@ const InboxItemOut = z
     resolved_at: z.union([z.string(), z.null()]),
     priority: z.number(),
     root_cause: z.union([RootCause, z.null()]),
+    stopped_by: z.string(),
     suspicious_evidence: z.boolean().optional().default(false),
   })
   .strict()
@@ -227,6 +228,7 @@ const InboxItemDetail = z
     resolved_at: z.union([z.string(), z.null()]),
     priority: z.number(),
     root_cause: z.union([RootCause, z.null()]),
+    stopped_by: z.string(),
     suspicious_evidence: z.boolean().optional().default(false),
     plan_steps: z.array(z.string()),
     audit_note: z.union([z.string(), z.null()]),
@@ -708,6 +710,7 @@ const RuleRow = z
   .object({
     rule: Rule,
     ran_without_review_7d: z.number().int(),
+    routine_runs_7d: z.number().int(),
     waiting: z.number().int(),
     confidence: z.union([Confidence, z.null()]),
     signed_by_name: z.union([z.string(), z.null()]),

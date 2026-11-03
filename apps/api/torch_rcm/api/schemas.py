@@ -219,6 +219,7 @@ class InboxItemOut(Schema):
     resolved_at: datetime | None
     priority: float
     root_cause: RootCause | None
+    stopped_by: str
     suspicious_evidence: bool = False
 
 
@@ -496,6 +497,7 @@ class AgentsStatus(Schema):
 class RuleRow(Schema):
     rule: Rule
     ran_without_review_7d: int
+    routine_runs_7d: int
     waiting: int
     confidence: Confidence | None
     signed_by_name: str | None

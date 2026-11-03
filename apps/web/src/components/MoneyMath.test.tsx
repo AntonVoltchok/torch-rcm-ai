@@ -21,6 +21,8 @@ describe('MoneyMath', () => {
     render(<MoneyMath money={base} />)
     expect(within(cell(/^Patient/)).getByText('$482')).toBeInTheDocument()
     expect(cell(/^Patient/)).toHaveTextContent('est.')
+    expect(cell(/^Allowed/)).toHaveTextContent('est.')
+    expect(cell(/^Contractual/)).toHaveTextContent('est.')
     expect(within(cell(/^Contractual/)).getByText('−$254')).toBeInTheDocument()
     expect(within(cell(/^Write-off/)).getByText('—')).toBeInTheDocument()
   })
@@ -29,6 +31,7 @@ describe('MoneyMath', () => {
     render(<MoneyMath money={{ ...base, paid_cents: 50_400, patient_est_cents: 48_200, patient_resp_cents: 48_200, writeoff_cents: 25_400, basis: 'per 835' }} />)
     expect(within(cell(/^Patient/)).getByText('$482')).toBeInTheDocument()
     expect(cell(/^Patient/)).not.toHaveTextContent('est.')
+    expect(cell(/^Allowed/)).not.toHaveTextContent('est.')
     expect(within(cell(/^Write-off/)).getByText('−$254')).toBeInTheDocument()
   })
 

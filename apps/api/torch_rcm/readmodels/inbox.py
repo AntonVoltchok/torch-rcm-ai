@@ -7,8 +7,8 @@ from collections import defaultdict
 from datetime import date
 
 from torch_rcm.api.schemas import HoldWindow, InboxGroup, InboxItemDetail, InboxItemOut, InboxList
-from torch_rcm.domain.entities import FileEntry, InboxItem
-from torch_rcm.domain.enums import FileEntryState, InboxItemState, RootCause, Tier
+from torch_rcm.domain.entities import FileEntry, InboxItem, Run
+from torch_rcm.domain.enums import FileEntryState, InboxItemKind, InboxItemState, RootCause, RuleMode, Tier
 from torch_rcm.readmodels.claims import patient_ref, summarize, visible_inbox
 from torch_rcm.readmodels.snapshot import Snapshot
 
@@ -33,6 +33,36 @@ def priority(item: InboxItem, today: date) -> float:
     else:
         urgency = 1.0
     return round(money * tier * urgency, 4)
+
+
+def _policy_sentence(reason: str) -> str:
+    parts = [p[0].upper() + p[1:] for p in reason.replace("_", " ").split(" · ")]
+    text = ". ".join(parts)
+    return f"{text.removesuffix(' is ask')} is set to Ask." if text.endswith(" is ask") else f"{text}."
+
+
+def stopped_by(snap: Snapshot, item: InboxItem) -> str:
+    """Why this reached a person. A run records the policy's own reason; a seeded item has none, so its tier, kind
+    and rule say it. Built here so the web never restates policy."""
+    reason = item.payload.get("policy_reason")
+    if reason:
+        return _policy_sentence(str(reason))
+    if item.kind is InboxItemKind.ELIGIBILITY_FLAG:
+        return "What a patient is quoted or asked to sign is a person's call."
+    if item.kind is InboxItemKind.OWNER_SIGNOFF:
+        return "A tier 2 rule changes only with the owner's signature."
+    if item.tier is Tier.THREE:
+        return "Tier 3 is human only. No rule can run this."
+    if item.kind is InboxItemKind.REVIEW_DRAFT:
+        return "Agent-written text to a payer goes to a person."
+    rule = snap.rules.get(item.rule_id or "")
+    if rule is None:
+        return "No rule covers this, so a person decides."
+    if rule.mode is RuleMode.ASK:
+        return f"Rule \u201c{rule.label}\u201d is set to Ask."
+    run = next((r for r in snap.of(Run) if r.id == item.run_id), None)
+    detail = f" {run.result_summary}" if run and run.result_summary else ""
+    return f"Outside the rule \u201c{rule.label}\u201d.{detail}"
 
 
 def item_out(snap: Snapshot, item: InboxItem) -> InboxItemOut:
@@ -69,6 +99,7 @@ def item_out(snap: Snapshot, item: InboxItem) -> InboxItemOut:
         resolved_by=item.resolved_by,
         resolved_at=item.resolved_at,
         priority=priority(item, snap.today),
+        stopped_by=stopped_by(snap, item),
         root_cause=RootCause(root) if root else None,
         suspicious_evidence=any(e.suspicious for e in evidence),
     )

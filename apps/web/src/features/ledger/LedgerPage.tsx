@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LedgerRow } from '@/api/schema'
 import { useLedger } from '@/hooks/useStatic'
-import { count, money, shortDate, time } from '@/lib/format'
+import { count, dateTime, money, shortDate, time } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/PageHeader'
 import { Load, Scroll } from '@/components/QueryBoundary'
@@ -42,7 +42,7 @@ function Section({ title, sub, children, testId }: { title: string; sub?: string
   )
 }
 
-function LeavingTable({ rows }: { rows: LedgerRow[] }) {
+function LeavingTable({ rows, date }: { rows: LedgerRow[]; date: string }) {
   return (
     <SimpleTable
       label="Leaving in the next file"
@@ -53,10 +53,18 @@ function LeavingTable({ rows }: { rows: LedgerRow[] }) {
         { header: 'Patient · payer', cell: who },
         { header: 'Procedures', cell: (r) => <span className="text-mid">{r.claim.procedures}</span> },
         { header: 'Billed', cell: (r) => money(r.claim.billed_cents), className: 'text-right' },
-        { header: 'Built', cell: (r) => time(r.built_at) },
+        { header: 'Built', cell: (r) => (r.built_at.startsWith(date) ? time(r.built_at) : dateTime(r.built_at)) },
         { header: 'Checks', cell: (r) => <span className={r.checks_passed === r.checks_total ? 'text-ok' : 'text-warn'}>{r.checks_passed === r.checks_total ? '✓' : '!'} {r.checks_passed} of {r.checks_total}</span> },
         { header: 'Agent-written text', cell: (r) => (r.agent_text ? <span className="text-acc">narrative agent-written · tier 2</span> : <span className="text-mid">none · PMS codes as-is · tier 1</span>) },
-        { header: 'Status', cell: (r) => <StatusChip status={r.claim.status} /> },
+        {
+          header: 'Status',
+          cell: (r) => (
+            <>
+              <StatusChip status={r.claim.status} />
+              {r.claim.status === 'rejected' && <span className="ml-1.5 text-xs text-mid">fixed · resending</span>}
+            </>
+          ),
+        },
         { header: 'Editable until', cell: (r) => <b>{time(r.editable_until)}</b> },
       ]}
     />
@@ -104,7 +112,7 @@ export function LedgerPage() {
                       title={`Leaving in the ${g.file_time ? time(g.file_time) : 'next'} file · ${g.rows.length} · ${money(g.cents)}`}
                       sub="editable until it leaves · no 277CA until then · then void only (freq. 8)"
                     >
-                      <LeavingTable rows={g.rows} />
+                      <LeavingTable rows={g.rows} date={d.date} />
                     </Section>
                   ))
                 )}

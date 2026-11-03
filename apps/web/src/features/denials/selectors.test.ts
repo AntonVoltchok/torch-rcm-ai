@@ -34,6 +34,7 @@ describe('denials worklist selectors', () => {
     expect(pathTier(by(4796))).toBe(3)
     expect(pathTier(by(4821))).toBe(1)
     expect(pathTier(by(4733))).toBe(2)
+    expect(pathTier(by(4611))).toBe(3)
   })
 
   it('types deadlines and counts days on the server clock', () => {

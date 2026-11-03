@@ -6,6 +6,8 @@
  */
 import { expect, test, type Page } from '@playwright/test'
 
+const API_BASE = process.env.E2E_API_BASE ?? 'http://localhost:8000/api/v1'
+
 const real = process.env.E2E_TARGET === 'real'
 
 test.describe.configure({ mode: 'serial' })
@@ -18,7 +20,7 @@ const nav = (page: Page, name: RegExp) => page.getByRole('navigation', { name: '
 
 async function freshDemo(page: Page) {
   if (real) {
-    await page.request.post('http://localhost:8000/api/v1/clock/reset', { headers: { 'X-Torch-User': 'usr_morgan' } })
+    await page.request.post(`${API_BASE}/clock/reset`, { headers: { 'X-Torch-User': 'usr_morgan' } })
   }
   await page.goto('/inbox')
   await page.evaluate(() => {

@@ -16,7 +16,7 @@ import { useLaunches } from '@/state/launches'
 import { PageHeader } from '@/components/PageHeader'
 import { StatusChip } from '@/components/StatusChip'
 import { FlagPill } from '@/components/FlagPill'
-import { MoneyMath } from '@/components/MoneyMath'
+import { MoneyMath, moneyIsEstimate } from '@/components/MoneyMath'
 import { ReadinessChecklist } from '@/components/ReadinessChecklist'
 import { Timeline } from '@/components/Timeline'
 import { ProgressPanel } from '@/components/ProgressPanel'
@@ -158,7 +158,7 @@ export function ClaimDetailPage() {
           <div className="grid grid-cols-[1.35fr_1fr] gap-3">
             <div className="flex min-w-0 flex-col gap-3">
               <Card title="Line items">
-                <LinesTable lines={d.lines} />
+                <LinesTable lines={d.lines} estimate={moneyIsEstimate(d.money)} />
               </Card>
               <Card title="Timeline">
                 <Timeline entries={d.timeline} nowLabel={c.in_flight ? c.in_flight : d.open_inbox_items.length ? 'Awaiting approval' : undefined} />

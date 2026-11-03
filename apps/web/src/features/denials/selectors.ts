@@ -10,8 +10,9 @@ export const PATH: Record<NextAction, { label: string; tier: Tier }> = {
   write_off: { label: 'Write off', tier: 3 },
 }
 
-/** Path tier, raised where the row's own facts raise it: agent-written inquiry text is tier 2. */
+/** Path tier, raised where the row's own facts raise it: a signature is tier 3, agent-written inquiry text is tier 2. */
 export function pathTier(r: DenialRow): Tier {
+  if (r.signer) return 3
   const base = PATH[r.next_action].tier
   return r.next_action === 'reconsideration' && r.carc === 'CO-119' ? 2 : base
 }

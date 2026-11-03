@@ -2,6 +2,36 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-02 — UX audit and round 1 design variations (Opus 5.5)
+
+**State:** audit, red team and five clickable variations are done, and the truth fixes are in (A9, T1 to T7, ADR-0007). T8 turned out not to be a defect. Committed on `chore/first-run`, not pushed.
+
+| Check | Result |
+|---|---|
+| `make lint` | clean |
+| `make test` | 560 API + 109 web |
+| `make eval` | OK |
+| `pnpm build` | clean |
+| `pnpm check:api` | clean |
+| `pnpm test:contract` | 51 of 51 |
+| `pnpm e2e` (MSW) | 3 of 3 |
+| `E2E_TARGET=real pnpm e2e --grep @demo` | 3 of 3 on a throwaway API and database |
+
+- Audit: `docs/design/ux-audit-2026-11-02.md`, red-teamed in `docs/design/red-team/challenge-ux-audit-2026-11-02.md`. The post-click path was watched on a throwaway stack.
+- Variations: https://claude.ai/artifact/JBZW67Fde6GsFxZgjYY7qq (private), source in `docs/design/variations/round-1/`. Owner feedback lands in the artifact's `feedback` collection.
+- `E2E_API_BASE` lets the real-stack demo run beside a live `make dev`; without it, the demo resets the API on :8000.
+
+**Waiting on the owner:** picks and tags from the artifact; whether to cut the demo script to steps 1, 2, 3, 4, 6, 8.
+
+**Next, whichever variation wins**
+- R1, R2: the run panel hides its steps and arms the next item under a running job.
+- A6: "Always auto-run" is offered, then refused, on root-cause-ours items.
+- Whose move must become a server-derived field. The prototype derives it from status.
+- D7, D12: raw ids on Activity; Appeals vs Follow-up on #4733.
+
+**Not proven:** Prototype approvals are simulated, and #4851's failure is staged: the real app approved it during the Cigna outage. Page saves were not exercised in the real viewer; the artifact store was checked by a direct read and write. `stopped_by` for a run-created item was seen on triage; the demo e2e covers Thursday's items but does not assert their wording.
+
+
 ## 2026-11-02 — First real run: green against the real API (coordinator: Opus 5.5)
 
 **State:** the toolchain ran for the first time, on the owner's laptop. Everything below passed on the final code, on branch `chore/first-run`. Nothing is pushed or merged to `main`.
