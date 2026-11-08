@@ -167,7 +167,7 @@ class ScriptedPlanner:
             return Plan(
                 situation_key=case.classifier_situation,
                 actions=(),
-                no_action_reason="Needs a person: Torch couldn't classify this",
+                no_action_reason="Needs a person: TorchRCM couldn't classify this",
                 reviewer_summary="No script for this situation.",
                 planner=self.kind,
             )
@@ -212,8 +212,8 @@ class RecordedPlanPlanner(ScriptedPlanner):
             return Plan(
                 situation_key=UNKNOWN,
                 actions=(),
-                no_action_reason="Needs a person: Torch couldn't classify this",
-                reviewer_summary="Torch's classifier returned unknown and there is no reviewed plan for this case.",
+                no_action_reason="Needs a person: TorchRCM couldn't classify this",
+                reviewer_summary="TorchRCM's classifier returned unknown and there is no reviewed plan for this case.",
                 planner=self.kind,
             )
         rec = self.load(case.subject.id)

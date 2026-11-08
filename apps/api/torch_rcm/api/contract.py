@@ -439,7 +439,7 @@ def table_document() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
         "info": {
-            "title": "Torch API",
+            "title": "TorchRCM API",
             "version": "0.1.0",
             "description": "Generated from torch_rcm/api/contract.py (FastAPI's document supersedes it wherever FastAPI is installed).",
         },

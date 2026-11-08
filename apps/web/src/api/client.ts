@@ -77,7 +77,7 @@ async function request<S extends z.ZodTypeAny>(method: string, path: string, sch
     })
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
-    throw new ApiError(0, 'network', 'The Torch API is unreachable.')
+    throw new ApiError(0, 'network', 'The TorchRCM API is unreachable.')
   }
 
   const text = await res.text()

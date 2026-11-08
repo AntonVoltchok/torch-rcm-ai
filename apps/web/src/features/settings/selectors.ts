@@ -22,7 +22,7 @@ const REVERSES_LABEL: Record<ReversesIn, string> = { until_file_leaves: 'until f
 
 export function userName(id: string | null | undefined): string {
   if (!id) return '—'
-  return USERS.find((u) => u.id === id)?.name ?? (id === 'system' ? 'Torch' : id)
+  return USERS.find((u) => u.id === id)?.name ?? (id === 'system' ? 'TorchRCM' : id)
 }
 
 /** "≥ 90% · 23/25 paid", or amber "no outcome data" when the rule has no outcome metric (owner-authored, never learned). */

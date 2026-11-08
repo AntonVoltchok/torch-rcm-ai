@@ -11,7 +11,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
   notFoundComponent: () => (
     <EmptyState title="No such screen" action={<Link to="/inbox">Go to the Inbox</Link>}>
-      Every screen in Torch is in the sidebar.
+      Every screen in TorchRCM is in the sidebar.
     </EmptyState>
   ),
   errorComponent: ({ error, reset }) => (

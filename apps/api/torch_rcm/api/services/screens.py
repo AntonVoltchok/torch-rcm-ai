@@ -54,7 +54,7 @@ NEXT_ACTION_LABEL = {
     NextAction.BILL_PATIENT_LINK: "Bill patient · closes in Payments",
     NextAction.WRITE_OFF: "Write-off · Dr. Morgan",
 }
-NOT_BILLABLE_REASON = "no pocket depths charted for this quadrant · not billable (Torch never nudges documentation)"
+NOT_BILLABLE_REASON = "no pocket depths charted for this quadrant · not billable (TorchRCM never nudges documentation)"
 FREQUENCY_RULES = {
     "D4341": ("1 / 24 mo", 24),
     "D1110": ("2 / yr", 6),

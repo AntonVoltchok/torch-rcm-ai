@@ -989,7 +989,7 @@ class Executor:
                 self._failed_item(
                     run,
                     case,
-                    "Needs a person: Torch couldn't classify this",
+                    "Needs a person: TorchRCM couldn't classify this",
                     result.recommendation,
                     plan.reviewer_summary,
                 )

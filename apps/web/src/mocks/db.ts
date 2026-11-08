@@ -1316,7 +1316,7 @@ export class MockDb {
       sent: sent.map(row),
       leaving_next_file: leaving.map(row),
       held: holds,
-      not_billable: today === '2026-10-28' ? [{ patient: { id: 'pat_ortega_j', name: 'Javier Ortega', display_name: 'J. Ortega', dob: '1966-08-08' }, cdt: 'D4341', quadrant: 'UR', fee_cents: 24000, reason: 'no pocket depths charted for this quadrant · not billable (Torch never nudges documentation)' }] : [],
+      not_billable: today === '2026-10-28' ? [{ patient: { id: 'pat_ortega_j', name: 'Javier Ortega', display_name: 'J. Ortega', dob: '1966-08-08' }, cdt: 'D4341', quadrant: 'UR', fee_cents: 24000, reason: 'no pocket depths charted for this quadrant · not billable (TorchRCM never nudges documentation)' }] : [],
       next_file_time: next ? at(today, next) : null,
       last_file_time: lastSent ?? null,
     }

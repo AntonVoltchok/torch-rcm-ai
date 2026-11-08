@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Torch API",
+    "title": "TorchRCM API",
     "description": "Agentic dental RCM demo: inbox, claims, rules, runs and the simulated world. Money is integer cents; times are ISO-8601 with offset (sim clock).",
     "version": "0.1.0"
   },

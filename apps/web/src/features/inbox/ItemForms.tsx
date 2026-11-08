@@ -43,7 +43,7 @@ export function EditPlanForm({ item, onSubmit, onCancel, busy }: { item: InboxIt
   )
 }
 
-const REASONS = ['Wrong fix for this claim', 'Already handled outside Torch', 'Payer told us otherwise', 'Other'] as const
+const REASONS = ['Wrong fix for this claim', 'Already handled outside TorchRCM', 'Payer told us otherwise', 'Other'] as const
 
 export function RejectForm({ onSubmit, onCancel, busy }: { onSubmit: (reason: string) => void; onCancel: () => void; busy: boolean }) {
   const { register, handleSubmit, watch, formState } = useForm<{ reason: (typeof REASONS)[number]; detail: string }>({ defaultValues: { reason: REASONS[0], detail: '' } })

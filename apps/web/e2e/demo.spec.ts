@@ -36,7 +36,7 @@ test('demo steps 1–10 @demo', async ({ page }) => {
   const badge = page.getByTestId('badge-inbox')
   const strip = page.getByRole('region', { name: 'Claim pipeline' })
 
-  await test.step('1 · Dana opens Torch: Inbox 12, the strip, 5 agents · 1 running', async () => {
+  await test.step('1 · Dana opens TorchRCM: Inbox 12, the strip, 5 agents · 1 running', async () => {
     await expect(badge).toHaveText('12')
     await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible()
     for (const label of ['Sent 5', 'Rejected 2', 'Accepted 24', 'Pending 57', 'Denied 5', 'Partial 5', 'Appealed 3', 'Paid · Oct 118']) {

@@ -317,5 +317,5 @@ def always_auto_run(ctx: Ctx, item_id: str) -> ProposalOut:
     if existing is None:
         with ctx.rt.store.tx():
             ctx.rt.store.insert(proposal)
-            ctx.audit("rule.propose", "rule", rule.id, f"{ctx.user.name} asked Torch to always run '{rule.label}'")
+            ctx.audit("rule.propose", "rule", rule.id, f"{ctx.user.name} asked TorchRCM to always run '{rule.label}'")
     return ProposalOut(proposal=proposal, meta=ctx.meta())

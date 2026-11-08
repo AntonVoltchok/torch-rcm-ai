@@ -16,7 +16,7 @@ export function Sidebar() {
     <aside className="flex w-[184px] flex-none flex-col gap-0.5 border-r border-line bg-fill px-2.5 py-3.5">
       <div className="flex items-center gap-2 px-2 pb-3.5 text-[17px] font-extrabold">
         <i aria-hidden className="inline-block h-[18px] w-[18px] rounded-[5px_5px_9px_9px] bg-ink" />
-        Torch
+        TorchRCM
       </div>
       <nav aria-label="Main" className="flex flex-col gap-0.5">
         {navFor(user.role).map((n) => {

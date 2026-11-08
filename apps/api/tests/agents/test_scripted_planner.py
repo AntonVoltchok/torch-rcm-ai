@@ -162,7 +162,7 @@ def test_hale_records_request_cites_2019_note(world: World) -> None:  # noqa: F8
 def test_unknown_without_recording_needs_a_person(world: World) -> None:  # noqa: F811
     case = case_for(world, "clm_4611", "followup")
     plan = asyncio.run(ScriptedPlanner().plan(case, None, None))  # type: ignore[arg-type]  # no reads attempted
-    assert plan.actions == () and plan.no_action_reason == "Needs a person: Torch couldn't classify this"
+    assert plan.actions == () and plan.no_action_reason == "Needs a person: TorchRCM couldn't classify this"
 
 
 # ---------------------------------------------------------------- templates

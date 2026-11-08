@@ -317,7 +317,7 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 
 **`unknown` keys.**
 - `RecordedPlanPlanner` loads `planner/recorded/<claim_id>.plan.json` if it exists. That is a plan recorded from a live run, reviewed by a person and committed (it exists for the three §2.1 cases). Its label reads "recorded agent plan".
-- If no fixture exists, the run ends `cannot_decide`, with one `run_failed` item: "Needs a person: Torch couldn't classify this".
+- If no fixture exists, the run ends `cannot_decide`, with one `run_failed` item: "Needs a person: TorchRCM couldn't classify this".
 
 **Templates.** Drafts and result text come from Jinja templates (`templates/<agent>/<situation>.<kind>.j2`). Slots are filled only from `CaseFile` and evidence. The output is the same segmented `Draft`, so the text guard runs on deterministic drafts too.
 

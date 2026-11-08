@@ -73,4 +73,4 @@ def test_situation_keys_unique_per_agent() -> None:
 
 
 def test_an_unknown_situation_reads_as_a_sentence_after_the_gather_prefix() -> None:
-    assert label_for("followup", "no_such_situation") == "unknown to Torch's classifier"
+    assert label_for("followup", "no_such_situation") == "unknown to TorchRCM's classifier"

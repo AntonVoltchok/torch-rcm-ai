@@ -110,7 +110,7 @@ def create_app(
                 await worker
 
     app = FastAPI(
-        title="Torch API",
+        title="TorchRCM API",
         version="0.1.0",
         description=(
             "Agentic dental RCM demo: inbox, claims, rules, runs and the simulated world. "

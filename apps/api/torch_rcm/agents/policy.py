@@ -129,7 +129,7 @@ def validation_errors(ctx: PolicyCtx, action: ProposedAction) -> list[str]:
     """
     spec = spec_for(action.action)
     if spec is None:
-        return [f"{action.action} is not an action Torch can run"]
+        return [f"{action.action} is not an action TorchRCM can run"]
     if ctx.run_kind == "triage" and action.action not in AGENT_ACTIONS[ctx.agent]:
         return [f"{action.action} is not available to {ctx.agent.capitalize()}"]
     try:
@@ -241,7 +241,7 @@ def _row5(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) 
     if _observes(r):
         return None
     if ctx.classifier_situation == UNKNOWN:
-        return "situation unknown to Torch's classifier · a person reviews"
+        return "situation unknown to TorchRCM's classifier · a person reviews"
     if _cites_only_suspicious(ctx, a):
         return "cites only suspicious evidence · a person reviews"
     return None

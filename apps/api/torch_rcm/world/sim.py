@@ -646,7 +646,7 @@ class PayerSim:
             lines += [f"Rep: {_rep_answer(a, claim)}" for a in asks if a in may_agree]
             if offered:
                 lines.append(f"Rep: If you want, we can {offered}.")
-                lines.append("Torch: I'll need to confirm with the practice.")
+                lines.append("TorchRCM: I'll need to confirm with the practice.")
             return {
                 "reference": ref,
                 "transcript": "\n".join(lines),
