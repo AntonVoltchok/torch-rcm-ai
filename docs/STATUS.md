@@ -2,6 +2,17 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-02 — TorchRCM rename and round 2 of the redesign (Opus 5.5)
+
+**State:** committed on `chore/first-run`, not pushed. The owner picked variation D and asked for two restyles. The product is now **TorchRCM** in everything people see. Identifiers, model prompts and tool schemas keep the old word, because cassettes depend on them.
+
+- Round 2: https://claude.ai/artifact/FrNNQtYKNHQcBxhF7JSDUK (private), source in `docs/design/variations/round-2/`. D1 is a dashboard layout. D2 is D with new colors and type only: its render code is byte-identical to D. Original is freshly shot from the app, with the fixes and the new name.
+- Checks: `make lint`, `make test` (560 API + 109 web), `make eval`, `pnpm test:contract` (51 of 51), both e2e suites (3 of 3 each, on throwaway stacks).
+- `docs/spec/00-product.md`, `06` and `07` carry the new name. `CLAUDE.md` and the other docs still say Torch.
+
+**Waiting on the owner:** which style to take forward, and whether D goes into the app.
+
+
 ## 2026-11-02 — UX audit and round 1 design variations (Opus 5.5)
 
 **State:** audit, red team and five clickable variations are done, and the truth fixes are in (A9, T1 to T7, ADR-0007). T8 turned out not to be a defect. Committed on `chore/first-run`, not pushed.
@@ -29,7 +40,7 @@ _Updated by whoever ends a session. Newest first._
 - Whose move must become a server-derived field. The prototype derives it from status.
 - D7, D12: raw ids on Activity; Appeals vs Follow-up on #4733.
 
-**Not proven:** Prototype approvals are simulated, and #4851's failure is staged: the real app approved it during the Cigna outage. Page saves were not exercised in the real viewer; the artifact store was checked by a direct read and write. `stopped_by` for a run-created item was seen on triage; the demo e2e covers Thursday's items but does not assert their wording.
+**Not proven:** Prototype approvals are simulated, and #4851's failure is staged: the real app approved it during the Cigna outage. `stopped_by` for a run-created item was seen on triage; the demo e2e covers Thursday's items but does not assert their wording.
 
 
 ## 2026-11-02 — First real run: green against the real API (coordinator: Opus 5.5)
