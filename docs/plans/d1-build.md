@@ -29,3 +29,35 @@ Only `d1-contract` and `d1-api` touch `generated.ts`, `schema.ts` and the snapsh
 | 3 | `d1-rest` | Every other feature folder and e2e file; `make lint test e2e eval`; ADR-0008; decisions-log row; STATUS. |
 
 Each session branches from `feat/d1-dashboard`, commits to its own branch, and stops; the coordinator reviews and merges in order. Decisions a session meets go through `/challenge --red-team` per `docs/SESSIONS.md`.
+
+## Phase 0 notes (`d1-contract`)
+
+Judgment calls met while writing the schema-only change. Lean first; red-teamed below.
+
+1. **The `{label, from, to, note?}` row.** `from` is a Python keyword. (A) `from_` with `alias="from"`, as `AdvanceAccepted` does; (B) wire names `before`/`after`; (C) `from_value`/`to_value`. **Lean B:** no alias to forget on construction (`populate_by_name` is off), reads plainly in TS, and the values are strip numbers before/after one approval. Type `int` (counts; money stays cents if a row ever needs it). Model name `StripChange`.
+2. **A stable key on that row.** D1 finds the Denied row by `label === 'Denied'`, so copy edits would break the tally. (A) label only; (B) add `key: str` (a tile status, `inbox`, or `moves.<who>`). **Lean B.**
+3. **`by_holder` shape.** (A) `list[HolderCount{who, holder_role, holder_user_id, count}]`, same holder fields as `ClaimMove` so the web compares with the session user one way; (B) `dict[MoveWho, int]`, which can't tell "you" from "Dr. Morgan". **Lean A.** `Strip.moves` is `list[MoveCount{who, count, cents}]`: viewer-neutral, "Yours" comes from `inbox_open`/`inbox_claims`.
+4. **Required vs default.** Read-model fields in `schemas.py` are required with no default (the convention there; generated Zod then makes them non-optional in both directions, and MSW must send them). `Run.claim_outcome` is a stored entity field, so `= None` like its neighbours (old rows load). `action_label`/`signer_note` are `str | None` (None when there is no proposed action / the viewer can sign), not `""`.
+5. **`MoveWho` lives in `domain/enums.py`,** because `Run.claim_outcome` (domain) needs it; `ClaimOutcome` is a value in `domain/values.py`.
+6. **Stubs.** `move = {who: nobody, holder_role: null, holder_user_id: null, label: ""}`, `moves = []`, `by_holder = []`, `inbox_claims = 0`, `action_label = null`, `touches = []`, `signer_note = null`, `changes = []`, `claim_outcome = null`. Same in the API and MSW. Nothing renders them yet; phase 1 replaces every one and adds `claim_outcome` to the eval `RunShape`.
+7. **Splitting `demo.spec.ts` while steps share state.** The MSW db lives in the tab's sessionStorage, so state can't cross files or browser contexts. (A) one test whose body calls per-area step functions; (B) Playwright's documented "test list" pattern: `e2e/demo.spec.ts` declares a serial describe with one page made in `beforeAll` and imports one registration function per area from `e2e/demo/*.story.ts`, each adding its own `test()`; (C) each area file replays earlier steps as setup. **Lean B:** each area reports pass/fail on its own, a failure skips the rest as before, the order lives in one 20-line file, and sessions edit only their `*.story.ts`. C doubles run time and duplicates the story. The two standalone tests become their own spec files.
+
+**Red-team result, adopted** (`docs/design/red-team/challenge-d1-contract-2026-11-08.md`, hiring Director of Engineering persona):
+
+- 1: `before`/`after`, int, and `note` has no default.
+- 2: `key` is a closed `StripChangeKey` Literal: `inbox`, `inbox_claims`, `tile.<status>`, `move.<who>`.
+- 3: `HolderCount` and `ClaimMove` both carry `mine: bool`. The server owns the one "is this mine" rule, and the web never compares holders itself. d1-api threads the viewer into `summarize()`.
+- 4, 5: kept. A paused run has no `claim_outcome`; it is set at a terminal status.
+- 6: stubs satisfy the invariants:
+  - `moves` has four rows, with every open claim under `nobody` (matching each claim's stub `move`), and `by_status` filled for that row.
+  - `by_holder` is one `nobody` row equal to the tile count.
+  - `inbox_claims` and `inbox_visits` are real distinct counts.
+  - `test_invariants.move_totals` and the MSW `invariants()` check all of it now.
+- Fields the red team found missing, added as stubs:
+  - `InboxItemOut.lands`
+  - `Strip.inbox_visits`
+  - `MoveCount.by_status`
+  - `TimelineEntry.who`
+  - `InboxGroup.action_label` / `touches`
+- Not added: "paid claims still in your Inbox" (drop that D1 tooltip) and plain procedure names. d1-api decides the second and may add the field, since it owns codegen. Recommendation to the coordinator: route later contract gaps through d1-api or a coordinator contract commit, not the browser.
+- 7: changed to A. `e2e/demo.spec.ts` is one test that calls per-step functions in `e2e/demo/NN-*.ts`, split by step with an owner table in `e2e/demo/README.md`, and step 10 is split into Cash and Denials. Not adopted: a `goto` plus "inherited state" assertion at the start of each step. It would change what is asserted, which phase 0 must not do. Owners may add it.
