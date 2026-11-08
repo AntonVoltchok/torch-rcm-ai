@@ -92,6 +92,7 @@ export const {
   RunStatus,
   RunStep,
   SavedView,
+  StatusCount,
   StripChange,
   Tier,
   TierGroup,
@@ -208,6 +209,7 @@ export type RunStatus = z.infer<typeof RunStatus>
 export type RunStep = z.infer<typeof RunStep>
 export type RunStepStatus = z.infer<typeof RunStepStatus>
 export type SavedView = z.infer<typeof SavedView>
+export type StatusCount = z.infer<typeof StatusCount>
 export type StripChange = z.infer<typeof StripChange>
 export type StripSummary = z.infer<typeof StripSummary>
 export type StripTile = StripSummary['tiles'][number]
