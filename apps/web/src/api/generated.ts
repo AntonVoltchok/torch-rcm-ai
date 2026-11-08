@@ -35,6 +35,16 @@ const PatientRef = z
   .strict()
 const PayerKey = z.enum(['delta_ny', 'metlife', 'cigna', 'aetna', 'guardian', 'ny_medicaid'])
 const PayerRef = z.object({ key: PayerKey, name: z.string(), short_name: z.string() }).strict()
+const MoveWho = z.enum(['practice', 'agents', 'payer', 'nobody'])
+const Role = z.enum(['owner', 'billing', 'dentist', 'front_desk'])
+const ClaimMove = z
+  .object({
+    who: MoveWho,
+    holder_role: z.union([Role, z.null()]),
+    holder_user_id: z.union([z.string(), z.null()]),
+    label: z.string(),
+  })
+  .strict()
 const ClaimSummary = z
   .object({
     id: z.string(),
@@ -53,6 +63,7 @@ const ClaimSummary = z
     in_flight: z.union([z.string(), z.null()]),
     age_days: z.union([z.number(), z.null()]),
     file_time: z.union([z.string(), z.null()]),
+    move: ClaimMove,
   })
   .strict()
 const RuleAction = z.enum([
@@ -88,7 +99,6 @@ const ProposedAction = z
     requires_hold_window: z.boolean().optional().default(false),
   })
   .strict()
-const Role = z.enum(['owner', 'billing', 'dentist', 'front_desk'])
 const RootCause = z.enum(['ours', 'payer', 'patient', 'unknown'])
 const InboxItemOut = z
   .object({
@@ -123,6 +133,9 @@ const InboxItemOut = z
     root_cause: z.union([RootCause, z.null()]),
     stopped_by: z.string(),
     suspicious_evidence: z.boolean().optional().default(false),
+    action_label: z.union([z.string(), z.null()]),
+    touches: z.array(z.string()),
+    signer_note: z.union([z.string(), z.null()]),
   })
   .strict()
 const InboxGroup = z
@@ -230,6 +243,9 @@ const InboxItemDetail = z
     root_cause: z.union([RootCause, z.null()]),
     stopped_by: z.string(),
     suspicious_evidence: z.boolean().optional().default(false),
+    action_label: z.union([z.string(), z.null()]),
+    touches: z.array(z.string()),
+    signer_note: z.union([z.string(), z.null()]),
     plan_steps: z.array(z.string()),
     audit_note: z.union([z.string(), z.null()]),
     evidence: z.array(Evidence),
@@ -275,6 +291,9 @@ const Usage = z
   })
   .partial()
   .strict()
+const ClaimOutcome = z
+  .object({ status_from: ClaimStatus, status_to: ClaimStatus, move_from: MoveWho, move_to: MoveWho })
+  .strict()
 const Run = z
   .object({
     id: z.string(),
@@ -306,6 +325,7 @@ const Run = z
     audit_line: z.string().optional().default(''),
     usage: Usage.optional(),
     outcome: z.string().optional().default(''),
+    claim_outcome: z.union([ClaimOutcome, z.null()]).optional(),
   })
   .strict()
 const RuleOrigin = z.enum(['authored', 'learned'])
@@ -345,6 +365,23 @@ const Rule = z
     description: z.string().optional().default(''),
   })
   .strict()
+const StripChange = z
+  .object({
+    key: z.string(),
+    label: z.string(),
+    before: z.number().int(),
+    after: z.number().int(),
+    note: z.union([z.string(), z.null()]).optional(),
+  })
+  .strict()
+const HolderCount = z
+  .object({
+    who: MoveWho,
+    holder_role: z.union([Role, z.null()]),
+    holder_user_id: z.union([z.string(), z.null()]),
+    count: z.number().int(),
+  })
+  .strict()
 const StripTile = z
   .object({
     status: ClaimStatus,
@@ -353,16 +390,20 @@ const StripTile = z
     flagged: z.number().int(),
     cents_basis: z.enum(['billed', 'paid']).optional().default('billed'),
     label: z.string(),
+    by_holder: z.array(HolderCount),
   })
   .strict()
+const MoveCount = z.object({ who: MoveWho, count: z.number().int(), cents: z.number().int() }).strict()
 const NavBadges = z
   .object({ payments: z.number().int(), eligibility: z.number().int(), activity: z.number().int() })
   .strict()
 const Strip = z
   .object({
     tiles: z.array(StripTile),
+    moves: z.array(MoveCount),
     inbox_open: z.number().int(),
     inbox_open_cents: z.number().int(),
+    inbox_claims: z.number().int(),
     paid_month_count: z.number().int(),
     paid_month_cents: z.number().int(),
     open_count: z.number().int(),
@@ -378,10 +419,18 @@ const Strip = z
   .strict()
 const Meta = z.object({ counts: Strip }).strict()
 const ApproveOut = z
-  .object({ item: InboxItemOut, run: z.union([Run, z.null()]), rule: z.union([Rule, z.null()]).optional(), meta: Meta })
+  .object({
+    item: InboxItemOut,
+    run: z.union([Run, z.null()]),
+    rule: z.union([Rule, z.null()]).optional(),
+    changes: z.array(StripChange),
+    meta: Meta,
+  })
   .strict()
 const GroupApproveIn = z.object({ group_key: z.string() }).strict()
-const GroupApproveOut = z.object({ items: z.array(InboxItemOut), runs: z.array(Run), meta: Meta }).strict()
+const GroupApproveOut = z
+  .object({ items: z.array(InboxItemOut), runs: z.array(Run), changes: z.array(StripChange), meta: Meta })
+  .strict()
 const RejectIn = z.object({ reason: z.string().min(1).max(500) }).strict()
 const ItemOut = z.object({ item: InboxItemOut, meta: Meta }).strict()
 const SnoozeIn = z.object({ until: z.string().datetime({ offset: true }) }).strict()
@@ -431,6 +480,7 @@ const ClaimRow = z
     in_flight: z.union([z.string(), z.null()]),
     age_days: z.union([z.number(), z.null()]),
     file_time: z.union([z.string(), z.null()]),
+    move: ClaimMove,
     provider_id: z.string(),
     provider_name: z.string(),
     location_id: z.string(),
@@ -1066,10 +1116,12 @@ export const schemas = {
   PatientRef,
   PayerKey,
   PayerRef,
+  MoveWho,
+  Role,
+  ClaimMove,
   ClaimSummary,
   RuleAction,
   ProposedAction,
-  Role,
   RootCause,
   InboxItemOut,
   InboxGroup,
@@ -1091,6 +1143,7 @@ export const schemas = {
   StepStatus,
   RunStep,
   Usage,
+  ClaimOutcome,
   Run,
   RuleOrigin,
   RuleScope,
@@ -1099,7 +1152,10 @@ export const schemas = {
   ReversesIn,
   BaseRate,
   Rule,
+  StripChange,
+  HolderCount,
   StripTile,
+  MoveCount,
   NavBadges,
   Strip,
   Meta,

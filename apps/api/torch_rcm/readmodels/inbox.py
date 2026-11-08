@@ -102,6 +102,9 @@ def item_out(snap: Snapshot, item: InboxItem) -> InboxItemOut:
         stopped_by=stopped_by(snap, item),
         root_cause=RootCause(root) if root else None,
         suspicious_evidence=any(e.suspicious for e in evidence),
+        action_label=None,  # phase-1 stubs
+        touches=[],
+        signer_note=None,
     )
 
 

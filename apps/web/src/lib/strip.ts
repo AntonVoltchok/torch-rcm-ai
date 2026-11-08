@@ -29,7 +29,7 @@ export const STATUS_LABEL: Record<ClaimStatus, string> = {
 }
 
 export function tileFor(strip: StripSummary, status: ClaimStatus): StripTile {
-  return strip.tiles.find((t) => t.status === status) ?? { status, count: 0, cents: 0, flagged: 0, cents_basis: 'billed', label: STATUS_LABEL[status] }
+  return strip.tiles.find((t) => t.status === status) ?? { status, count: 0, cents: 0, flagged: 0, cents_basis: 'billed', label: STATUS_LABEL[status], by_holder: [] }
 }
 
 export function stripTiles(strip: StripSummary): TileView[] {

@@ -10,7 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from torch_rcm.domain.enums import (
     AdjGroup,
     CheckStatus,
+    ClaimStatus,
     DeadlineKind,
+    MoveWho,
     PayerKey,
     ReadinessKey,
     RootCause,
@@ -136,3 +138,13 @@ class Usage(Value):
     cache_read: int = 0
     cache_write: int = 0
     cost_usd_micros: int = 0
+
+
+class ClaimOutcome(Value):
+    """A run's effect on its own claim, read when the run ends (`Run.claim_outcome`). Only that claim, so other jobs
+    in the same advance can't leak in; part of the eval `RunShape`, so deterministic and live must agree."""
+
+    status_from: ClaimStatus
+    status_to: ClaimStatus
+    move_from: MoveWho
+    move_to: MoveWho

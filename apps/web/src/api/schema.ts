@@ -29,6 +29,8 @@ export const {
   ClaimDetail,
   ClaimLine,
   ClaimList,
+  ClaimMove,
+  ClaimOutcome,
   ClaimRow,
   ClaimStatus,
   ClaimSummary,
@@ -51,6 +53,7 @@ export const {
   Hold,
   HoldReason,
   HoldWindow,
+  HolderCount,
   InboxGroup,
   InboxItemDetail,
   InboxItemKind,
@@ -59,6 +62,8 @@ export const {
   Kpi,
   LedgerRow,
   MoneyMath,
+  MoveCount,
+  MoveWho,
   NextAction,
   NotBillableRow,
   OutcomeMetric,
@@ -87,6 +92,7 @@ export const {
   RunStatus,
   RunStep,
   SavedView,
+  StripChange,
   Tier,
   TierGroup,
   TimelineEntry,
@@ -136,6 +142,8 @@ export type CheckStatus = z.infer<typeof CheckStatus>
 export type ClaimDetail = z.infer<typeof ClaimDetail>
 export type ClaimLine = z.infer<typeof ClaimLine>
 export type ClaimList = z.infer<typeof ClaimList>
+export type ClaimMove = z.infer<typeof ClaimMove>
+export type ClaimOutcome = z.infer<typeof ClaimOutcome>
 export type ClaimRow = z.infer<typeof ClaimRow>
 export type ClaimStatus = z.infer<typeof ClaimStatus>
 export type ClaimSummary = z.infer<typeof ClaimSummary>
@@ -158,6 +166,7 @@ export type HeldRow = z.infer<typeof HeldRow>
 export type Hold = z.infer<typeof Hold>
 export type HoldReason = z.infer<typeof HoldReason>
 export type HoldWindow = z.infer<typeof HoldWindow>
+export type HolderCount = z.infer<typeof HolderCount>
 export type InboxGroup = z.infer<typeof InboxGroup>
 export type InboxItem = z.infer<typeof InboxItem>
 export type InboxItemDetail = z.infer<typeof InboxItemDetail>
@@ -168,6 +177,8 @@ export type Kpi = z.infer<typeof Kpi>
 export type Ledger = z.infer<typeof Ledger>
 export type LedgerRow = z.infer<typeof LedgerRow>
 export type MoneyMath = z.infer<typeof MoneyMath>
+export type MoveCount = z.infer<typeof MoveCount>
+export type MoveWho = z.infer<typeof MoveWho>
 export type NextAction = z.infer<typeof NextAction>
 export type NotBillableRow = z.infer<typeof NotBillableRow>
 export type OutcomeMetric = z.infer<typeof OutcomeMetric>
@@ -197,6 +208,7 @@ export type RunStatus = z.infer<typeof RunStatus>
 export type RunStep = z.infer<typeof RunStep>
 export type RunStepStatus = z.infer<typeof RunStepStatus>
 export type SavedView = z.infer<typeof SavedView>
+export type StripChange = z.infer<typeof StripChange>
 export type StripSummary = z.infer<typeof StripSummary>
 export type StripTile = StripSummary['tiles'][number]
 export type Tier = z.infer<typeof Tier>

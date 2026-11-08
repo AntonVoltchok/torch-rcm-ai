@@ -11,8 +11,10 @@ import { useResetDemo } from './useClock'
 
 const counts = {
   tiles: [],
+  moves: [],
   inbox_open: 12,
   inbox_open_cents: 0,
+  inbox_claims: 0,
   paid_month_count: 118,
   paid_month_cents: 0,
   open_count: 107,

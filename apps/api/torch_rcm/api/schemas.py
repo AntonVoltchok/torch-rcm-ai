@@ -32,6 +32,7 @@ from torch_rcm.domain.enums import (
     EligibilityStatus,
     InboxItemKind,
     InboxItemState,
+    MoveWho,
     NextAction,
     PayerKey,
     Role,
@@ -59,6 +60,16 @@ class ErrorResponse(Schema):
     error: ErrorBody
 
 
+class HolderCount(Schema):
+    """One holder's share of a strip tile (the Denied tally). The web compares `holder_user_id`/`holder_role`
+    with the session user to say "with you"; it never splits a tile itself."""
+
+    who: MoveWho
+    holder_role: Role | None
+    holder_user_id: str | None
+    count: int
+
+
 class StripTile(Schema):
     status: ClaimStatus
     count: int
@@ -66,6 +77,7 @@ class StripTile(Schema):
     flagged: int
     cents_basis: Literal["billed", "paid"] = "billed"
     label: str
+    by_holder: list[HolderCount]  # sums to `count`
 
 
 class NavBadges(Schema):
@@ -76,12 +88,23 @@ class NavBadges(Schema):
     activity: int  # this week's decisions that ran without review
 
 
+class MoveCount(Schema):
+    """Open claims whose move is with `who` (the KPI cards). Not split by holder: "Yours" is `inbox_open` /
+    `inbox_claims`, which already know the viewer."""
+
+    who: MoveWho
+    count: int
+    cents: int  # billed
+
+
 class Strip(Schema):
     """GET /summary/strip and `meta.counts` on every mutation."""
 
     tiles: list[StripTile]
+    moves: list[MoveCount]  # one row per `MoveWho`; counts sum to `open_count`
     inbox_open: int
     inbox_open_cents: int
+    inbox_claims: int  # distinct claims behind the viewer's `inbox_open` items
     paid_month_count: int
     paid_month_cents: int
     open_count: int
@@ -167,6 +190,16 @@ class PayerRef(Schema):
     short_name: str
 
 
+class ClaimMove(Schema):
+    """Whose move the claim is waiting on, computed in `summarize()`. A queued or running run makes it `agents`.
+    For `practice`, the holder fields name who: the web says "You" when they match the viewer, else `label`."""
+
+    who: MoveWho
+    holder_role: Role | None  # set when who=practice
+    holder_user_id: str | None  # set when one person holds it (an assigned item); None = anyone in the role
+    label: str  # viewer-neutral wording, e.g. "Dr. Morgan signs", "Waiting on Delta Dental of NY"
+
+
 class ClaimSummary(Schema):
     id: str
     number: int
@@ -184,6 +217,7 @@ class ClaimSummary(Schema):
     in_flight: str | None
     age_days: int | None
     file_time: datetime | None
+    move: ClaimMove
 
 
 # ── inbox ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -221,6 +255,9 @@ class InboxItemOut(Schema):
     root_cause: RootCause | None
     stopped_by: str
     suspicious_evidence: bool = False
+    action_label: str | None  # `ActionSpec.phrase(params)`: what Approve runs ("Send 3 x-rays and resubmit")
+    touches: list[str]  # recipe step labels (+ hold window) of that action: "What this does"
+    signer_note: str | None  # why someone else signs, when `required_role` isn't the viewer's
 
 
 class InboxItemDetail(InboxItemOut):
@@ -275,16 +312,29 @@ class ItemOut(Schema):
     meta: Meta
 
 
+class StripChange(Schema):
+    """One "What changed" row: a strip number for the viewer before and after an approval, read in the same
+    transaction. Equal `before`/`after` is a real row ("Denied stays 5")."""
+
+    key: str  # stable id the web keys on: a tile status ("denied"), "inbox", or a move ("moves.agents")
+    label: str
+    before: int
+    after: int
+    note: str | None = None
+
+
 class ApproveOut(Schema):
     item: InboxItemOut
     run: Run | None
     rule: Rule | None = None
+    changes: list[StripChange]
     meta: Meta
 
 
 class GroupApproveOut(Schema):
     items: list[InboxItemOut]
     runs: list[Run]
+    changes: list[StripChange]  # one combined list for the whole group
     meta: Meta
 
 

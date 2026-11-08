@@ -10,6 +10,7 @@ from typing import Literal
 
 from torch_rcm.api.schemas import (
     ClaimList,
+    ClaimMove,
     ClaimRow,
     ClaimSummary,
     NavBadges,
@@ -19,7 +20,7 @@ from torch_rcm.api.schemas import (
     StripTile,
 )
 from torch_rcm.domain.entities import Claim, InboxItem, Patient, Remittance
-from torch_rcm.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, RemitStatus, Role
+from torch_rcm.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, MoveWho, RemitStatus, Role
 from torch_rcm.readmodels.snapshot import Snapshot
 
 S = ClaimStatus
@@ -105,6 +106,7 @@ def summarize(snap: Snapshot, claim: Claim) -> ClaimSummary:
         in_flight=claim.in_flight,
         age_days=age_days(claim, snap.today),
         file_time=claim.file_time,
+        move=ClaimMove(who=MoveWho.NOBODY, holder_role=None, holder_user_id=None, label=""),  # phase-1 stub
     )
 
 
@@ -157,6 +159,7 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
                 flagged=len(flagged),
                 cents_basis=basis,
                 label=label,
+                by_holder=[],  # phase-1 stub
             )
         )
     inbox = visible_inbox(snap, user_id)
@@ -165,8 +168,10 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
     paid = tiles[-1]
     return Strip(
         tiles=tiles,
+        moves=[],  # phase-1 stub
         inbox_open=len(inbox),
         inbox_open_cents=sum(i.cents for i in inbox),
+        inbox_claims=0,  # phase-1 stub
         paid_month_count=paid.count,
         paid_month_cents=paid.cents,
         open_count=len(open_rows),

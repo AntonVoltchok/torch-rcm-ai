@@ -48,6 +48,7 @@ import type {
   RunView,
   RunViewStep,
   SavedView,
+  StripChange,
   StripSummary,
   Tier,
 } from './wire'
@@ -327,6 +328,10 @@ export class MockDb {
       priority: index === -1 ? 0 : this.s.items.length - index,
       root_cause: item.root_cause ?? claim?.denial?.root_cause ?? null,
       suspicious_evidence: evidence.some((e) => e.suspicious === true),
+      // Phase-1 stubs, same as the API until d1-api fills them.
+      action_label: null,
+      touches: [],
+      signer_note: null,
     }
   }
   /** As the API: the claim's queued payer file gives the window; once it has left, only a corrected claim is left. */
@@ -351,7 +356,7 @@ export class MockDb {
   /** API `Run`: the stored run without RunDetail's evidence and cursor. */
   private wireRun(run: RunView): Run {
     const { evidence: _e, last_event_id: _l, ...wire } = run
-    return { ...wire, steps: run.steps.map((st) => ({ ...st })) }
+    return { ...wire, steps: run.steps.map((st) => ({ ...st })), claim_outcome: null } // claim_outcome: phase-1 stub
   }
 
   private claimsAt(location?: string): MockClaim[] {
@@ -389,6 +394,7 @@ export class MockDb {
         flagged: group.filter((c) => this.needsAction(c.id)).length,
         cents_basis: status === 'paid' ? ('paid' as const) : ('billed' as const),
         label: status === 'paid' ? 'Paid · Oct' : status[0]?.toUpperCase() + status.slice(1),
+        by_holder: [], // phase-1 stub, as the API
       }
     })
     const sum = (rows: MockClaim[]) => rows.reduce((a, c) => a + c.billed_cents, 0)
@@ -399,8 +405,10 @@ export class MockDb {
     const inbox = this.visibleItems(user)
     return {
       tiles,
+      moves: [], // phase-1 stub, as the API
       inbox_open: inbox.length,
       inbox_open_cents: inbox.reduce((a, i) => a + i.cents, 0),
+      inbox_claims: 0, // phase-1 stub, as the API
       paid_month_count: paidOct.length,
       paid_month_cents: paidOct.reduce((a, c) => a + paidTileCents(c), 0),
       open_count: open.length,
@@ -672,11 +680,11 @@ export class MockDb {
     return next
   }
 
-  approve(id: string, user: UserId, label?: string): { item: InboxItem; run: Run | null; rule?: Rule; meta: { counts: StripSummary } } {
+  approve(id: string, user: UserId, label?: string): { item: InboxItem; run: Run | null; rule?: Rule; changes: StripChange[]; meta: { counts: StripSummary } } {
     const item = this.openItem(id)
     if (item.kind === 'owner_signoff') return this.approveSignoff(item, user)
     const { item: resolved, run } = this.approveItem(item, user, label)
-    return { item: this.itemOut(resolved), run: this.wireRun(run), meta: { counts: this.counts(user) } }
+    return { item: this.itemOut(resolved), run: this.wireRun(run), changes: [], meta: { counts: this.counts(user) } }
   }
 
   private approveItem(item: MockInboxItem, user: UserId, label?: string): { item: MockInboxItem; run: RunView } {
@@ -712,7 +720,7 @@ export class MockDb {
     const { rule: next } = this.applyRuleChange(rule, change, user, true)
     const resolved = this.resolve(item, 'approved', user)
     this.changed()
-    return { item: this.itemOut(resolved), run: null, rule: next, meta: { counts: this.counts(user) } }
+    return { item: this.itemOut(resolved), run: null, rule: next, changes: [], meta: { counts: this.counts(user) } }
   }
 
   approveGroup(groupKey: string, user: UserId) {
@@ -720,7 +728,7 @@ export class MockDb {
     if (members.length === 0) throw new MockError(409, 'already_resolved', 'Nothing left to approve in this group.')
     const label = `Approve ${members.length} (${GROUP_META[groupKey]?.title ?? groupKey})`
     const results = members.map((m) => this.approve(m.id, user, label))
-    return { items: results.map((r) => r.item), runs: results.flatMap((r) => (r.run ? [r.run] : [])), meta: { counts: this.counts(user) } }
+    return { items: results.map((r) => r.item), runs: results.flatMap((r) => (r.run ? [r.run] : [])), changes: [], meta: { counts: this.counts(user) } }
   }
 
   reject(id: string, user: UserId, reason: string) {
@@ -1272,6 +1280,7 @@ export class MockDb {
       in_flight: c.in_flight ?? null,
       age_days: c.age_days ?? null,
       file_time: c.queued_file?.at ?? (c.status === 'ready' && c.file_time ? at(c.built_at.slice(0, 10), c.file_time) : (c.sent_at ?? null)),
+      move: { who: 'nobody', holder_role: null, holder_user_id: null, label: '' }, // phase-1 stub, as the API
     }
   }
 

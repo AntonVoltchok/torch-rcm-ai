@@ -65,6 +65,7 @@ from torch_rcm.domain.enums import (
 from torch_rcm.domain.values import (
     Adjustment,
     BaseRate,
+    ClaimOutcome,
     Confidence,
     Deadline,
     Denial,
@@ -609,6 +610,7 @@ class Run(Entity):
     audit_line: str = ""
     usage: Usage = Field(default_factory=Usage)
     outcome: str = ""  # Activity "Outcome" column text
+    claim_outcome: ClaimOutcome | None = None  # set when a run with a claim ends; None while running or claimless
 
 
 class RunEvent(Entity):

@@ -4080,6 +4080,13 @@
               }
             ]
           },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/StripChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          },
           "meta": {
             "$ref": "#/components/schemas/Meta"
           }
@@ -4089,6 +4096,7 @@
         "required": [
           "item",
           "run",
+          "changes",
           "meta"
         ],
         "title": "ApproveOut"
@@ -4729,6 +4737,48 @@
         ],
         "title": "ClaimList"
       },
+      "ClaimMove": {
+        "properties": {
+          "who": {
+            "$ref": "#/components/schemas/MoveWho"
+          },
+          "holder_role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "holder_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holder User Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "who",
+          "holder_role",
+          "holder_user_id",
+          "label"
+        ],
+        "title": "ClaimMove",
+        "description": "Whose move the claim is waiting on, computed in `summarize()`. A queued or running run makes it `agents`.\nFor `practice`, the holder fields name who: the web says \"You\" when they match the viewer, else `label`."
+      },
       "ClaimMutationOut": {
         "properties": {
           "claim": {
@@ -4755,6 +4805,32 @@
           "meta"
         ],
         "title": "ClaimMutationOut"
+      },
+      "ClaimOutcome": {
+        "properties": {
+          "status_from": {
+            "$ref": "#/components/schemas/ClaimStatus"
+          },
+          "status_to": {
+            "$ref": "#/components/schemas/ClaimStatus"
+          },
+          "move_from": {
+            "$ref": "#/components/schemas/MoveWho"
+          },
+          "move_to": {
+            "$ref": "#/components/schemas/MoveWho"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status_from",
+          "status_to",
+          "move_from",
+          "move_to"
+        ],
+        "title": "ClaimOutcome",
+        "description": "A run's effect on its own claim, read when the run ends (`Run.claim_outcome`). Only that claim, so other jobs\nin the same advance can't leak in; part of the eval `RunShape`, so deterministic and live must agree."
       },
       "ClaimRow": {
         "properties": {
@@ -4870,6 +4946,9 @@
             ],
             "title": "File Time"
           },
+          "move": {
+            "$ref": "#/components/schemas/ClaimMove"
+          },
           "provider_id": {
             "type": "string",
             "title": "Provider Id"
@@ -4936,6 +5015,7 @@
           "in_flight",
           "age_days",
           "file_time",
+          "move",
           "provider_id",
           "provider_name",
           "location_id",
@@ -5073,6 +5153,9 @@
               }
             ],
             "title": "File Time"
+          },
+          "move": {
+            "$ref": "#/components/schemas/ClaimMove"
           }
         },
         "additionalProperties": false,
@@ -5093,7 +5176,8 @@
           "reason",
           "in_flight",
           "age_days",
-          "file_time"
+          "file_time",
+          "move"
         ],
         "title": "ClaimSummary"
       },
@@ -5989,6 +6073,13 @@
             "type": "array",
             "title": "Runs"
           },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/StripChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          },
           "meta": {
             "$ref": "#/components/schemas/Meta"
           }
@@ -5998,6 +6089,7 @@
         "required": [
           "items",
           "runs",
+          "changes",
           "meta"
         ],
         "title": "GroupApproveOut"
@@ -6204,6 +6296,48 @@
           "alternatives"
         ],
         "title": "HoldWindow"
+      },
+      "HolderCount": {
+        "properties": {
+          "who": {
+            "$ref": "#/components/schemas/MoveWho"
+          },
+          "holder_role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "holder_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holder User Id"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "who",
+          "holder_role",
+          "holder_user_id",
+          "count"
+        ],
+        "title": "HolderCount",
+        "description": "One holder's share of a strip tile (the Denied tally). The web compares `holder_user_id`/`holder_role`\nwith the session user to say \"with you\"; it never splits a tile itself."
       },
       "InboxGroup": {
         "properties": {
@@ -6499,6 +6633,35 @@
             "title": "Suspicious Evidence",
             "default": false
           },
+          "action_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Label"
+          },
+          "touches": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Touches"
+          },
+          "signer_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer Note"
+          },
           "plan_steps": {
             "items": {
               "type": "string"
@@ -6573,6 +6736,9 @@
           "priority",
           "root_cause",
           "stopped_by",
+          "action_label",
+          "touches",
+          "signer_note",
           "plan_steps",
           "audit_note",
           "evidence",
@@ -6850,6 +7016,35 @@
             "type": "boolean",
             "title": "Suspicious Evidence",
             "default": false
+          },
+          "action_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Label"
+          },
+          "touches": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Touches"
+          },
+          "signer_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer Note"
           }
         },
         "additionalProperties": false,
@@ -6884,7 +7079,10 @@
           "resolved_at",
           "priority",
           "root_cause",
-          "stopped_by"
+          "stopped_by",
+          "action_label",
+          "touches",
+          "signer_note"
         ],
         "title": "InboxItemOut"
       },
@@ -7372,6 +7570,41 @@
           "basis"
         ],
         "title": "MoneyMath"
+      },
+      "MoveCount": {
+        "properties": {
+          "who": {
+            "$ref": "#/components/schemas/MoveWho"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "cents": {
+            "type": "integer",
+            "title": "Cents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "who",
+          "count",
+          "cents"
+        ],
+        "title": "MoveCount",
+        "description": "Open claims whose move is with `who` (the KPI cards). Not split by holder: \"Yours\" is `inbox_open` /\n`inbox_claims`, which already know the viewer."
+      },
+      "MoveWho": {
+        "type": "string",
+        "enum": [
+          "practice",
+          "agents",
+          "payer",
+          "nobody"
+        ],
+        "title": "MoveWho",
+        "description": "Whose move a claim is waiting on (D1's baton). `practice` covers every person at the practice; the holder\nfields on `ClaimMove` say which one, so the web can say \"You\" or name them."
       },
       "NavBadges": {
         "properties": {
@@ -8937,6 +9170,16 @@
             "type": "string",
             "title": "Outcome",
             "default": ""
+          },
+          "claim_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClaimOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -9207,6 +9450,13 @@
             "type": "array",
             "title": "Tiles"
           },
+          "moves": {
+            "items": {
+              "$ref": "#/components/schemas/MoveCount"
+            },
+            "type": "array",
+            "title": "Moves"
+          },
           "inbox_open": {
             "type": "integer",
             "title": "Inbox Open"
@@ -9214,6 +9464,10 @@
           "inbox_open_cents": {
             "type": "integer",
             "title": "Inbox Open Cents"
+          },
+          "inbox_claims": {
+            "type": "integer",
+            "title": "Inbox Claims"
           },
           "paid_month_count": {
             "type": "integer",
@@ -9264,8 +9518,10 @@
         "type": "object",
         "required": [
           "tiles",
+          "moves",
           "inbox_open",
           "inbox_open_cents",
+          "inbox_claims",
           "paid_month_count",
           "paid_month_cents",
           "open_count",
@@ -9280,6 +9536,47 @@
         ],
         "title": "Strip",
         "description": "GET /summary/strip and `meta.counts` on every mutation."
+      },
+      "StripChange": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "before": {
+            "type": "integer",
+            "title": "Before"
+          },
+          "after": {
+            "type": "integer",
+            "title": "After"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "before",
+          "after"
+        ],
+        "title": "StripChange",
+        "description": "One \"What changed\" row: a strip number for the viewer before and after an approval, read in the same\ntransaction. Equal `before`/`after` is a real row (\"Denied stays 5\")."
       },
       "StripTile": {
         "properties": {
@@ -9310,6 +9607,13 @@
           "label": {
             "type": "string",
             "title": "Label"
+          },
+          "by_holder": {
+            "items": {
+              "$ref": "#/components/schemas/HolderCount"
+            },
+            "type": "array",
+            "title": "By Holder"
           }
         },
         "additionalProperties": false,
@@ -9319,7 +9623,8 @@
           "count",
           "cents",
           "flagged",
-          "label"
+          "label",
+          "by_holder"
         ],
         "title": "StripTile"
       },

@@ -126,6 +126,7 @@ def _check_authority(ctx: Ctx, item: InboxItem) -> None:
 
 
 def approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None, *, idempotency_key: str | None = None) -> ApproveOut:
+    # `changes` (strip before/after in this transaction) is a phase-1 stub: always [].
     scope = f"POST /inbox/{item_id}:approve"
     return idempotent(
         ctx, idempotency_key, scope, edits, ApproveOut, lambda: _approve(ctx, item_id, edits), status_code=202
@@ -140,12 +141,12 @@ def _approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None) -> ApproveOut
         return _signoff_replay(ctx, item) if replay else _approve_signoff(ctx, item)
     if item.kind is InboxItemKind.ELIGIBILITY_FLAG:
         _resolve(ctx, item, InboxItemState.DONE, "flagged to the front desk")
-        return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, meta=ctx.meta())
+        return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, changes=[], meta=ctx.meta())
     run = _approval_run(ctx, item, edits)
     if not replay:
         item.run_id = run.id
         _resolve(ctx, item, InboxItemState.EDITED if edits else InboxItemState.APPROVED, "approved", edits=edits)
-    return ApproveOut(item=item_out(ctx.snapshot(), item), run=run, meta=ctx.meta())
+    return ApproveOut(item=item_out(ctx.snapshot(), item), run=run, changes=[], meta=ctx.meta())
 
 
 def _approve_signoff(ctx: Ctx, item: InboxItem) -> ApproveOut:
@@ -164,13 +165,13 @@ def _approve_signoff(ctx: Ctx, item: InboxItem) -> ApproveOut:
             )
         rule, _ = apply_rule_change(ctx, rule, item.payload.get("change", {}), sign=True)
         _resolve(ctx, item, InboxItemState.APPROVED, "signed")
-    return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, meta=ctx.meta())
+    return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, changes=[], meta=ctx.meta())
 
 
 def _signoff_replay(ctx: Ctx, item: InboxItem) -> ApproveOut:
     """Already signed: answer with the rule as it stands. Re-applying would undo any change made since."""
     rule = ctx.rt.store.get(Rule, item.rule_id or "")
-    return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, meta=ctx.meta())
+    return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, changes=[], meta=ctx.meta())
 
 
 def _resolve(
@@ -225,7 +226,7 @@ def _approve_group(ctx: Ctx, group_key: str) -> GroupApproveOut:
         runs.append(run)
     snap = ctx.snapshot()
     fresh = {i.id: i for i in snap.of(InboxItem)}
-    return GroupApproveOut(items=[item_out(snap, fresh[i.id]) for i in items], runs=runs, meta=ctx.meta())
+    return GroupApproveOut(items=[item_out(snap, fresh[i.id]) for i in items], runs=runs, changes=[], meta=ctx.meta())
 
 
 def reject(ctx: Ctx, item_id: str, reason: str, *, idempotency_key: str | None = None) -> ItemOut:

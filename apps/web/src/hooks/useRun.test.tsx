@@ -33,8 +33,10 @@ const snapshot: RunDetail = {
 const frame = (id: number | null, event: string, data: unknown) => `${id === null ? '' : `id: ${id}\n`}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
 const counts = {
   tiles: [],
+  moves: [],
   inbox_open: 10,
   inbox_open_cents: 941700,
+  inbox_claims: 0,
   paid_month_count: 118,
   paid_month_cents: 6130000,
   open_count: 107,
