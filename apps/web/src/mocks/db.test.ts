@@ -24,6 +24,15 @@ function invariants(db: MockDb) {
   const open = db.inbox({}).items
   expect(strip.inbox_open).toBe(open.length)
   for (const c of claims) expect(c.needs_action).toBe(open.some((i) => i.claim?.id === c.id))
+  // D1's whose-move numbers add up, as the API's test_invariants `move_totals`.
+  expect(strip.moves.map((m) => m.who)).toEqual(['practice', 'agents', 'payer', 'nobody'])
+  expect(strip.moves.reduce((a, m) => a + m.count, 0)).toBe(strip.open_count)
+  expect(strip.moves.reduce((a, m) => a + m.cents, 0)).toBe(strip.open_cents)
+  for (const m of strip.moves) expect(m.by_status.reduce((a, b) => a + b.count, 0)).toBe(m.count)
+  for (const t of strip.tiles) expect(t.by_holder.reduce((a, h) => a + h.count, 0)).toBe(t.count)
+  const openClaims = claims.filter((c) => c.status !== 'paid')
+  for (const m of strip.moves) expect(openClaims.filter((c) => c.move.who === m.who).length).toBe(m.count)
+  expect(strip.inbox_claims).toBe(new Set(open.flatMap((i) => (i.claim ? [i.claim.id] : []))).size)
 }
 
 describe('mock API', () => {

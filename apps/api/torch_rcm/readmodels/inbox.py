@@ -105,6 +105,7 @@ def item_out(snap: Snapshot, item: InboxItem) -> InboxItemOut:
         action_label=None,  # phase-1 stubs
         touches=[],
         signer_note=None,
+        lands=None,
     )
 
 
@@ -174,6 +175,8 @@ def _groups(items: list[InboxItemOut]) -> list[InboxGroup]:
             count=len(rows),
             cents=sum(r.cents for r in rows),
             item_ids=[r.id for r in rows],
+            action_label=None,  # phase-1 stubs
+            touches=[],
         )
         for k, rows in by_key.items()
         if len(rows) > 1

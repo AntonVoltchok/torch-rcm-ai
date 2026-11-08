@@ -4763,6 +4763,10 @@
             ],
             "title": "Holder User Id"
           },
+          "mine": {
+            "type": "boolean",
+            "title": "Mine"
+          },
           "label": {
             "type": "string",
             "title": "Label"
@@ -4774,6 +4778,7 @@
           "who",
           "holder_role",
           "holder_user_id",
+          "mine",
           "label"
         ],
         "title": "ClaimMove",
@@ -6323,6 +6328,10 @@
             ],
             "title": "Holder User Id"
           },
+          "mine": {
+            "type": "boolean",
+            "title": "Mine"
+          },
           "count": {
             "type": "integer",
             "title": "Count"
@@ -6334,6 +6343,7 @@
           "who",
           "holder_role",
           "holder_user_id",
+          "mine",
           "count"
         ],
         "title": "HolderCount",
@@ -6363,6 +6373,24 @@
             },
             "type": "array",
             "title": "Item Ids"
+          },
+          "action_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Label"
+          },
+          "touches": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Touches"
           }
         },
         "additionalProperties": false,
@@ -6372,7 +6400,9 @@
           "title",
           "count",
           "cents",
-          "item_ids"
+          "item_ids",
+          "action_label",
+          "touches"
         ],
         "title": "InboxGroup"
       },
@@ -6662,6 +6692,16 @@
             ],
             "title": "Signer Note"
           },
+          "lands": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoveWho"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "plan_steps": {
             "items": {
               "type": "string"
@@ -6739,6 +6779,7 @@
           "action_label",
           "touches",
           "signer_note",
+          "lands",
           "plan_steps",
           "audit_note",
           "evidence",
@@ -7045,6 +7086,16 @@
               }
             ],
             "title": "Signer Note"
+          },
+          "lands": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoveWho"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7082,7 +7133,8 @@
           "stopped_by",
           "action_label",
           "touches",
-          "signer_note"
+          "signer_note",
+          "lands"
         ],
         "title": "InboxItemOut"
       },
@@ -7583,6 +7635,13 @@
           "cents": {
             "type": "integer",
             "title": "Cents"
+          },
+          "by_status": {
+            "items": {
+              "$ref": "#/components/schemas/StatusCount"
+            },
+            "type": "array",
+            "title": "By Status"
           }
         },
         "additionalProperties": false,
@@ -7590,7 +7649,8 @@
         "required": [
           "who",
           "count",
-          "cents"
+          "cents",
+          "by_status"
         ],
         "title": "MoveCount",
         "description": "Open claims whose move is with `who` (the KPI cards). Not split by holder: \"Yours\" is `inbox_open` /\n`inbox_claims`, which already know the viewer."
@@ -9430,6 +9490,24 @@
         ],
         "title": "SnoozeIn"
       },
+      "StatusCount": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ClaimStatus"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "count"
+        ],
+        "title": "StatusCount"
+      },
       "StepStatus": {
         "type": "string",
         "enum": [
@@ -9468,6 +9546,10 @@
           "inbox_claims": {
             "type": "integer",
             "title": "Inbox Claims"
+          },
+          "inbox_visits": {
+            "type": "integer",
+            "title": "Inbox Visits"
           },
           "paid_month_count": {
             "type": "integer",
@@ -9522,6 +9604,7 @@
           "inbox_open",
           "inbox_open_cents",
           "inbox_claims",
+          "inbox_visits",
           "paid_month_count",
           "paid_month_cents",
           "open_count",
@@ -9541,6 +9624,23 @@
         "properties": {
           "key": {
             "type": "string",
+            "enum": [
+              "inbox",
+              "inbox_claims",
+              "tile.ready",
+              "tile.sent",
+              "tile.rejected",
+              "tile.accepted",
+              "tile.pending",
+              "tile.denied",
+              "tile.appealed",
+              "tile.partial",
+              "tile.paid",
+              "move.practice",
+              "move.agents",
+              "move.payer",
+              "move.nobody"
+            ],
             "title": "Key"
           },
           "label": {
@@ -9573,7 +9673,8 @@
           "key",
           "label",
           "before",
-          "after"
+          "after",
+          "note"
         ],
         "title": "StripChange",
         "description": "One \"What changed\" row: a strip number for the viewer before and after an approval, read in the same\ntransaction. Equal `before`/`after` is a real row (\"Denied stays 5\")."
@@ -9741,6 +9842,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/RootCause"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "who": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoveWho"
               },
               {
                 "type": "null"

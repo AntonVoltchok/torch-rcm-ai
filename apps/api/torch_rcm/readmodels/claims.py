@@ -13,9 +13,12 @@ from torch_rcm.api.schemas import (
     ClaimMove,
     ClaimRow,
     ClaimSummary,
+    HolderCount,
+    MoveCount,
     NavBadges,
     PatientRef,
     PayerRef,
+    StatusCount,
     Strip,
     StripTile,
 )
@@ -106,7 +109,7 @@ def summarize(snap: Snapshot, claim: Claim) -> ClaimSummary:
         in_flight=claim.in_flight,
         age_days=age_days(claim, snap.today),
         file_time=claim.file_time,
-        move=ClaimMove(who=MoveWho.NOBODY, holder_role=None, holder_user_id=None, label=""),  # phase-1 stub
+        move=ClaimMove(who=MoveWho.NOBODY, holder_role=None, holder_user_id=None, mine=False, label=""),  # phase-1 stub
     )
 
 
@@ -131,6 +134,26 @@ def visible_inbox(snap: Snapshot, user_id: str | None) -> list[InboxItem]:
         if visible:
             out.append(item)
     return out
+
+
+def _unheld(count: int) -> HolderCount:
+    """Phase-1 stub: the whole tile under `nobody`, so `by_holder` already sums to the tile count."""
+    return HolderCount(who=MoveWho.NOBODY, holder_role=None, holder_user_id=None, mine=False, count=count)
+
+
+def _moves_stub(open_rows: list[Claim]) -> list[MoveCount]:
+    """Phase-1 stub: every open claim under `nobody` (matching each claim's stub `move`), so the rows already sum
+    to `open_count`. d1-api replaces this with the real split."""
+    by_status = [StatusCount(status=s, count=n) for s in OPEN_STATUSES if (n := sum(c.status is s for c in open_rows))]
+    return [
+        MoveCount(
+            who=who,
+            count=len(open_rows) if who is MoveWho.NOBODY else 0,
+            cents=sum(c.billed_cents for c in open_rows) if who is MoveWho.NOBODY else 0,
+            by_status=by_status if who is MoveWho.NOBODY else [],
+        )
+        for who in MoveWho
+    ]
 
 
 def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = None) -> Strip:
@@ -159,7 +182,7 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
                 flagged=len(flagged),
                 cents_basis=basis,
                 label=label,
-                by_holder=[],  # phase-1 stub
+                by_holder=[_unheld(len(rows))],  # phase-1 stub
             )
         )
     inbox = visible_inbox(snap, user_id)
@@ -168,10 +191,11 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
     paid = tiles[-1]
     return Strip(
         tiles=tiles,
-        moves=[],  # phase-1 stub
+        moves=_moves_stub(open_rows),
         inbox_open=len(inbox),
         inbox_open_cents=sum(i.cents for i in inbox),
-        inbox_claims=0,  # phase-1 stub
+        inbox_claims=len({i.claim_id for i in inbox if i.claim_id}),
+        inbox_visits=len({i.appointment_id for i in inbox if i.claim_id is None and i.appointment_id}),
         paid_month_count=paid.count,
         paid_month_cents=paid.cents,
         open_count=len(open_rows),

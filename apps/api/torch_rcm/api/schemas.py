@@ -67,6 +67,7 @@ class HolderCount(Schema):
     who: MoveWho
     holder_role: Role | None
     holder_user_id: str | None
+    mine: bool  # the viewer holds it (server rule, same as `ClaimMove.mine`); the web never re-derives it
     count: int
 
 
@@ -88,6 +89,11 @@ class NavBadges(Schema):
     activity: int  # this week's decisions that ran without review
 
 
+class StatusCount(Schema):
+    status: ClaimStatus
+    count: int
+
+
 class MoveCount(Schema):
     """Open claims whose move is with `who` (the KPI cards). Not split by holder: "Yours" is `inbox_open` /
     `inbox_claims`, which already know the viewer."""
@@ -95,6 +101,7 @@ class MoveCount(Schema):
     who: MoveWho
     count: int
     cents: int  # billed
+    by_status: list[StatusCount]  # the same claims by status ("2 ready, 1 sent"); sums to `count`
 
 
 class Strip(Schema):
@@ -105,6 +112,7 @@ class Strip(Schema):
     inbox_open: int
     inbox_open_cents: int
     inbox_claims: int  # distinct claims behind the viewer's `inbox_open` items
+    inbox_visits: int  # distinct appointments behind the viewer's claimless items (eligibility flags)
     paid_month_count: int
     paid_month_cents: int
     open_count: int
@@ -197,6 +205,7 @@ class ClaimMove(Schema):
     who: MoveWho
     holder_role: Role | None  # set when who=practice
     holder_user_id: str | None  # set when one person holds it (an assigned item); None = anyone in the role
+    mine: bool  # the viewer holds it: the one "is this mine" rule, decided here so every screen agrees
     label: str  # viewer-neutral wording, e.g. "Dr. Morgan signs", "Waiting on Delta Dental of NY"
 
 
@@ -258,6 +267,7 @@ class InboxItemOut(Schema):
     action_label: str | None  # `ActionSpec.phrase(params)`: what Approve runs ("Send 3 x-rays and resubmit")
     touches: list[str]  # recipe step labels (+ hold window) of that action: "What this does"
     signer_note: str | None  # why someone else signs, when `required_role` isn't the viewer's
+    lands: MoveWho | None  # where the claim's move goes if this is approved; None for claimless items
 
 
 class InboxItemDetail(InboxItemOut):
@@ -281,6 +291,8 @@ class InboxGroup(Schema):
     count: int
     cents: int
     item_ids: list[str]
+    action_label: str | None  # the members' shared action phrase, for the group headline and button
+    touches: list[str]
 
 
 class InboxList(Schema):
@@ -312,15 +324,34 @@ class ItemOut(Schema):
     meta: Meta
 
 
+StripChangeKey = Literal[
+    "inbox",
+    "inbox_claims",
+    "tile.ready",
+    "tile.sent",
+    "tile.rejected",
+    "tile.accepted",
+    "tile.pending",
+    "tile.denied",
+    "tile.appealed",
+    "tile.partial",
+    "tile.paid",
+    "move.practice",
+    "move.agents",
+    "move.payer",
+    "move.nobody",
+]  # closed, so a key the web expects and the API never sends is a type error, not a missing row
+
+
 class StripChange(Schema):
     """One "What changed" row: a strip number for the viewer before and after an approval, read in the same
     transaction. Equal `before`/`after` is a real row ("Denied stays 5")."""
 
-    key: str  # stable id the web keys on: a tile status ("denied"), "inbox", or a move ("moves.agents")
+    key: StripChangeKey
     label: str
     before: int
     after: int
-    note: str | None = None
+    note: str | None
 
 
 class ApproveOut(Schema):
@@ -388,6 +419,7 @@ class TimelineEntry(Schema):
     run_id: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     root_cause: RootCause | None = None
+    who: MoveWho | None = None  # who held the claim's move from this entry on (the baton history); None = unchanged
 
 
 class TimelinePage(Schema):

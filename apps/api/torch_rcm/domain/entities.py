@@ -610,7 +610,7 @@ class Run(Entity):
     audit_line: str = ""
     usage: Usage = Field(default_factory=Usage)
     outcome: str = ""  # Activity "Outcome" column text
-    claim_outcome: ClaimOutcome | None = None  # set when a run with a claim ends; None while running or claimless
+    claim_outcome: ClaimOutcome | None = None  # set at a terminal status (paused is not one); None if claimless
 
 
 class RunEvent(Entity):

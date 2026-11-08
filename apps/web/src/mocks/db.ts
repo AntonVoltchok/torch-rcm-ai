@@ -33,6 +33,7 @@ import type {
   PatientRef,
   Ledger,
   LedgerRow,
+  MoveCount,
   NextAction,
   PolicyVerdict,
   Preview,
@@ -102,6 +103,20 @@ const PAYER_ACK_AFTER_0710 = new Set([4854])
 /** What the six overnight 835s paid, in the order they are picked (oldest pending first); they sum to $3,446.46. */
 const OVERNIGHT_PAID_CENTS = [58_125, 44_437, 86_624, 30_006, 65_678, 59_776]
 const AR: readonly ClaimStatus[] = ['sent', 'rejected', 'accepted', 'pending', 'denied', 'appealed', 'partial']
+const OPEN: readonly ClaimStatus[] = ['ready', ...AR] // the API's OPEN_STATUSES, in its order
+
+/** Phase-1 stub, as the API's `_moves_stub`: every open claim under `nobody`, so the rows sum to `open_count`. */
+function movesStub(open: MockClaim[]): MoveCount[] {
+  const byStatus = OPEN.flatMap((status) => {
+    const count = open.filter((c) => c.status === status).length
+    return count ? [{ status, count }] : []
+  })
+  return (['practice', 'agents', 'payer', 'nobody'] as const).map((who) =>
+    who === 'nobody'
+      ? { who, count: open.length, cents: open.reduce((a, c) => a + c.billed_cents, 0), by_status: byStatus }
+      : { who, count: 0, cents: 0, by_status: [] },
+  )
+}
 const FILE_TIMES = Array.from({ length: 22 }, (_, i) => {
   const m = 7 * 60 + 45 + i * 30 // per-payer files every 30 min, 7:45 AM – 6:15 PM
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -332,6 +347,7 @@ export class MockDb {
       action_label: null,
       touches: [],
       signer_note: null,
+      lands: null,
     }
   }
   /** As the API: the claim's queued payer file gives the window; once it has left, only a corrected claim is left. */
@@ -394,7 +410,7 @@ export class MockDb {
         flagged: group.filter((c) => this.needsAction(c.id)).length,
         cents_basis: status === 'paid' ? ('paid' as const) : ('billed' as const),
         label: status === 'paid' ? 'Paid · Oct' : status[0]?.toUpperCase() + status.slice(1),
-        by_holder: [], // phase-1 stub, as the API
+        by_holder: [{ who: 'nobody' as const, holder_role: null, holder_user_id: null, mine: false, count: group.length }], // phase-1 stub, as the API
       }
     })
     const sum = (rows: MockClaim[]) => rows.reduce((a, c) => a + c.billed_cents, 0)
@@ -405,10 +421,11 @@ export class MockDb {
     const inbox = this.visibleItems(user)
     return {
       tiles,
-      moves: [], // phase-1 stub, as the API
+      moves: movesStub(open), // phase-1 stub, as the API
       inbox_open: inbox.length,
       inbox_open_cents: inbox.reduce((a, i) => a + i.cents, 0),
-      inbox_claims: 0, // phase-1 stub, as the API
+      inbox_claims: new Set(inbox.flatMap((i) => (i.claim_id ? [i.claim_id] : []))).size,
+      inbox_visits: new Set(inbox.flatMap((i) => (!i.claim_id && i.appointment_id ? [i.appointment_id] : []))).size,
       paid_month_count: paidOct.length,
       paid_month_cents: paidOct.reduce((a, c) => a + paidTileCents(c), 0),
       open_count: open.length,
@@ -443,7 +460,7 @@ export class MockDb {
       if (!item.group_key) continue
       let g = groups.find((x) => x.group_key === item.group_key)
       if (!g) {
-        g = { group_key: item.group_key, title: GROUP_META[item.group_key]?.title ?? item.group_key, count: 0, cents: 0, item_ids: [] }
+        g = { group_key: item.group_key, title: GROUP_META[item.group_key]?.title ?? item.group_key, count: 0, cents: 0, item_ids: [], action_label: null, touches: [] } // labels: phase-1 stubs
         groups.push(g)
       }
       g.count++
@@ -1280,7 +1297,7 @@ export class MockDb {
       in_flight: c.in_flight ?? null,
       age_days: c.age_days ?? null,
       file_time: c.queued_file?.at ?? (c.status === 'ready' && c.file_time ? at(c.built_at.slice(0, 10), c.file_time) : (c.sent_at ?? null)),
-      move: { who: 'nobody', holder_role: null, holder_user_id: null, label: '' }, // phase-1 stub, as the API
+      move: { who: 'nobody', holder_role: null, holder_user_id: null, mine: false, label: '' }, // phase-1 stub, as the API
     }
   }
 

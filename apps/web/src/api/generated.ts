@@ -42,6 +42,7 @@ const ClaimMove = z
     who: MoveWho,
     holder_role: z.union([Role, z.null()]),
     holder_user_id: z.union([z.string(), z.null()]),
+    mine: z.boolean(),
     label: z.string(),
   })
   .strict()
@@ -136,6 +137,7 @@ const InboxItemOut = z
     action_label: z.union([z.string(), z.null()]),
     touches: z.array(z.string()),
     signer_note: z.union([z.string(), z.null()]),
+    lands: z.union([MoveWho, z.null()]),
   })
   .strict()
 const InboxGroup = z
@@ -145,6 +147,8 @@ const InboxGroup = z
     count: z.number().int(),
     cents: z.number().int(),
     item_ids: z.array(z.string()),
+    action_label: z.union([z.string(), z.null()]),
+    touches: z.array(z.string()),
   })
   .strict()
 const InboxList = z
@@ -246,6 +250,7 @@ const InboxItemDetail = z
     action_label: z.union([z.string(), z.null()]),
     touches: z.array(z.string()),
     signer_note: z.union([z.string(), z.null()]),
+    lands: z.union([MoveWho, z.null()]),
     plan_steps: z.array(z.string()),
     audit_note: z.union([z.string(), z.null()]),
     evidence: z.array(Evidence),
@@ -367,11 +372,27 @@ const Rule = z
   .strict()
 const StripChange = z
   .object({
-    key: z.string(),
+    key: z.enum([
+      'inbox',
+      'inbox_claims',
+      'tile.ready',
+      'tile.sent',
+      'tile.rejected',
+      'tile.accepted',
+      'tile.pending',
+      'tile.denied',
+      'tile.appealed',
+      'tile.partial',
+      'tile.paid',
+      'move.practice',
+      'move.agents',
+      'move.payer',
+      'move.nobody',
+    ]),
     label: z.string(),
     before: z.number().int(),
     after: z.number().int(),
-    note: z.union([z.string(), z.null()]).optional(),
+    note: z.union([z.string(), z.null()]),
   })
   .strict()
 const HolderCount = z
@@ -379,6 +400,7 @@ const HolderCount = z
     who: MoveWho,
     holder_role: z.union([Role, z.null()]),
     holder_user_id: z.union([z.string(), z.null()]),
+    mine: z.boolean(),
     count: z.number().int(),
   })
   .strict()
@@ -393,7 +415,10 @@ const StripTile = z
     by_holder: z.array(HolderCount),
   })
   .strict()
-const MoveCount = z.object({ who: MoveWho, count: z.number().int(), cents: z.number().int() }).strict()
+const StatusCount = z.object({ status: ClaimStatus, count: z.number().int() }).strict()
+const MoveCount = z
+  .object({ who: MoveWho, count: z.number().int(), cents: z.number().int(), by_status: z.array(StatusCount) })
+  .strict()
 const NavBadges = z
   .object({ payments: z.number().int(), eligibility: z.number().int(), activity: z.number().int() })
   .strict()
@@ -404,6 +429,7 @@ const Strip = z
     inbox_open: z.number().int(),
     inbox_open_cents: z.number().int(),
     inbox_claims: z.number().int(),
+    inbox_visits: z.number().int(),
     paid_month_count: z.number().int(),
     paid_month_cents: z.number().int(),
     open_count: z.number().int(),
@@ -617,6 +643,7 @@ const TimelineEntry = z
     run_id: z.union([z.string(), z.null()]).optional(),
     evidence_ids: z.array(z.string()).optional(),
     root_cause: z.union([RootCause, z.null()]).optional(),
+    who: z.union([MoveWho, z.null()]).optional(),
   })
   .strict()
 const HoldSubject = z.enum(['claim', 'patient_balance'])
@@ -1155,6 +1182,7 @@ export const schemas = {
   StripChange,
   HolderCount,
   StripTile,
+  StatusCount,
   MoveCount,
   NavBadges,
   Strip,

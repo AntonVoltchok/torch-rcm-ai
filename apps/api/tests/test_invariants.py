@@ -19,10 +19,31 @@ from torch_rcm.domain.entities import (
     User,
     WorldCallLog,
 )
-from torch_rcm.domain.enums import ClaimStatus, Role
-from torch_rcm.readmodels.claims import strip
+from torch_rcm.domain.enums import ClaimStatus, MoveWho, Role
+from torch_rcm.readmodels.claims import is_open, strip, summarize
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.runtime import Runtime
+
+
+def move_totals(s: Snapshot, user_id: str) -> list[str]:
+    """D1's whose-move numbers add up (plan d1-build decision 1): one `moves` row per MoveWho summing to the open
+    claims, each row's `by_status` summing to it, every tile's `by_holder` summing to the tile, and the rows agreeing
+    with each open claim's own `move`."""
+    st = strip(s, user_id)
+    out: list[str] = []
+    if [m.who for m in st.moves] != list(MoveWho):
+        out.append(f"{user_id}: moves rows {[m.who for m in st.moves]}")
+    if (sum(m.count for m in st.moves), sum(m.cents for m in st.moves)) != (st.open_count, st.open_cents):
+        out.append(f"{user_id}: moves sum != open_count/open_cents")
+    out += [f"{user_id}: {m.who} by_status" for m in st.moves if sum(b.count for b in m.by_status) != m.count]
+    out += [f"{user_id}: {t.status} by_holder" for t in st.tiles if sum(h.count for h in t.by_holder) != t.count]
+    per_claim = dict.fromkeys(MoveWho, 0)
+    for c in s.of(Claim):
+        if is_open(c):
+            per_claim[summarize(s, c).move.who] += 1
+    if per_claim != {m.who: m.count for m in st.moves}:
+        out.append(f"{user_id}: moves {[(m.who, m.count) for m in st.moves]} != claims' move {per_claim}")
+    return out
 
 
 def assert_all(s: Snapshot, calls: list[WorldCallLog]) -> None:
@@ -41,6 +62,7 @@ def assert_all(s: Snapshot, calls: list[WorldCallLog]) -> None:
         "no agent tier 3": inv.no_agent_tier3(s.of(Run)),
         "unique keys": inv.unique_idempotency_keys(s.of(Run), calls),
         "paused": inv.nothing_ran_while_paused(s.of(Practice)[0], calls),
+        "moves add up": move_totals(s, "usr_dana") + move_totals(s, "usr_morgan"),
     }
     assert {k: v[:3] for k, v in checks.items() if v} == {}
 
@@ -54,6 +76,7 @@ def test_inbox_badge_equals_open_items_and_activity_awaiting(canonical: Snapshot
 
     s = strip(canonical, "usr_dana")
     assert s.inbox_open == len(canonical.open_items) == activity(canonical).summary.awaiting_you == 12
+    assert s.inbox_claims == len({i.claim_id for i in canonical.open_items if i.claim_id})
 
 
 def test_every_claim_is_built_at_checkout_after_its_visit(canonical: Snapshot) -> None:
