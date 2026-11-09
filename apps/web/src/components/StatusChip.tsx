@@ -6,15 +6,15 @@ const TONE: Record<ClaimStatus, ChipTone> = {
   ready: 'neutral',
   sent: 'neutral',
   rejected: 'bad',
-  accepted: 'acc',
+  accepted: 'neutral',
   pending: 'neutral',
   denied: 'bad',
-  partial: 'warn',
+  partial: 'neutral',
   paid: 'ok',
-  appealed: 'warn',
+  appealed: 'neutral',
 }
 
-/** One of the nine statuses. `needs_action` is never a status — see FlagPill. */
+/** One of the nine statuses. D1: status is not whose move, so only denied/rejected (red) and paid (green) carry hue. `needs_action` is never a status — see FlagPill. */
 export function StatusChip({ status }: { status: ClaimStatus }) {
   return <Chip tone={TONE[status]}>{STATUS_LABEL[status]}</Chip>
 }

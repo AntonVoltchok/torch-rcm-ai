@@ -54,7 +54,7 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
 
   return (
     <div ref={scrollRef} role="table" aria-label={label} aria-rowcount={rows.length} className={cn('relative min-h-0 flex-1 overflow-auto', dimmed && 'opacity-60 transition-opacity')}>
-      <div role="rowgroup" className="sticky top-0 z-10 border-b border-line bg-fill">
+      <div role="rowgroup" className="sticky top-0 z-10 border-b border-line bg-paper">
         {table.getHeaderGroups().map((hg) => (
           <div role="row" key={hg.id} className="grid h-8 items-center" style={{ gridTemplateColumns: grid }}>
             {hg.headers.map((h) => {
@@ -66,10 +66,10 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
                   role="columnheader"
                   key={h.id}
                   aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : undefined}
-                  className={cn('flex px-2 text-2xs font-extrabold uppercase tracking-[.05em] text-soft', align)}
+                  className={cn('flex px-2 text-xs font-medium text-soft', align)}
                 >
                   {key ? (
-                    <button type="button" className={cn('inline-flex items-center gap-1 uppercase', active && 'text-ink')} onClick={() => onSort(key)}>
+                    <button type="button" className={cn('inline-flex items-center gap-1 hover:text-ink', active && 'text-ink')} onClick={() => onSort(key)}>
                       {flexRender(h.column.columnDef.header, h.getContext())}
                       <span aria-hidden>{active ? (sort.desc ? '↓' : '↑') : ''}</span>
                     </button>
@@ -95,8 +95,8 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
               aria-selected={selected}
               onClick={() => onRowClick(row.original)}
               className={cn(
-                'absolute left-0 right-0 grid cursor-pointer items-center border-b border-light border-l-[3px] border-l-transparent text-base hover:bg-fill',
-                selected && 'border-l-acc bg-acc-bg hover:bg-acc-bg',
+                'absolute left-0 right-0 grid cursor-pointer items-center border-b border-line text-base hover:bg-hover',
+                selected && 'bg-act-bg shadow-[inset_0_0_0_1px_var(--color-act-line)] hover:bg-act-bg',
                 rowClassName?.(row.original),
               )}
               style={{ height: ROW_HEIGHT, transform: `translateY(${vi.start}px)`, gridTemplateColumns: grid }}

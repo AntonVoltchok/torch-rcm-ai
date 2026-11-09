@@ -5,10 +5,10 @@
 export function MockOnlyBanner({ title, anchor, note }: { title: string; anchor: string; note?: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div role="note" className="flex items-center gap-3 border-b border-warn-line bg-warn-bg px-4 py-2 text-sm text-warn">
-        <b>Designed, not built in this demo.</b>
+      <div role="note" className="flex items-center gap-3 border-b border-line bg-fill px-4 py-2.5 text-sm text-mid">
+        <b className="text-ink">Designed, not built in this demo.</b>
         <span>{note ?? `${title} is shown as the reviewed design. The interactive screens are Inbox, Claims, Claim detail and Settings.`}</span>
-        <a href={`/design/mocks.html#${anchor}`} target="_blank" rel="noreferrer" className="ml-auto font-semibold text-acc underline">
+        <a href={`/design/mocks.html#${anchor}`} target="_blank" rel="noreferrer" className="ml-auto whitespace-nowrap font-medium text-act underline underline-offset-2">
           Open the design ↗
         </a>
       </div>

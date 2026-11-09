@@ -1,34 +1,42 @@
 import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
+/** D1 buttons. `primary` is the one action colour (cobalt); everything else is a neutral line or a quiet text button. */
 type Variant = 'primary' | 'default' | 'ghost' | 'danger'
 const VARIANT: Record<Variant, string> = {
-  primary: 'bg-acc border-acc text-white hover:bg-acc-dark hover:border-acc-dark',
-  default: 'bg-white border-[#b7bbc2] text-ink hover:bg-fill',
-  ghost: 'bg-transparent border-transparent text-mid hover:text-ink hover:bg-fill',
-  danger: 'bg-white border-bad-line text-bad hover:bg-bad-bg',
+  primary: 'bg-act border-act text-white shadow-[0_1px_2px_rgb(42_85_214/0.24)] hover:bg-act-hover hover:border-act-hover',
+  default: 'bg-paper border-line-strong text-ink hover:bg-hover',
+  ghost: 'bg-transparent border-transparent text-mid hover:text-ink hover:bg-hover',
+  danger: 'bg-paper border-risk-line text-risk-ink hover:bg-risk-bg',
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
   kbd?: string
 }
+
+const SIZE = { sm: 'h-7 px-2.5 text-sm rounded-md', md: 'h-8 px-3 text-base rounded-lg', lg: 'h-10 px-4 text-base rounded-lg' }
 
 export function Button({ variant = 'default', size = 'md', kbd, className, children, type = 'button', ...rest }: ButtonProps) {
   return (
     <button
       type={type}
       className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-        size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-base',
+        'inline-flex items-center gap-2 whitespace-nowrap border font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        variant === 'primary' && 'font-semibold',
+        SIZE[size],
         VARIANT[variant],
         className,
       )}
       {...rest}
     >
       {children}
-      {kbd && <kbd className={cn('ml-0.5 rounded border px-1 font-mono text-2xs font-normal', variant === 'primary' ? 'border-white/40 text-white/80' : 'border-line text-soft')}>{kbd}</kbd>}
+      {kbd && (
+        <kbd className={cn('rounded px-1.5 py-0.5 font-sans text-xs font-medium leading-none', variant === 'primary' ? 'bg-[rgb(10_20_60/0.28)] text-white' : 'border border-line bg-hover text-mid')}>
+          {kbd}
+        </kbd>
+      )}
     </button>
   )
 }

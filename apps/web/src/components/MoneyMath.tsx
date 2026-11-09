@@ -20,14 +20,14 @@ export function MoneyMath({ money, className }: { money: Money; className?: stri
     ['Patient', estimate ? money.patient_est_cents : money.patient_resp_cents, est],
   ]
   return (
-    <dl className={cn('m-0 flex gap-0 overflow-hidden rounded-lg border border-line', className)} title={money.basis}>
+    <dl className={cn('m-0 flex gap-0 overflow-hidden rounded-lg border border-line bg-paper', className)} title={money.basis}>
       {cells.map(([label, cents, note]) => (
-        <div key={label} className="min-w-0 flex-1 border-l border-light px-3 py-1.5 first:border-l-0">
-          <dt className="text-xs text-mid">
+        <div key={label} className="min-w-0 flex-1 border-l border-line px-3 py-2 first:border-l-0">
+          <dt className="text-xs text-soft">
             {label}
             {note ? <span className="text-soft"> · {note}</span> : null}
           </dt>
-          <dd className="m-0 text-[17px] font-bold">{fmt(cents)}</dd>
+          <dd className="m-0 text-md font-semibold">{fmt(cents)}</dd>
         </div>
       ))}
     </dl>
