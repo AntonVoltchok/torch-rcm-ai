@@ -10,7 +10,6 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import cache
-from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -57,29 +56,22 @@ def load_agents(settings: Settings) -> bool:
 
 
 def wire_agent_runtime(rt: Runtime) -> None:
-    """Attach the shared AgentRuntime: model client per TORCH_AGENT_MODE, then resume checkpointed runs."""
+    """Attach the shared AgentRuntime (its model client follows TORCH_AGENT_MODE), then resume checkpointed runs.
+
+    The config comes from the environment and fails fast on live mode without a key (07 §10)."""
     from torch_rcm.agents.config import AgentConfig
     from torch_rcm.agents.runtime import AgentRuntime
 
-    cfg = AgentConfig()
+    cfg = AgentConfig.from_env()
     agent_rt = AgentRuntime.shared(rt.store, rt.clock, rt.world, cfg)
-    if cfg.agent_mode == "live":
-        from torch_rcm.agents.llm.cassette import CANONICAL_DIR, CassetteClient, RecordingClient
-        from torch_rcm.agents.llm.client import LlmClient
-
-        def sink(rec: Any) -> None:
-            rt.store.insert(rec.to_entity())
-
-        client: Any
-        if cfg.cassette_mode == "replay":
-            client = CassetteClient(CANONICAL_DIR / "canonical", sink=sink, clock=rt.clock.now)
-        else:
-            client = LlmClient(cfg, sink=sink, clock=rt.clock.now)
-            if cfg.cassette_mode == "record":
-                client = RecordingClient(client, CANONICAL_DIR / "live", recorded_at=rt.clock.now().isoformat())
-        agent_rt.llm_client = client
     resumed = agent_rt.recover()
-    log.info("agents.wired", mode=rt.settings.agent_mode, resumed_runs=resumed)
+    log.info(
+        "agents.wired",
+        mode=cfg.agent_mode,
+        cassette_mode=cfg.cassette_mode,
+        model_client=type(agent_rt.llm_client).__name__ if agent_rt.llm_client else None,
+        resumed_runs=resumed,
+    )
 
 
 def create_app(

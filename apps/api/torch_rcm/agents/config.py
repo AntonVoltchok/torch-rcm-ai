@@ -59,6 +59,11 @@ class AgentConfig(BaseModel):
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> AgentConfig:
+        """From `env`, or from the process environment after loading the repo-root `.env` into it."""
+        if env is None:
+            from torch_rcm.config import load_env_file
+
+            load_env_file()
         e = os.environ if env is None else env
         raw: dict[str, object] = {}
         for name in cls.model_fields:

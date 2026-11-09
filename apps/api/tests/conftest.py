@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 from collections.abc import Iterator
 from datetime import datetime
@@ -23,6 +24,9 @@ from torch_rcm.scheduler.registry import Registry
 from torch_rcm.seed.builder import SeedWorld
 from torch_rcm.seed.canonical import build
 from torch_rcm.seed.persist import persist
+
+# Hermetic: never load the developer's repo-root .env (it may hold a key or TORCH_AGENT_MODE=live).
+os.environ["TORCH_DOTENV"] = "0"
 
 THURSDAY_0710 = datetime.fromisoformat("2026-10-29T07:10:00-04:00")
 FRIDAY_0710 = datetime.fromisoformat("2026-10-30T07:10:00-04:00")

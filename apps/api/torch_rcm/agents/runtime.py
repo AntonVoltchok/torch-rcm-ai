@@ -497,9 +497,28 @@ class AgentRuntime:
         rt = cls._cache.get(key)
         if rt is None or rt.store is not store or (cfg is not None and rt.cfg is not cfg):
             rt = cls(store, clock, world, cfg or AgentConfig.from_env())
+            rt.llm_client = rt._make_llm_client()  # here, not at boot: a reseed rebuilds the runtime
             cls._cache = {k: v for k, v in cls._cache.items() if k[0] != key[0]}
             cls._cache[key] = rt
         return rt
+
+    def _make_llm_client(self) -> Any:
+        """Live mode's model client per TORCH_CASSETTE_MODE: `replay` → the canonical cassettes, `off` → the API,
+        `record` → the API through a recorder. Every call is stored as an `LlmCall`. None when deterministic."""
+        if self.cfg.agent_mode != "live":
+            return None
+        from torch_rcm.agents.llm.cassette import CANONICAL_DIR, CassetteClient, RecordingClient
+        from torch_rcm.agents.llm.client import LlmClient
+
+        def sink(rec: Any) -> None:
+            self.store.insert(rec.to_entity())
+
+        if self.cfg.cassette_mode == "replay":
+            return CassetteClient(CANONICAL_DIR / "canonical", sink=sink, clock=self.clock.now)
+        client: Any = LlmClient(self.cfg, sink=sink, clock=self.clock.now)
+        if self.cfg.cassette_mode == "record":
+            client = RecordingClient(client, CANONICAL_DIR / "live", recorded_at=self.clock.now().isoformat())
+        return client
 
     @classmethod
     def for_job(cls, ctx: Any, cfg: AgentConfig | None = None) -> AgentRuntime:
