@@ -31,7 +31,7 @@ export async function step8(page: Page) {
     await expect(page.getByTestId('badge-eligibility')).toHaveText('3')
     await expect(page.getByTestId('badge-activity')).toHaveText('41')
     // #4744's situation had no name, so it shows no track record, not the records-request rule's 91 of 97.
-    await page.locator('[data-item-id="itm_4744"]').click()
+    await page.getByRole('list', { name: 'Inbox items' }).getByRole('button', { name: /P\. Hale #4744/ }).click()
     await expect(page.getByTestId('track-record')).toContainText('No track record. TorchRCM couldn')
     await expect(page.getByTestId('track-record')).not.toContainText('%')
   })
