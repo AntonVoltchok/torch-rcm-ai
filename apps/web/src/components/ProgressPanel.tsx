@@ -30,12 +30,12 @@ const PLANNER_LABEL: Record<PlannerKind, string> = {
   scripted_fallback: 'fell back to rules',
 }
 
-const VERDICT: Record<PolicyVerdict, { label: string; tone: 'ok' | 'acc' | 'warn' | 'bad' | 'dashed' }> = {
+const VERDICT: Record<PolicyVerdict, { label: string; tone: 'ok' | 'act' | 'caution' | 'risk' | 'dashed' }> = {
   execute: { label: 'Policy: runs without review', tone: 'ok' },
-  propose: { label: 'Policy: ask Dana → Inbox', tone: 'acc' },
+  propose: { label: 'Policy: ask Dana → Inbox', tone: 'act' },
   observe: { label: 'Policy: observe · would have run', tone: 'dashed' },
-  refuse: { label: 'Policy: refused', tone: 'bad' },
-  park: { label: 'Policy: parked (agents paused)', tone: 'warn' },
+  refuse: { label: 'Policy: refused', tone: 'risk' },
+  park: { label: 'Policy: parked (agents paused)', tone: 'caution' },
 }
 
 function StepDot({ status }: { status: RunStep['status'] }) {

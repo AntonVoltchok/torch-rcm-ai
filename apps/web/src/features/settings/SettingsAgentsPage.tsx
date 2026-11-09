@@ -26,12 +26,12 @@ function AgentsSwitch() {
   const s = agents.data
   if (!s) return null
   if (user.role !== 'owner') {
-    return s.paused ? <span className="rounded-md border border-warn-line bg-warn-bg px-2 py-0.5 text-sm font-medium text-warn">Agents paused by {s.paused_by ?? 'the owner'}</span> : null
+    return s.paused ? <span className="rounded-md border border-line-strong bg-hover px-2 py-0.5 text-sm font-medium text-ink">Agents paused by {s.paused_by ?? 'the owner'}</span> : null
   }
   return (
     <span className="inline-flex items-center gap-2">
       {s.paused && (
-        <span className="text-sm font-medium text-warn">
+        <span className="text-sm font-medium text-ink">
           Paused {s.paused_at ? time(s.paused_at) : ''} · {count(s.paused_runs)} runs parked
         </span>
       )}

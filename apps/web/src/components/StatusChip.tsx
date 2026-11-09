@@ -5,10 +5,10 @@ import { Chip, type ChipTone } from './Chip'
 const TONE: Record<ClaimStatus, ChipTone> = {
   ready: 'neutral',
   sent: 'neutral',
-  rejected: 'bad',
+  rejected: 'risk',
   accepted: 'neutral',
   pending: 'neutral',
-  denied: 'bad',
+  denied: 'risk',
   partial: 'neutral',
   paid: 'ok',
   appealed: 'neutral',

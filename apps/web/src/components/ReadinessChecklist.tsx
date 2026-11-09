@@ -2,7 +2,7 @@ import type { ReadinessCheck } from '@/api/schema'
 import { cn } from '@/lib/cn'
 
 const ICON = { pass: '✓', warn: '!', fail: '✕', na: '–' } as const
-const TONE = { pass: 'text-ok', warn: 'text-warn', fail: 'text-risk-ink', na: 'text-soft' } as const
+const TONE = { pass: 'text-ok', warn: 'text-ink', fail: 'text-risk-ink', na: 'text-soft' } as const
 const LABEL: Record<ReadinessCheck['key'], string> = {
   note_signed: 'Note signed',
   procs_match_note: 'Procedures match note',

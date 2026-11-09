@@ -22,7 +22,7 @@ const route = getRouteApi('/eligibility')
  * stays for money at risk, and amber (the ⚑) for rows that are the practice's move. */
 const STATUS: Record<EligibilityStatus, { label: string; tone: ChipTone; className?: string }> = {
   verified: { label: 'Verified', tone: 'ok' },
-  issue: { label: 'Needs attention', tone: 'warn' },
+  issue: { label: 'Needs attention', tone: 'caution' },
   unverified: { label: 'Not verified', tone: 'dashed' },
   checking: { label: 'Agent checking…', tone: 'neutral', className: '!bg-agents-bg !text-agents-ink' },
 }

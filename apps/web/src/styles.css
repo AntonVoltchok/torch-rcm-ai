@@ -8,7 +8,8 @@
  * The old names keep their roles with D1 values, so every feature restyles without edits:
  *   ink / mid / soft   text, strongest to quietest (D1 ink, ink2, ink3; all AA on white and on the canvas)
  *   line / light / fill / paper   soft border, neutral chip fill, sunk well, panel surface
- *   acc*   the action colour (aliases of act, deprecated); bad* (= risk); warn* neutral; ok* green for paid and done
+ *   ok*   green for paid and done. (The old acc*, bad* and warn* aliases are gone: use act*, risk*, and ink on hover
+ *         grey for a caution, because amber means "yours".)
  * New names:
  *   canvas, hover, track, line-strong   the grey page behind panels, row hover, baton track, control borders
  *   practice / agents / payer   whose move. `-ink` is the AA text shade, `-bg` and `-line` a tinted panel.
@@ -37,10 +38,6 @@
   --color-act-hover: #2348bc;
   --color-act-bg: #eff3fe;
   --color-act-line: #cbd8f9;
-  --color-acc: var(--color-act);
-  --color-acc-dark: var(--color-act-hover);
-  --color-acc-bg: var(--color-act-bg);
-  --color-acc-line: var(--color-act-line);
 
   --color-practice: #f2b01e;
   --color-practice-ink: #8a5b00;
@@ -64,13 +61,6 @@
   --color-ok: #18703e;
   --color-ok-bg: #e6f4ec;
   --color-ok-line: #b9e0c8;
-  /* Neutral on purpose: amber means "yours", so a warning is ink on grey and says itself in words. */
-  --color-warn: var(--color-ink);
-  --color-warn-bg: var(--color-hover);
-  --color-warn-line: var(--color-line-strong);
-  --color-bad: var(--color-risk);
-  --color-bad-bg: var(--color-risk-bg);
-  --color-bad-line: var(--color-risk-line);
   --color-dark: #7a1f16;
 
   --color-age-ok: #2e9e5e;
@@ -78,9 +68,7 @@
   --color-age-bad: #d9534f;
   --color-age-dark: #7a1f16;
 
-  /* Scale 12 / 13 / 14 / 16 / 22 / 34. Nothing renders under 12px: the two old small steps both land on 12. */
-  --text-2xs: 12px;
-  --text-2xs--line-height: 16px;
+  /* Scale 12 / 13 / 14 / 16 / 22 / 34. Nothing renders under 12px. */
   --text-xs: 12px;
   --text-xs--line-height: 16px;
   --text-sm: 13px;

@@ -26,7 +26,7 @@ export function AgentsIndicator() {
         {s && s.queued > 0 ? ` · ${s.queued} queued` : ''}
       </span>
       {s?.paused && (
-        <span className="rounded-md border border-warn-line bg-warn-bg px-2 py-1 text-xs font-medium text-warn">
+        <span className="rounded-md border border-line-strong bg-hover px-2 py-1 text-xs font-medium text-ink">
           Agents paused{s.paused_by ? ` by ${userName(s.paused_by)}` : ''}
           {s.paused_at ? ` ${time(s.paused_at)}` : ''}
         </span>
