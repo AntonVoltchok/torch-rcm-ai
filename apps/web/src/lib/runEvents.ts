@@ -186,9 +186,3 @@ export function reduceRunMessage(run: RunView | undefined, msg: SseMessage): Run
       return keep
   }
 }
-
-/** Step names come from the recipe (snake_case); this is the copy shown in the panel. */
-export function stepLabel(name: string): string {
-  const s = name.replace(/^act:/, '').replace(/_/g, ' ')
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}

@@ -25,6 +25,9 @@ export interface Launch {
   started_at: string // server clock at launch
   /** `ApproveOut.changes` / `GroupApproveOut.changes`: the strip before and after this approval, computed by the server. Absent for triage. */
   changes?: StripChange[]
+  /** The approved action in the server's words (`action_label`, `touches`), copied at launch so the run pane can say what it is doing. */
+  action_label?: string | null
+  touches?: string[]
 }
 
 const KEY = 'torch.launches'

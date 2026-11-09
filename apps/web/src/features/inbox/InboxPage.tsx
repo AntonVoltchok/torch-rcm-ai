@@ -1,12 +1,17 @@
 /**
- * Inbox (home). State ownership on this screen:
- *  - URL (`/inbox?item=&group=&launch=&kind=`): selection, expanded group, open run panel, filter tab.
- *  - Query cache: the list (['inbox','list',params]), item detail, runs, strip. Counts are the server's.
- *  - Component state: which inline form is open and a 409 file_departed notice — ephemeral, per item.
+ * Inbox (home), D1: the queue on the left, one pane on the right that is either the decision or, after Approve,
+ * the run (decision 5: the run owns the pane). State ownership on this screen:
+ *  - URL (`/inbox?item=&group=&launch=&kind=`): selection, expanded group, the run in the pane, filter tab. Selecting
+ *    an item (J/K, click, Next) drops `launch`: the run carries on and stays under "Runs you started".
+ *  - Query cache: the list (['inbox','list',params]), item detail, runs, strip, claims. Counts are the server's.
+ *  - `useActiveLaunch`: which claims are under a run, from the server's run status and `claim.move`. Approve, Reject
+ *    and Snooze are locked only for items on those claims.
+ *  - Component state: which inline form is open and a 409 file_departed notice: ephemeral, per item.
  */
 import { useState } from 'react'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
-import type { InboxGroup, InboxItem, InboxItemKind } from '@/api/schema'
+import type { InboxGroup, InboxItem } from '@/api/schema'
+import { useActiveLaunch } from '@/hooks/useActiveLaunch'
 import { useInboxList } from '@/hooks/useInbox'
 import { useApprove, useApproveGroup, useCorrectedClaim, useReject, useSnooze, type FileDeparted } from '@/hooks/useInboxActions'
 import { useListKeys } from '@/hooks/useListKeys'
@@ -16,26 +21,20 @@ import { count, plural } from '@/lib/format'
 import { navBadge } from '@/lib/strip'
 import { cn } from '@/lib/cn'
 import { useLaunches, type Launch } from '@/state/launches'
+import { toast } from '@/state/toast'
 import { PageHeader } from '@/components/PageHeader'
 import { ProgressPanel } from '@/components/ProgressPanel'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryError } from '@/components/QueryError'
-import { KeyboardHints } from '@/components/KeyboardHints'
+import { Button } from '@/components/ui/Button'
 import { SkeletonRows } from '@/components/ui/Skeleton'
-import { InboxDetail, type DetailPanel } from './InboxDetail'
-import { InboxListView } from './InboxList'
-import { RecentRuns } from './RecentRuns'
-import { groupFor, groupRowId, inboxGroups, inboxMix, itemOrder, keyOrder, nextSelection } from './selectors'
+import { InboxDecision, type DetailPanel } from './InboxDecision'
+import { InboxQueue } from './InboxQueue'
+import { groupFor, groupRowId, inboxGroups, itemOrder, keyOrder, nextSelection } from './selectors'
 
 const route = getRouteApi('/inbox')
 
-const TABS: { kind: InboxItemKind | undefined; label: string }[] = [
-  { kind: undefined, label: 'All' },
-  { kind: 'approve_action', label: 'Approvals' },
-  { kind: 'review_draft', label: 'Drafts' },
-  { kind: 'variance', label: 'Variances' },
-  { kind: 'eligibility_flag', label: 'Eligibility' },
-]
+const who = (i: InboxItem) => [i.patient?.display_name ?? i.claim?.patient.display_name ?? i.title, i.claim ? `#${i.claim.number}` : null].filter(Boolean).join(' ')
 
 export function InboxPage() {
   const search = route.useSearch()
@@ -44,13 +43,14 @@ export function InboxPage() {
   const strip = useStrip()
   const now = useNow()
   const launches = useLaunches()
+  const active = useActiveLaunch()
 
   // Ephemeral, per selected item.
   const [panelFor, setPanelFor] = useState<{ id: string; panel: DetailPanel } | null>(null)
   const [departed, setDeparted] = useState<FileDeparted | null>(null)
 
   const select = (patch: { item?: string | undefined; group?: string | undefined; launch?: string | undefined }) =>
-    navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
+    navigate({ search: (s) => ({ ...s, launch: undefined, ...patch }), replace: true })
 
   const openLaunch = (l: Launch) => void select({ launch: l.id })
   const approve = useApprove({ onLaunched: openLaunch, onFileDeparted: setDeparted })
@@ -63,6 +63,7 @@ export function InboxPage() {
   const items = data?.items ?? []
   const selected: InboxItem | undefined = items.find((i) => i.id === search.item)
   const group = groupFor(data, selected)
+  const members = group ? items.filter((i) => group.group.item_ids.includes(i.id)) : []
   const order = data ? itemOrder(data) : []
   const keys = data ? keyOrder(data, search.group) : []
   const panel = panelFor?.id === selected?.id ? (panelFor?.panel ?? 'none') : 'none'
@@ -71,19 +72,27 @@ export function InboxPage() {
   }
   const busy = approve.isPending || approveGroup.isPending || reject.isPending || snooze.isPending
   const launch = launches.find((l) => l.id === search.launch)
+  const lock = active.lockFor(selected?.claim)
+  const groupLock = members.map((m) => active.lockFor(m.claim)).find((l) => l !== null) ?? null
 
   const removeAndAdvance = (ids: string[], patch: { group?: undefined } = {}) => {
     void select({ item: nextSelection(order, ids, search.item), ...patch })
     setPanelFor(null)
   }
 
+  /** A locked key press says why instead of doing nothing. */
+  const guarded = (l: { reason: string } | null, fn: () => void) => () => {
+    if (l) toast(`${l.reason}. This opens when the run ends.`, { tone: 'info' })
+    else fn()
+  }
+
   const doApprove = (item: InboxItem, edits?: Record<string, unknown>) => {
     removeAndAdvance([item.id])
     approve.mutate({ item, ...(edits ? { edits } : {}) })
   }
-  const doApproveGroup = (g: InboxGroup, members: InboxItem[]) => {
-    removeAndAdvance(members.map((m) => m.id), { group: undefined })
-    approveGroup.mutate({ groupKey: g.group_key, title: g.title, items: members })
+  const doApproveGroup = (g: InboxGroup, gm: InboxItem[]) => {
+    removeAndAdvance(gm.map((m) => m.id), { group: undefined })
+    approveGroup.mutate({ groupKey: g.group_key, title: g.title, items: gm, wording: { action_label: g.action_label, touches: g.touches } })
   }
   const openGroup = (g: InboxGroup) => void select({ group: g.group_key, item: g.item_ids[0] })
 
@@ -97,126 +106,134 @@ export function InboxPage() {
     void select({ item: id, group: it?.group_key ?? search.group })
   }
 
-  const currentGroup = group ?? (search.group ? { group: data && inboxGroups(data).find((g) => g.group_key === search.group), position: 0 } : null)
+  const blocked = selected?.signer_note != null
+  const openClaim = (it: InboxItem | undefined) => {
+    if (it?.claim) void navigate({ to: '/claims/$claimId', params: { claimId: it.claim.id }, search: { from: `inbox:${it.id}` } })
+  }
 
   useListKeys({
     ids: keys,
     selectedId: search.item,
     onSelect: selectKey,
-    onOpen: (id) => {
-      const it = items.find((i) => i.id === id)
-      if (it?.claim) void navigate({ to: '/claims/$claimId', params: { claimId: it.claim.id }, search: { from: `inbox:${it.id}` } })
-    },
+    onOpen: (id) => openClaim(items.find((i) => i.id === id)),
     bindings: {
-      a: selected && departed?.itemId !== selected.id ? () => doApprove(selected) : undefined,
-      e: selected ? () => setPanel('edit') : undefined,
-      r: selected ? () => setPanel('reject') : undefined,
-      s: selected ? () => setPanel('snooze') : undefined,
-      'shift+a': currentGroup?.group
-        ? () => {
-            const g = currentGroup.group
-            if (g) doApproveGroup(g, items.filter((i) => g.item_ids.includes(i.id)))
-          }
-        : undefined,
-      'g c': selected?.claim ? () => void navigate({ to: '/claims/$claimId', params: { claimId: selected.claim?.id ?? '' }, search: { from: `inbox:${selected.id}` } }) : undefined,
-      escape: search.launch ? () => void select({ launch: undefined }) : undefined,
+      a: selected && !blocked && departed?.itemId !== selected.id && !busy ? guarded(lock, () => doApprove(selected)) : undefined,
+      e: selected && !blocked ? guarded(lock, () => setPanel('edit')) : undefined,
+      r: selected && !blocked ? guarded(lock, () => setPanel('reject')) : undefined,
+      s: selected && !blocked ? guarded(lock, () => setPanel('snooze')) : undefined,
+      'shift+a': group && !busy ? guarded(groupLock, () => doApproveGroup(group.group, members)) : undefined,
+      'g c': selected?.claim ? () => openClaim(selected) : undefined,
+      escape: search.launch ? () => void select({ item: search.item }) : undefined,
     },
   })
 
   const inboxOpen = navBadge(strip.data, 'inbox')
   const ranAlone = navBadge(strip.data, 'activity')
+  const s = strip.data
+
+  const queueBody = list.isPending ? (
+    <SkeletonRows rows={10} />
+  ) : list.isError ? (
+    <QueryError error={list.error} what="the Inbox" onRetry={() => void list.refetch()} />
+  ) : !data || items.length === 0 ? (
+    <EmptyState title="Nothing needs you" action={<Link to="/activity" className="font-medium text-act">See Activity →</Link>}>
+      {ranAlone !== null ? `Agents handled ${count(ranAlone)} items this week without you.` : 'Agents are handling the rest.'}
+    </EmptyState>
+  ) : null
+
+  const next = selected ?? items.find((i) => i.signer_note === null)
+  const pane = launch ? (
+    <ProgressPanel
+      key={launch.id}
+      launch={launch}
+      variant="pane"
+      onClose={() => void select({ item: search.item })}
+      footer={({ failed }) => {
+        const back = failed.map((r) => items.find((i) => i.run_id === r.id)).find((i): i is InboxItem => Boolean(i))
+        return (
+          <>
+            {back && (
+              <Button variant="primary" size="lg" onClick={() => void select({ item: back.id, group: back.group_key ?? undefined })}>
+                Back to {who(back)}
+              </Button>
+            )}
+            {next && next.id !== back?.id ? (
+              <Button variant={back ? 'default' : 'primary'} size="lg" onClick={() => void select({ item: next.id, group: next.group_key ?? undefined })}>
+                Next: {who(next)}
+              </Button>
+            ) : (
+              !back && (
+                <Button variant="primary" size="lg" onClick={() => void select({ item: undefined })}>
+                  Finish
+                </Button>
+              )
+            )}
+          </>
+        )
+      }}
+    />
+  ) : search.launch ? (
+    <EmptyState title="This run was started in another tab">Runs you start are listed in the tab that started them. Its claim shows the result.</EmptyState>
+  ) : selected ? (
+    <InboxDecision
+      key={selected.id}
+      item={selected}
+      group={group ? { group: group.group, members } : null}
+      panel={panel}
+      setPanel={setPanel}
+      now={now}
+      departed={departed?.itemId === selected.id ? departed : null}
+      busy={busy}
+      lock={group ? groupLock : lock}
+      onApprove={(edits) => doApprove(selected, edits)}
+      onApproveGroup={() => {
+        if (group) doApproveGroup(group.group, members)
+      }}
+      onReject={(reason) => {
+        removeAndAdvance([selected.id])
+        reject.mutate({ item: selected, reason })
+      }}
+      onSnooze={(until, label) => {
+        removeAndAdvance([selected.id])
+        snooze.mutate({ item: selected, until, label })
+      }}
+      onCorrected={() => {
+        if (selected.claim) corrected.mutate({ claimId: selected.claim.id, changes: selected.proposed_action?.params ?? {} })
+        setDeparted(null)
+      }}
+    />
+  ) : items.length > 0 ? (
+    <section className="px-6 pb-6 pt-14" data-testid="inbox-empty-pane">
+      <h1 className="m-0 text-title font-semibold">{next ? 'Pick up where you left off' : 'Nothing is waiting on you'}</h1>
+      <p className="m-0 mt-1.5 text-mid">{next ? `${who(next)} is next. ${next.title}.` : 'Every item left is one someone else signs.'}</p>
+      {next && (
+        <Button variant="primary" size="lg" className="mt-4" onClick={() => void select({ item: next.id, group: next.group_key ?? undefined })}>
+          Open {who(next)}
+        </Button>
+      )}
+    </section>
+  ) : null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title="Inbox" sub={inboxOpen !== null ? `${plural(inboxOpen, 'item')} need you${items.length > 0 ? ` · ${inboxMix(items)}` : ''}` : undefined} />
-      <div className="flex min-h-0 flex-1">
-        <div className="flex w-[430px] flex-none flex-col border-r border-line">
-          <div role="tablist" aria-label="Filter" className="flex gap-1 border-b border-line px-2.5 py-2 text-sm text-mid">
-            {TABS.map((t) => {
-              // Only the server's total: GET /inbox sends no per-kind facets, and the UI never counts.
-              const n = t.kind ? undefined : data?.total
-              const on = search.kind === t.kind
-              return (
-                <Link
-                  key={t.label}
-                  role="tab"
-                  aria-selected={on}
-                  from="/inbox"
-                  to="/inbox"
-                  search={(s) => ({ ...s, kind: t.kind, item: undefined, group: undefined })}
-                  className={cn('rounded-xl px-2.5 py-0.5 no-underline', on ? 'bg-ink font-semibold text-white' : 'text-mid hover:text-ink')}
-                >
-                  {t.label}
-                  {n !== undefined ? ` ${count(n)}` : ''}
-                </Link>
-              )
-            })}
-          </div>
-          {list.isPending ? (
-            <SkeletonRows rows={10} />
-          ) : list.isError ? (
-            <QueryError error={list.error} what="the Inbox" onRetry={() => void list.refetch()} />
-          ) : !data || items.length === 0 ? (
-            <EmptyState title="Nothing needs you" action={<Link to="/activity" className="font-semibold text-acc">See Activity →</Link>}>
-              {ranAlone !== null ? `Agents handled ${count(ranAlone)} items this week without you.` : 'Agents are handling the rest.'}
-            </EmptyState>
-          ) : (
-            <InboxListView
-              list={data}
-              selectedId={search.item}
-              expandedGroup={search.group}
-              keyCursor={search.item}
-              onSelect={(id) => void select({ item: id, group: items.find((i) => i.id === id)?.group_key ?? undefined })}
-              onOpenGroup={openGroup}
-              onApproveGroup={doApproveGroup}
-              approvingGroup={approveGroup.isPending ? approveGroup.variables.groupKey : undefined}
-            />
-          )}
-          <RecentRuns active={search.launch} onOpen={(id) => void select({ launch: id })} />
-          <KeyboardHints hints={[['J K', 'move'], ['A', 'approve'], ['E', 'edit'], ['R', 'reject'], ['S', 'snooze'], ['⇧A', 'group'], ['G C', 'claim']]} />
-        </div>
-        <div className={cn('flex min-w-0 flex-1 flex-col', list.isPlaceholderData && 'opacity-70')}>
-          {launch && (
-            <div className="flex-none px-5 pt-3.5">
-              <ProgressPanel launch={launch} onClose={() => void select({ launch: undefined })} />
-            </div>
-          )}
-          {selected ? (
-            <InboxDetail
-              key={selected.id}
-              item={selected}
-              group={group}
-              panel={panel}
-              setPanel={setPanel}
-              now={now}
-              departed={departed?.itemId === selected.id ? departed : null}
-              busy={busy}
-              onApprove={(edits) => doApprove(selected, edits)}
-              onApproveGroup={() => {
-                if (group) doApproveGroup(group.group, items.filter((i) => group.group.item_ids.includes(i.id)))
-              }}
-              onReject={(reason) => {
-                removeAndAdvance([selected.id])
-                reject.mutate({ item: selected, reason })
-              }}
-              onSnooze={(until, label) => {
-                removeAndAdvance([selected.id])
-                snooze.mutate({ item: selected, until, label })
-              }}
-              onCorrected={() => {
-                if (selected.claim) corrected.mutate({ claimId: selected.claim.id, changes: selected.proposed_action?.params ?? {} })
-                setDeparted(null)
-              }}
-            />
-          ) : (
-            !launch &&
-            items.length > 0 && (
-              <EmptyState title="Select an item">
-                Use <b>J</b>/<b>K</b> to move through the queue, or click an item. Groups approve together with <b>⇧A</b>.
-              </EmptyState>
-            )
-          )}
-        </div>
+      <PageHeader
+        title="Inbox"
+        sub={inboxOpen !== null && s ? `${plural(inboxOpen, 'item')} need you: ${plural(s.inbox_claims, 'claim')}, ${plural(s.inbox_visits, 'upcoming visit')}` : undefined}
+      />
+      <div className="grid min-h-0 flex-1 grid-cols-[516px_minmax(0,1fr)] gap-3 px-4 pb-4 pt-3">
+        <InboxQueue
+          list={data}
+          body={queueBody}
+          kind={search.kind}
+          selectedId={search.launch ? undefined : search.item}
+          expandedGroup={search.group}
+          keyCursor={search.item}
+          activeLaunch={search.launch}
+          onSelect={(id) => void select({ item: id, group: items.find((i) => i.id === id)?.group_key ?? undefined })}
+          onOpenGroup={openGroup}
+          onOpenLaunch={(id) => void select({ item: search.item, launch: id })}
+        />
+        <div className={cn('panel min-h-0 overflow-y-auto', list.isPlaceholderData && 'opacity-70')}>{pane}</div>
       </div>
     </div>
   )

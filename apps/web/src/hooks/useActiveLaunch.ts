@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
-import type { RunStatus } from '@/api/schema'
+import type { ClaimSummary, RunStatus } from '@/api/schema'
 import { invalidateAfterRun, runQueryOptions } from '@/hooks/useRun'
 import { isTerminal } from '@/lib/runEvents'
 import { useLaunches, type Launch } from '@/state/launches'
@@ -23,6 +23,12 @@ export interface ActiveLaunches {
   launchFor: (claimId: string | null | undefined) => Launch | undefined
   /** Approve is locked for an item on this claim. */
   isLocked: (claimId: string | null | undefined) => boolean
+  /**
+   * Why actions on an item for this claim are locked, or null. Locked when the server says the agents hold the claim
+   * (`move.who === 'agents'`: a queued, running or paused run, from any tab or rule) or this tab has a run on it that
+   * has not ended. The reason is the server's `move.label` when it has one.
+   */
+  lockFor: (claim: ClaimSummary | null | undefined) => { reason: string } | null
 }
 
 export function useActiveLaunch(): ActiveLaunches {
@@ -59,7 +65,12 @@ export function useActiveLaunch(): ActiveLaunches {
     })
   const launchFor = (claimId: string | null | undefined) =>
     claimId ? launches.find((l) => isRunning(l) && l.runs.some((r) => r.claim_id === claimId && !isOver(statusOf(r.run_id)))) : undefined
-  return { statusOf, isRunning, launchFor, isLocked: (claimId) => launchFor(claimId) !== undefined }
+  const lockFor = (claim: ClaimSummary | null | undefined) => {
+    if (!claim) return null
+    if (claim.move.who === 'agents') return { reason: `${claim.move.label || 'With the agents'} on #${claim.number}` }
+    return launchFor(claim.id) ? { reason: `Agents are working on #${claim.number}` } : null
+  }
+  return { statusOf, isRunning, launchFor, isLocked: (claimId) => launchFor(claimId) !== undefined, lockFor }
 }
 
 const isOver = (s: RunStatus | undefined) => s !== undefined && isTerminal(s)

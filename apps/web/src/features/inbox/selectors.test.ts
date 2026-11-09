@@ -2,15 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { InboxList } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { GROUP_DELTA_PA } from '@/mocks/fixtures/inbox'
-import { draftOf, entries, inboxGroups, inboxMix, itemOrder, keyOrder, nextSelection, withoutItems } from './selectors'
+import { draftOf, entries, groupLands, inboxGroups, isBlocked, itemOrder, keyOrder, nextSelection, withoutItems } from './selectors'
 
 const list = () => InboxList.parse(new MockDb({ stepDelayMs: 0, schedule: () => undefined }).inbox({}))
 
 describe('inbox selectors', () => {
-  it('reconciles the 12 items with the 9 claims on the strip', () => {
-    const { items } = InboxList.parse(new MockDb().inbox({}))
+  it('blocks only what the server marks with a signer note, and a batch lands where its members do', () => {
+    const { items, groups } = InboxList.parse(new MockDb().inbox({}))
     expect(items).toHaveLength(12)
-    expect(inboxMix(items)).toBe('9 claims, 3 upcoming visits')
+    expect(items.filter(isBlocked).map((i) => i.id)).toEqual(['itm_4611'])
+    const g = groups?.[0]
+    expect(g && groupLands(items.filter((i) => g.item_ids.includes(i.id)))).toBe('agents')
   })
 
   it('reads a draft with the evidence each sentence cites', () => {

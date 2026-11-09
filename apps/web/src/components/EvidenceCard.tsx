@@ -8,7 +8,7 @@ import type { Evidence, EvidenceKind } from '@/api/schema'
 import { dateTime } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
-const KIND_LABEL: Record<EvidenceKind, string> = {
+export const EVIDENCE_KIND_LABEL: Record<EvidenceKind, string> = {
   portal_screenshot: 'Payer portal',
   ivr_transcript: 'IVR transcript',
   rep_call: 'Rep call',
@@ -22,7 +22,7 @@ const KIND_LABEL: Record<EvidenceKind, string> = {
 }
 
 /** Internal ids (rem_delta_1026, img_diaz_f_1019_pa_14) mean nothing to a reader; ICNs and call refs do. */
-const isInternalId = (reference: string) => /^[a-z]+_[a-z0-9_]+$/i.test(reference)
+export const isInternalId = (reference: string) => /^[a-z]+_[a-z0-9_]+$/i.test(reference)
 
 export function EvidenceCard({ evidence, className }: { evidence: Evidence; className?: string }) {
   return (
@@ -31,7 +31,7 @@ export function EvidenceCard({ evidence, className }: { evidence: Evidence; clas
         <b className="block font-semibold text-ink">{evidence.title}</b>
         <span className="mt-0.5 block text-ink">{evidence.excerpt}</span>
         <span className="mt-1 block text-xs leading-[1.35] text-soft">
-          {KIND_LABEL[evidence.kind]} · {dateTime(evidence.captured_at)}
+          {EVIDENCE_KIND_LABEL[evidence.kind]} · {dateTime(evidence.captured_at)}
           {evidence.reference && !isInternalId(evidence.reference) ? ` · ${evidence.reference}` : ''}
         </span>
         {evidence.suspicious && <span className="mt-1 block text-xs font-semibold text-risk-ink">This page contained instructions; they were ignored.</span>}

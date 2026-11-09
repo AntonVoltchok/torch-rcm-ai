@@ -152,6 +152,8 @@ interface StepPlan {
   progress?: string[]
   evidence?: Evidence
   verdict?: PolicyVerdict
+  /** The step fails with these words (its `output_summary`), as the API's executor does when a world call fails. */
+  fail?: string
 }
 
 interface RunPlan {
@@ -796,6 +798,7 @@ export class MockDb {
   }
   /** `Run.claim_outcome` "before": the run's own claim with the run left out and its approved item still open. */
   private claimBefore = new Map<string, [Status, MoveWho]>()
+  private failures = new Map<string, { step: string; message: string }>()
 
   private approveItem(item: MockInboxItem, user: UserId, label?: string): { item: MockInboxItem; run: RunView } {
     if (item.tier === 3 && !isOwner(user)) throw new MockError(403, 'tier_requires_owner', 'Tier 3 commits the practice: Dr. Morgan acts on this one.')
@@ -811,7 +814,7 @@ export class MockDb {
       actor: user,
       inbox_item_id: item.id,
       claim_id: item.claim_id ?? null,
-      plan: this.approvalPlan(item, user),
+      plan: this.withFailure(item.id, this.approvalPlan(item, user)),
     })
     resolved.run_id = run.id
     run.action_label = this.actionLabel(item) ?? ''
@@ -1650,6 +1653,10 @@ export class MockDb {
       if (pending[0] !== undefined) {
         running.progress_lines = [...running.progress_lines, pending[0]]
         this.emit(runId, 'step', { idx: running.idx, name: running.name, phase: 'progress', status: 'running', progress_line: pending[0] })
+      } else if (sp?.fail !== undefined) {
+        this.failRun(run, running, sp.fail)
+        this.changed()
+        return
       } else {
         this.completeStep(run, running, sp)
       }
@@ -1687,6 +1694,33 @@ export class MockDb {
       run.plan = { rationale: situation.rationale }
       this.emit(run.id, 'status', { status: run.status, planner: run.planner, model_situation_label: situation.label })
     }
+  }
+
+  /**
+   * A step's world call failed: the step and the run fail, later steps stay pending, and one `run_failed` item comes
+   * back to the Inbox with `run_id` set to this run (API: executor `_failed_item`, at most one per run).
+   */
+  private failRun(run: RunView, step: RunViewStep, message: string) {
+    step.status = 'failed'
+    step.finished_at = this.s.now
+    step.output_summary = message
+    this.emit(run.id, 'step', { run_id: run.id, idx: step.idx, name: step.name, label: step.label, phase: 'completed', status: 'failed', output_summary: message, progress_lines: step.progress_lines, planner: run.planner })
+    const claim = this.s.claims.find((c) => c.id === run.claim_id)
+    const approved = this.s.items.find((i) => i.id === run.inbox_item_id)
+    if (approved && !this.s.items.some((i) => i.run_id === run.id && i.kind === 'run_failed')) {
+      this.s.items = [
+        { ...approved, id: `itm_fail_${run.id}`, kind: 'run_failed', state: 'open', tier: null, run_id: run.id, title: `Run stopped · ${step.label || step.name}${claim ? ` · #${claim.number}` : ''}`, summary: message, recommendation: `Nothing was changed or sent. ${approved.recommendation}`, resolved_by: null, resolved_at: null, created_at: this.s.now },
+        ...this.s.items,
+      ]
+    }
+    run.result_summary = message
+    run.audit_line = `${run.action_label || 'Run'} stopped at “${step.label || step.name}” · nothing was changed or sent`
+    run.finished_at = this.s.now
+    if (claim) run.claim_outcome = claimOutcome(this.claimBefore.get(run.id) ?? null, [claim.status, this.moveOf(claim, null, { excludeRun: run.id }).who])
+    this.setRunStatus(run, 'failed')
+    this.emit(run.id, 'counts', this.counts(USERS_BY_ID[run.actor ?? ''] ?? 'usr_dana'))
+    this.emit(run.id, 'done', { status: 'failed', audit_line: run.audit_line, result_summary: run.result_summary })
+    this.plans.delete(run.id)
   }
 
   private finishRun(run: RunView, plan: RunPlan) {
@@ -1757,6 +1791,48 @@ export class MockDb {
     ]
   }
 
+  /** The API recipe's step names and labels for an approved action (agents/catalog/recipes.py), so the run pane reads the same. */
+  private recipeSteps(item: MockInboxItem, action: string): StepPlan[] {
+    const claim = this.claimOf(item)
+    const payer = claim ? PAYER_REF[claim.payer_key].short_name : 'the payer'
+    const out = item.recommendation
+    switch (action) {
+      case 'reprocessing_request':
+        return item.kind === 'review_draft'
+          ? [
+              { name: 'act:render_request', label: `Fill in ${payer}'s reprocessing form (history correction)`, output: `Fill in ${payer}'s reprocessing form (history correction)` },
+              { name: 'act:payer_submit', label: `Submit to ${payer} with the enclosures`, output: `Submit to ${payer} with the enclosures` },
+            ]
+          : [
+              { name: 'act:render_request', label: `Fill in ${payer}'s reprocessing form (prompt-pay)`, output: `Fill in ${payer}'s reprocessing form (prompt-pay)` },
+              { name: 'act:payer_submit', label: `Submit to ${payer}`, output: `Submit to ${payer}` },
+            ]
+      case 'fix_demographics_resend':
+        return [
+          { name: 'act:compare_pms', label: 'Compare the claim with the PMS record', output: 'Compare the claim with the PMS record' },
+          { name: 'act:patch_claim', label: 'Set the subscriber id on the claim', output: 'Set the subscriber id on the claim' },
+          { name: 'act:queue_for_file', label: `Queue for the 10:45 AM ${payer} file`, output: `Queue for the 10:45 AM ${payer} file` },
+        ]
+      case 'patient_transfer':
+        return [{ name: 'act:transfer', label: 'Move the patient share to the patient ledger', output: 'Move the patient share to the patient ledger' }]
+      case 'post_era_line':
+        return [
+          { name: 'act:match_lines', label: 'Match the remittance lines to the claim lines', output: 'Match the remittance lines to the claim lines' },
+          { name: 'act:balance_check', label: 'Check the balance and the patient share', output: 'Check the balance and the patient share' },
+          { name: 'act:pms_post', label: 'Post to the PMS ledger', output: 'Post to the PMS ledger' },
+        ]
+      default:
+        return [{ name: `act:${action}`, label: this.actionLabel(item) ?? action.replace(/_/g, ' '), output: out }]
+    }
+  }
+
+  private withFailure(itemId: string, plan: RunPlan): RunPlan {
+    const f = this.failures.get(itemId)
+    if (!f) return plan
+    this.failures.delete(itemId)
+    return { ...plan, steps: plan.steps.map((st) => (st.name === f.step ? { ...st, fail: f.message } : st)) }
+  }
+
   private approvalPlan(item: MockInboxItem, user: UserId): RunPlan {
     const claim = this.s.claims.find((c) => c.id === item.claim_id)
     const action = item.proposed_action?.action ?? 'status_check'
@@ -1767,10 +1843,10 @@ export class MockDb {
       const neaEvidence: Evidence = { id: `ev_${claim.number}_nea`, kind: 'nea_attachment', title: `PA #${tooth} uploaded to NEA FastAttach`, excerpt: `NEA# ${nea} · periapical #${tooth} · from PMS imaging`, captured_at: this.s.now, reference: nea, gathered_by: 'code' }
       return {
         steps: [
-          { name: 'act:fetch_image', label: 'fetch PA from PMS imaging', output: `PA #${tooth} · PMS imaging · ${claim.number === 4821 ? '10/12 10:41' : 'on file'}` },
-          { name: 'act:nea_upload', label: 'upload to NEA', output: `NEA# ${nea}`, evidence: neaEvidence },
-          { name: 'act:write_remarks', label: 'write NEA# to remarks', output: `Remarks: NEA# ${nea} · orig. ICN ${claim.icn ?? '—'}` },
-          { name: 'act:queue_for_file', label: 'queue for 11:15 Delta file', output: 'Queued for the 11:15 Delta file via Vyne' },
+          { name: 'act:fetch_image', label: 'Fetch the PA x-ray from imaging', output: `PA #${tooth} · PMS imaging · ${claim.number === 4821 ? '10/12 10:41' : 'on file'}` },
+          { name: 'act:nea_upload', label: 'Upload to NEA', output: `NEA# ${nea}`, evidence: neaEvidence },
+          { name: 'act:write_remarks', label: 'Write the NEA# and original ICN in the claim remarks', output: `Remarks: NEA# ${nea} · orig. ICN ${claim.icn ?? '—'}` },
+          { name: 'act:queue_for_file', label: 'Queue for the 11:15 AM Delta file', output: 'Queued for the 11:15 Delta file via Vyne' },
         ],
         onDone: (db, run) => {
           run.result_summary = `Resubmit queued · leaves 11:15`
@@ -1785,10 +1861,7 @@ export class MockDb {
       }
     }
     return {
-      steps: [
-        { name: `act:${action}`, output: item.recommendation },
-        { name: 'report', output: 'Audit line written' },
-      ],
+      steps: [...this.recipeSteps(item, action), { name: 'report', label: 'Report', output: 'Audit line written' }],
       onDone: (db, run) => {
         run.result_summary = 'Done'
         run.audit_line = `${action.replace(/_/g, ' ')} on ${claim ? `#${claim.number}` : (db.patientOf(item)?.display_name ?? item.id)} · approved by ${USER_NAME[user]} · tier ${item.tier ?? '—'}`
@@ -1879,6 +1952,14 @@ export class MockDb {
         db.pushTimeline(claim.id, { lane: 'agent', run_id: run.id, title: run.audit_line })
       },
     }
+  }
+
+  /**
+   * Test and screenshot hook: the next approval of this item fails at the step named `step` with `message` (a payer
+   * portal outage, say). Not persisted: the canonical demo never fails on its own, as on the API's canonical seed.
+   */
+  failStep(itemId: string, step: string, message: string) {
+    this.failures.set(itemId, { step, message })
   }
 
   /** Test hook: mark an item's payer file as departed so approve returns 409 file_departed. */

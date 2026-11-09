@@ -4,21 +4,7 @@
  * group counts and cents are the server's.
  */
 import { z } from 'zod'
-import type { Evidence, InboxGroup, InboxItem, InboxList } from '@/api/schema'
-
-/** "12 items": what they are, so the Inbox reconciles with the strip's claims. */
-export function inboxMix(items: InboxItem[]): string {
-  const claims = new Set(items.flatMap((i) => (i.claim ? [i.claim.id] : []))).size
-  const visits = items.filter((i) => !i.claim && i.appointment_id).length
-  const other = items.filter((i) => !i.claim && !i.appointment_id).length
-  return [
-    claims ? `${claims} ${claims === 1 ? 'claim' : 'claims'}` : null,
-    visits ? `${visits} upcoming ${visits === 1 ? 'visit' : 'visits'}` : null,
-    other ? `${other} other` : null,
-  ]
-    .filter(Boolean)
-    .join(', ')
-}
+import type { Evidence, InboxGroup, InboxItem, InboxList, MoveWho } from '@/api/schema'
 
 const DraftPayload = z.object({
   draft: z.object({
@@ -66,6 +52,15 @@ export function entries(list: InboxList): Entry[] {
     out.push({ type: 'group', group: g, members: g.item_ids.map((id) => byId.get(id)).filter((i): i is InboxItem => Boolean(i)) })
   }
   return out
+}
+
+/** Someone else signs it: the server sends `signer_note` only when the viewer cannot approve. */
+export const isBlocked = (item: InboxItem): boolean => item.signer_note !== null
+
+/** Where a group's baton lands: the members' own `lands` when they agree (they do for a batch), else no ghost. */
+export function groupLands(members: readonly InboxItem[]): MoveWho | null {
+  const first = members[0]?.lands ?? null
+  return members.every((m) => m.lands === first) ? first : null
 }
 
 export const groupRowId = (key: string) => `group:${key}`
