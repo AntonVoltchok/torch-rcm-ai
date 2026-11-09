@@ -32,7 +32,9 @@ def _moves(s: Snapshot) -> list[dict[str, Any]]:
 
 def _claims(s: Snapshot, numbers: set[int] | None = None) -> dict[str, dict[str, Any]]:
     rows = [c for c in s.of(Claim) if (is_open(c) or s.needs_action(c.id)) and (numbers is None or c.number in numbers)]
-    return {str(c.number): summarize(s, c, DANA).move.model_dump(mode="json") for c in sorted(rows, key=lambda c: c.number)}
+    return {
+        str(c.number): summarize(s, c, DANA).move.model_dump(mode="json") for c in sorted(rows, key=lambda c: c.number)
+    }
 
 
 def build(rt: Runtime) -> dict[str, Any]:
@@ -47,11 +49,16 @@ def build(rt: Runtime) -> dict[str, Any]:
             "filed_since_remit": sorted(
                 c.number
                 for c in seed.of(Claim)
-                if is_open(c) and c.status.value in ("denied", "partial") and not c.in_flight and filed_since_remit(seed, c)
+                if is_open(c)
+                and c.status.value in ("denied", "partial")
+                and not c.in_flight
+                and filed_since_remit(seed, c)
             ),
             "items": {i.id: i.model_dump(mode="json", include=set(words)) for i in inbox.items},
             "signer_note_morgan": {k: v.signer_note for k, v in morgan.items()},
-            "groups": {g.group_key: g.model_dump(mode="json", include={"action_label", "touches"}) for g in inbox.groups or []},
+            "groups": {
+                g.group_key: g.model_dump(mode="json", include={"action_label", "touches"}) for g in inbox.groups or []
+            },
         }
     }
     ctx = Ctx.for_user(rt, DANA)
@@ -63,7 +70,9 @@ def build(rt: Runtime) -> dict[str, Any]:
         "moves": _moves(after),
         "claims": _claims(after, numbers),
     }
-    out["approve_4733"] = {"changes": [c.model_dump(mode="json") for c in inbox_svc.approve(ctx, "itm_4733", None).changes]}
+    out["approve_4733"] = {
+        "changes": [c.model_dump(mode="json") for c in inbox_svc.approve(ctx, "itm_4733", None).changes]
+    }
     return out
 
 
