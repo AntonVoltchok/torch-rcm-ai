@@ -18,11 +18,7 @@ if (!existsSync(snapshot)) {
 const require = createRequire(import.meta.url)
 const pkgDir = dirname(require.resolve('openapi-zod-client/package.json'))
 const template = join(pkgDir, 'src/templates/schemas-only.hbs')
-execFileSync(
-  'pnpm',
-  ['exec', 'openapi-zod-client', snapshot, '-o', out, '-t', template, '--export-schemas', '--export-types', '--strict-objects'],
-  { stdio: 'inherit' },
-)
+execFileSync('pnpm', ['exec', 'openapi-zod-client', snapshot, '-o', out, '-t', template, '--export-schemas', '--export-types', '--strict-objects'], { stdio: 'inherit' })
 // openapi-zod-client drops `.int()` inside a union, so `cents: int | None` would accept a float. Money is integer cents.
 const generated = readFileSync(out, 'utf8')
 writeFileSync(out, generated.replace(/(_cents: z\.union\(\[z\.number\(\))(, z\.null\(\)\]\))/g, '$1.int()$2'))

@@ -4,7 +4,11 @@ import { ActivityOutcome, AgentKind } from '@/api/schema'
 import { boolParam } from '@/features/claims/search'
 
 export const activitySearchSchema = z.object({
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().catch(undefined),
+  day: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
   agent: AgentKind.optional().catch(undefined),
   outcome: ActivityOutcome.optional().catch(undefined),
   /** "Observe mode preview": restyles what ran without review as what Observe mode would have logged instead. */

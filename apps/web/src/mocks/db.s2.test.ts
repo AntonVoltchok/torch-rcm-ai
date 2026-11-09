@@ -30,7 +30,10 @@ function invariants(db: MockDb) {
   const claims = db.claims({ limit: 10_000 }).items
   for (const s of CLAIM_STATUSES) {
     const group = claims.filter((c) => c.status === s)
-    expect(strip.tiles.find((t) => t.status === s)).toMatchObject({ count: group.length, cents: s === 'paid' ? strip.paid_month_cents : group.reduce((a, c) => a + c.billed_cents, 0) })
+    expect(strip.tiles.find((t) => t.status === s)).toMatchObject({
+      count: group.length,
+      cents: s === 'paid' ? strip.paid_month_cents : group.reduce((a, c) => a + c.billed_cents, 0),
+    })
   }
   expect(strip.inbox_open + strip.inbox_waiting.reduce((a, w) => a + w.count, 0)).toBe(db.inbox({}).items.length)
   expect(db.inbox({}).actionable).toBe(strip.inbox_open)
@@ -126,7 +129,11 @@ describe('mock static screens at Wed 10:40', () => {
     expect(l.sent.reduce((a, r) => a + r.claim.billed_cents, 0)).toBe(132_000)
     expect(l.leaving_next_file.map((r) => r.claim.number)).toEqual([4855, 4856, 4859, 4854])
     expect(l.leaving_next_file[0]?.editable_until).toBe('2026-10-28T10:44:00-04:00')
-    expect(l.held.map((r) => [r.claim.number, r.timely_days_left])).toEqual([[4847, 89], [4842, 174], [4849, 179]])
+    expect(l.held.map((r) => [r.claim.number, r.timely_days_left])).toEqual([
+      [4847, 89],
+      [4842, 174],
+      [4849, 179],
+    ])
     expect(l.not_billable).toHaveLength(1)
     expect(l.next_file_time).toBe('2026-10-28T10:45:00-04:00')
   })
@@ -137,7 +144,12 @@ describe('mock static screens at Wed 10:40', () => {
     expect(e.date).toBe('2026-10-29')
     expect(e.need_human).toBe(3)
     const chen = db.benefits('appt_chen_1029')
-    expect(chen).toMatchObject({ planned_fee_cents: 65_000, insurance_est_cents: 18_000, patient_est_cents: 47_000, coverage: { remaining_max_cents: 18_000, used_cents: 132_000 } })
+    expect(chen).toMatchObject({
+      planned_fee_cents: 65_000,
+      insurance_est_cents: 18_000,
+      patient_est_cents: 47_000,
+      coverage: { remaining_max_cents: 18_000, used_cents: 132_000 },
+    })
     expect(db.eligibility('2026-10-30').rows.every((r) => r.start.startsWith('2026-10-30'))).toBe(true)
   })
 
@@ -190,21 +202,54 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     // Cash reads the same Paid as the strip (Wednesday 118 / $61,300 → Thursday 124 / $64,746.46).
     expect(db.cash('usr_morgan').kpis.find((k) => k.key === 'insurance_collections_month')).toMatchObject({ value: 6_474_646, basis: '124 claims paid' })
     expect(db.cash('usr_morgan').kpis.find((k) => k.key === 'collections_month')?.value).toBe(6_474_646 + 2_564_000)
-    expect(strip.tiles.map((t) => `${t.status} ${t.count}`)).toEqual(['ready 3', 'sent 1', 'rejected 1', 'accepted 8', 'pending 71', 'denied 9', 'partial 5', 'paid 124', 'appealed 3'])
+    expect(strip.tiles.map((t) => `${t.status} ${t.count}`)).toEqual([
+      'ready 3',
+      'sent 1',
+      'rejected 1',
+      'accepted 8',
+      'pending 71',
+      'denied 9',
+      'partial 5',
+      'paid 124',
+      'appealed 3',
+    ])
     expect(strip.nav_badges).toEqual({ payments: 7, eligibility: 3, activity: 41 })
     // A queue of 17: 10 after step 3b + the four overnight denials + the three status-check proposals; no built or
     // held-ERA items. Three of them wait on their signer: Diaz on Dr. Morgan (owner), and the Ito and Morris appeals
     // on Dr. Lee, who treated both. So 14 need Dana.
     expect(strip.inbox_open).toBe(14)
-    expect(strip.inbox_waiting.map((w) => [w.label, w.count, w.signer_ids])).toEqual([['Dr. Morgan', 1, ['usr_morgan']], ['Dr. Lee', 2, ['usr_lee']]])
+    expect(strip.inbox_waiting.map((w) => [w.label, w.count, w.signer_ids])).toEqual([
+      ['Dr. Morgan', 1, ['usr_morgan']],
+      ['Dr. Lee', 2, ['usr_lee']],
+    ])
     expect(
       db
         .inbox({})
         .items.map((i) => i.id)
         .filter((id) => !id.startsWith('itm_elig_'))
         .sort(),
-    ).toEqual(['itm_3561', 'itm_4611', 'itm_4690', 'itm_4705', 'itm_4733', 'itm_4744', 'itm_4748', 'itm_4760', 'itm_4764', 'itm_4772', 'itm_4796', 'itm_4797', 'itm_4800', 'itm_4851'])
-    expect(db.inbox({}).items.find((i) => i.id === 'itm_4690')).toMatchObject({ agent: 'followup', tier: 1, proposed_action: { action: 'status_check' }, rule_id: 'rule_t1_status_check' })
+    ).toEqual([
+      'itm_3561',
+      'itm_4611',
+      'itm_4690',
+      'itm_4705',
+      'itm_4733',
+      'itm_4744',
+      'itm_4748',
+      'itm_4760',
+      'itm_4764',
+      'itm_4772',
+      'itm_4796',
+      'itm_4797',
+      'itm_4800',
+      'itm_4851',
+    ])
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4690')).toMatchObject({
+      agent: 'followup',
+      tier: 1,
+      proposed_action: { action: 'status_check' },
+      rule_id: 'rule_t1_status_check',
+    })
     expect(db.inbox({}).items.find((i) => i.id === 'itm_4800')).toMatchObject({ tier: 2, rule_id: null })
     expect(db.inbox({}).items.find((i) => i.id === 'itm_4797')).toMatchObject({ tier: 1, root_cause: 'ours' })
     for (const id of ['clm_4821', 'clm_4836', 'clm_4840']) {

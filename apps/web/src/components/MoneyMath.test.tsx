@@ -14,7 +14,7 @@ const base: Money = {
   patient_resp_cents: 0,
   basis: 'estimate from contract allowed · Delta Dental PPO',
 }
-const cell = (label: RegExp) => (screen.getByText(label).closest('div') as HTMLElement)
+const cell = (label: RegExp) => screen.getByText(label).closest('div') as HTMLElement
 
 describe('MoneyMath', () => {
   it('shows the estimate on a denial, where the 835 says the patient owes $0 for now', () => {

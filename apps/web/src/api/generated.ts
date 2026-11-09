@@ -1,59 +1,18 @@
 import { z } from 'zod'
 
 const kind = z.union([z.string(), z.null()]).optional()
-const InboxItemKind = z.enum([
-  'approve_action',
-  'review_draft',
-  'eligibility_flag',
-  'variance',
-  'run_failed',
-  'rule_proposal',
-  'owner_signoff',
-])
+const InboxItemKind = z.enum(['approve_action', 'review_draft', 'eligibility_flag', 'variance', 'run_failed', 'rule_proposal', 'owner_signoff'])
 const InboxItemState = z.enum(['open', 'approved', 'edited', 'rejected', 'snoozed', 'expired', 'done'])
 const AgentKind = z.enum(['eligibility', 'claims', 'followup', 'appeals', 'posting'])
 const Tier = z.union([z.literal(1), z.literal(2), z.literal(3)])
-const Confidence = z
-  .object({
-    pct: z.union([z.number(), z.null()]),
-    k: z.number().int(),
-    n: z.number().int(),
-    outcome: z.string(),
-    basis: z.string(),
-  })
-  .strict()
-const ClaimStatus = z.enum([
-  'ready',
-  'sent',
-  'rejected',
-  'accepted',
-  'pending',
-  'denied',
-  'partial',
-  'paid',
-  'appealed',
-])
-const PatientRef = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    display_name: z.string(),
-    dob: z.union([z.string(), z.null()]).optional(),
-  })
-  .strict()
+const Confidence = z.object({ pct: z.union([z.number(), z.null()]), k: z.number().int(), n: z.number().int(), outcome: z.string(), basis: z.string() }).strict()
+const ClaimStatus = z.enum(['ready', 'sent', 'rejected', 'accepted', 'pending', 'denied', 'partial', 'paid', 'appealed'])
+const PatientRef = z.object({ id: z.string(), name: z.string(), display_name: z.string(), dob: z.union([z.string(), z.null()]).optional() }).strict()
 const PayerKey = z.enum(['delta_ny', 'metlife', 'cigna', 'aetna', 'guardian', 'ny_medicaid'])
 const PayerRef = z.object({ key: PayerKey, name: z.string(), short_name: z.string() }).strict()
 const MoveWho = z.enum(['practice', 'agents', 'payer', 'nobody'])
 const Role = z.enum(['owner', 'billing', 'dentist', 'front_desk'])
-const ClaimMove = z
-  .object({
-    who: MoveWho,
-    holder_role: z.union([Role, z.null()]),
-    holder_user_id: z.union([z.string(), z.null()]),
-    mine: z.boolean(),
-    label: z.string(),
-  })
-  .strict()
+const ClaimMove = z.object({ who: MoveWho, holder_role: z.union([Role, z.null()]), holder_user_id: z.union([z.string(), z.null()]), mine: z.boolean(), label: z.string() }).strict()
 const ClaimSummary = z
   .object({
     id: z.string(),
@@ -110,13 +69,7 @@ const ProposedAction = z
   })
   .strict()
 const RootCause = z.enum(['ours', 'payer', 'patient', 'unknown'])
-const Learnable = z
-  .object({
-    ok: z.boolean(),
-    code: z.union([z.enum(['tier_not_learnable', 'root_cause_guard', 'not_enough_evidence']), z.null()]),
-    reason: z.string(),
-  })
-  .strict()
+const Learnable = z.object({ ok: z.boolean(), code: z.union([z.enum(['tier_not_learnable', 'root_cause_guard', 'not_enough_evidence']), z.null()]), reason: z.string() }).strict()
 const InboxItemOut = z
   .object({
     id: z.string(),
@@ -159,15 +112,7 @@ const InboxItemOut = z
     learnable: Learnable,
   })
   .strict()
-const InboxWaitingGroup = z
-  .object({
-    signer_ids: z.array(z.string()),
-    label: z.string(),
-    count: z.number().int(),
-    cents: z.number().int(),
-    item_ids: z.array(z.string()),
-  })
-  .strict()
+const InboxWaitingGroup = z.object({ signer_ids: z.array(z.string()), label: z.string(), count: z.number().int(), cents: z.number().int(), item_ids: z.array(z.string()) }).strict()
 const InboxGroup = z
   .object({
     group_key: z.string(),
@@ -238,12 +183,7 @@ const Evidence = z
   })
   .strict()
 const HoldWindow = z
-  .object({
-    editable_until: z.union([z.string(), z.null()]),
-    file_time: z.union([z.string(), z.null()]),
-    departed: z.boolean(),
-    alternatives: z.array(z.string()),
-  })
+  .object({ editable_until: z.union([z.string(), z.null()]), file_time: z.union([z.string(), z.null()]), departed: z.boolean(), alternatives: z.array(z.string()) })
   .strict()
 const InboxItemDetail = z
   .object({
@@ -330,9 +270,7 @@ const Usage = z
   })
   .partial()
   .strict()
-const ClaimOutcome = z
-  .object({ status_from: ClaimStatus, status_to: ClaimStatus, move_from: MoveWho, move_to: MoveWho })
-  .strict()
+const ClaimOutcome = z.object({ status_from: ClaimStatus, status_to: ClaimStatus, move_from: MoveWho, move_to: MoveWho }).strict()
 const Run = z
   .object({
     id: z.string(),
@@ -369,11 +307,7 @@ const Run = z
   .strict()
 const RuleOrigin = z.enum(['authored', 'learned'])
 const RuleScope = z
-  .object({
-    payer_key: z.union([PayerKey, z.null()]),
-    item_type: z.string().default('all'),
-    max_cents: z.union([z.number().int(), z.null()]),
-  })
+  .object({ payer_key: z.union([PayerKey, z.null()]), item_type: z.string().default('all'), max_cents: z.union([z.number().int(), z.null()]) })
   .partial()
   .strict()
 const RuleMode = z.enum(['observe', 'ask', 'auto', 'human_only'])
@@ -431,13 +365,7 @@ const StripChange = z
   })
   .strict()
 const HolderCount = z
-  .object({
-    who: MoveWho,
-    holder_role: z.union([Role, z.null()]),
-    holder_user_id: z.union([z.string(), z.null()]),
-    mine: z.boolean(),
-    count: z.number().int(),
-  })
+  .object({ who: MoveWho, holder_role: z.union([Role, z.null()]), holder_user_id: z.union([z.string(), z.null()]), mine: z.boolean(), count: z.number().int() })
   .strict()
 const StripTile = z
   .object({
@@ -451,15 +379,9 @@ const StripTile = z
   })
   .strict()
 const StatusCount = z.object({ status: ClaimStatus, count: z.number().int() }).strict()
-const MoveCount = z
-  .object({ who: MoveWho, count: z.number().int(), cents: z.number().int(), by_status: z.array(StatusCount) })
-  .strict()
-const InboxWaiting = z
-  .object({ signer_ids: z.array(z.string()), label: z.string(), count: z.number().int(), cents: z.number().int() })
-  .strict()
-const NavBadges = z
-  .object({ payments: z.number().int(), eligibility: z.number().int(), activity: z.number().int() })
-  .strict()
+const MoveCount = z.object({ who: MoveWho, count: z.number().int(), cents: z.number().int(), by_status: z.array(StatusCount) }).strict()
+const InboxWaiting = z.object({ signer_ids: z.array(z.string()), label: z.string(), count: z.number().int(), cents: z.number().int() }).strict()
+const NavBadges = z.object({ payments: z.number().int(), eligibility: z.number().int(), activity: z.number().int() }).strict()
 const Strip = z
   .object({
     tiles: z.array(StripTile),
@@ -484,30 +406,13 @@ const Strip = z
   })
   .strict()
 const Meta = z.object({ counts: Strip }).strict()
-const ApproveOut = z
-  .object({
-    item: InboxItemOut,
-    run: z.union([Run, z.null()]),
-    rule: z.union([Rule, z.null()]).optional(),
-    changes: z.array(StripChange),
-    meta: Meta,
-  })
-  .strict()
+const ApproveOut = z.object({ item: InboxItemOut, run: z.union([Run, z.null()]), rule: z.union([Rule, z.null()]).optional(), changes: z.array(StripChange), meta: Meta }).strict()
 const GroupApproveIn = z.object({ group_key: z.string() }).strict()
-const GroupApproveOut = z
-  .object({ items: z.array(InboxItemOut), runs: z.array(Run), changes: z.array(StripChange), meta: Meta })
-  .strict()
+const GroupApproveOut = z.object({ items: z.array(InboxItemOut), runs: z.array(Run), changes: z.array(StripChange), meta: Meta }).strict()
 const RejectIn = z.object({ reason: z.string().min(1).max(500) }).strict()
 const ItemOut = z.object({ item: InboxItemOut, meta: Meta }).strict()
 const SnoozeIn = z.object({ until: z.string().datetime({ offset: true }) }).strict()
-const ProposalEvidence = z
-  .object({
-    approved: z.number().int(),
-    total: z.number().int(),
-    outcome_k: z.number().int(),
-    outcome_n: z.number().int(),
-  })
-  .strict()
+const ProposalEvidence = z.object({ approved: z.number().int(), total: z.number().int(), outcome_k: z.number().int(), outcome_n: z.number().int() }).strict()
 const ProposalState = z.enum(['open', 'accepted', 'dismissed'])
 const RuleProposal = z
   .object({
@@ -523,9 +428,7 @@ const RuleProposal = z
     note: z.string().optional().default(''),
   })
   .strict()
-const ProposalOut = z
-  .object({ proposal: RuleProposal, rule: z.union([Rule, z.null()]).optional(), meta: Meta })
-  .strict()
+const ProposalOut = z.object({ proposal: RuleProposal, rule: z.union([Rule, z.null()]).optional(), meta: Meta }).strict()
 const status_ = z.union([z.array(ClaimStatus), z.null()]).optional()
 const needs_action = z.union([z.boolean(), z.null()]).optional()
 const ClaimRow = z
@@ -617,15 +520,7 @@ const Attachment = z
     note: z.union([z.string(), z.null()]).optional(),
   })
   .strict()
-const AckStage = z.enum([
-  'none',
-  'file_999_ok',
-  'file_999_reject',
-  'ch_277ca_a1',
-  'ch_277ca_a7',
-  'payer_277ca_a1',
-  'payer_277ca_a7',
-])
+const AckStage = z.enum(['none', 'file_999_ok', 'file_999_reject', 'ch_277ca_a1', 'ch_277ca_a7', 'payer_277ca_a1', 'payer_277ca_a7'])
 const AckEvent = z
   .object({
     id: z.string(),
@@ -654,9 +549,7 @@ const ReadinessKey = z.enum([
 ])
 const CheckStatus = z.enum(['pass', 'warn', 'fail', 'na'])
 const ReadinessCheck = z.object({ key: ReadinessKey, status: CheckStatus, detail: z.string() }).strict()
-const Denial = z
-  .object({ carc: z.string(), rarc: z.union([z.string(), z.null()]), decoded: z.string(), root_cause: RootCause })
-  .strict()
+const Denial = z.object({ carc: z.string(), rarc: z.union([z.string(), z.null()]), decoded: z.string(), root_cause: RootCause }).strict()
 const DeadlineKind = z.enum(['timely_filing', 'appeal', 'none'])
 const Deadline = z.object({ kind: DeadlineKind, due_on: z.union([z.string(), z.null()]), basis: z.string() }).strict()
 const MoneyMath = z
@@ -754,13 +647,9 @@ const ClaimDetail = z
     timely_filing_due: z.union([z.string(), z.null()]),
   })
   .strict()
-const TimelinePage = z
-  .object({ items: z.array(TimelineEntry), next_cursor: z.union([z.string(), z.null()]).optional() })
-  .strict()
+const TimelinePage = z.object({ items: z.array(TimelineEntry), next_cursor: z.union([z.string(), z.null()]).optional() }).strict()
 const VoidIn = z.object({ reason: z.string().min(1).max(500) }).strict()
-const ClaimMutationOut = z
-  .object({ claim: ClaimSummary, run: z.union([Run, z.null()]).optional(), meta: Meta })
-  .strict()
+const ClaimMutationOut = z.object({ claim: ClaimSummary, run: z.union([Run, z.null()]).optional(), meta: Meta }).strict()
 const CorrectedIn = z.object({ changes: z.object({}).partial().strict().passthrough() }).strict()
 const TriageIn = z
   .object({ agent: z.union([z.enum(['claims', 'followup']), z.null()]) })
@@ -779,9 +668,7 @@ const SavedView = z
   })
   .strict()
 const ViewList = z.object({ items: z.array(SavedView), total: z.number().int() }).strict()
-const ViewIn = z
-  .object({ name: z.string().min(1).max(80), search_params: z.object({}).partial().strict().passthrough() })
-  .strict()
+const ViewIn = z.object({ name: z.string().min(1).max(80), search_params: z.object({}).partial().strict().passthrough() }).strict()
 const LedgerRow = z
   .object({
     claim: ClaimSummary,
@@ -796,41 +683,11 @@ const LedgerRow = z
     note: z.union([z.string(), z.null()]),
   })
   .strict()
-const HeldRow = z
-  .object({
-    claim: ClaimSummary,
-    hold: Hold,
-    timely_days_left: z.union([z.number(), z.null()]),
-    owner_name: z.union([z.string(), z.null()]),
-  })
-  .strict()
-const NotBillableRow = z
-  .object({
-    patient: PatientRef,
-    cdt: z.string(),
-    quadrant: z.union([z.string(), z.null()]),
-    fee_cents: z.number().int(),
-    reason: z.string(),
-  })
-  .strict()
+const HeldRow = z.object({ claim: ClaimSummary, hold: Hold, timely_days_left: z.union([z.number(), z.null()]), owner_name: z.union([z.string(), z.null()]) }).strict()
+const NotBillableRow = z.object({ patient: PatientRef, cdt: z.string(), quadrant: z.union([z.string(), z.null()]), fee_cents: z.number().int(), reason: z.string() }).strict()
 const LedgerTotal = z.object({ count: z.number().int(), cents: z.number().int() }).strict()
-const LedgerTotals = z
-  .object({
-    on_ledger: z.number().int(),
-    sent: LedgerTotal,
-    leaving: LedgerTotal,
-    held: LedgerTotal,
-    not_billable: LedgerTotal,
-  })
-  .strict()
-const LedgerFile = z
-  .object({
-    file_time: z.union([z.string(), z.null()]),
-    count: z.number().int(),
-    cents: z.number().int(),
-    claim_ids: z.array(z.string()),
-  })
-  .strict()
+const LedgerTotals = z.object({ on_ledger: z.number().int(), sent: LedgerTotal, leaving: LedgerTotal, held: LedgerTotal, not_billable: LedgerTotal }).strict()
+const LedgerFile = z.object({ file_time: z.union([z.string(), z.null()]), count: z.number().int(), cents: z.number().int(), claim_ids: z.array(z.string()) }).strict()
 const LedgerToday = z
   .object({
     date: z.string(),
@@ -889,22 +746,10 @@ const RuleChange = z
     summary: z.string().optional().default(''),
   })
   .strict()
-const RuleDigest = z
-  .object({
-    period_start: z.string(),
-    sends_on: z.string(),
-    changes: z.number().int(),
-    items_run: z.number().int(),
-    awaiting_signoff: z.number().int(),
-  })
-  .strict()
+const RuleDigest = z.object({ period_start: z.string(), sends_on: z.string(), changes: z.number().int(), items_run: z.number().int(), awaiting_signoff: z.number().int() }).strict()
 const RuleChangeList = z.object({ items: z.array(RuleChange), total: z.number().int(), digest: RuleDigest }).strict()
 const RulePatchIn = z
-  .object({
-    mode: z.union([RuleMode, z.null()]),
-    max_cents: z.union([z.number().int(), z.null()]),
-    confidence_floor: z.union([z.number(), z.null()]),
-  })
+  .object({ mode: z.union([RuleMode, z.null()]), max_cents: z.union([z.number().int(), z.null()]), confidence_floor: z.union([z.number(), z.null()]) })
   .partial()
   .strict()
 const RulePatchOut = z.object({ rule: Rule, change: RuleChange, meta: Meta }).strict()
@@ -966,9 +811,7 @@ const ActivityOut = z
     by_day: z.array(ActivityDay),
   })
   .strict()
-const PlannedProcedure = z
-  .object({ cdt: z.string(), tooth: z.union([z.string(), z.null()]).optional(), fee_cents: z.number().int() })
-  .strict()
+const PlannedProcedure = z.object({ cdt: z.string(), tooth: z.union([z.string(), z.null()]).optional(), fee_cents: z.number().int() }).strict()
 const EligibilityStatus = z.enum(['verified', 'issue', 'unverified', 'checking'])
 const EligibilityRow = z
   .object({
@@ -986,32 +829,12 @@ const EligibilityRow = z
   })
   .strict()
 const EligibilityDay = z
-  .object({
-    date: z.string(),
-    count: z.number().int(),
-    verified: z.number().int(),
-    issue: z.number().int(),
-    unverified: z.number().int(),
-    checking: z.number().int(),
-  })
+  .object({ date: z.string(), count: z.number().int(), verified: z.number().int(), issue: z.number().int(), unverified: z.number().int(), checking: z.number().int() })
   .strict()
 const EligibilityOut = z
-  .object({
-    date: z.string(),
-    rows: z.array(EligibilityRow),
-    need_human: z.number().int(),
-    total: z.number().int(),
-    by_day: z.array(EligibilityDay),
-  })
+  .object({ date: z.string(), rows: z.array(EligibilityRow), need_human: z.number().int(), total: z.number().int(), by_day: z.array(EligibilityDay) })
   .strict()
-const FrequencyRow = z
-  .object({
-    cdt: z.string(),
-    rule: z.string(),
-    last_done: z.union([z.string(), z.null()]),
-    ok_from: z.union([z.string(), z.null()]),
-  })
-  .strict()
+const FrequencyRow = z.object({ cdt: z.string(), rule: z.string(), last_done: z.union([z.string(), z.null()]), ok_from: z.union([z.string(), z.null()]) }).strict()
 const BenefitsPanel = z
   .object({
     appointment_id: z.string(),
@@ -1027,25 +850,10 @@ const BenefitsPanel = z
     inbox_item_id: z.union([z.string(), z.null()]),
   })
   .strict()
-const Kpi = z
-  .object({
-    key: z.string(),
-    label: z.string(),
-    value: z.number(),
-    unit: z.enum(['cents', 'days', 'pct', 'count']),
-    formula: z.string(),
-    basis: z.string(),
-  })
-  .strict()
-const AgingBucket = z
-  .object({ bucket: z.string(), cents: z.number().int(), count: z.number().int(), pct: z.number() })
-  .strict()
-const Breakdown = z
-  .object({ key: z.string(), label: z.string(), cents: z.number().int(), count: z.number().int() })
-  .strict()
-const AgentImpact = z
-  .object({ items_auto: z.number().int(), items_to_you: z.number().int(), hours_saved_est: Kpi })
-  .strict()
+const Kpi = z.object({ key: z.string(), label: z.string(), value: z.number(), unit: z.enum(['cents', 'days', 'pct', 'count']), formula: z.string(), basis: z.string() }).strict()
+const AgingBucket = z.object({ bucket: z.string(), cents: z.number().int(), count: z.number().int(), pct: z.number() }).strict()
+const Breakdown = z.object({ key: z.string(), label: z.string(), cents: z.number().int(), count: z.number().int() }).strict()
+const AgentImpact = z.object({ items_auto: z.number().int(), items_to_you: z.number().int(), hours_saved_est: Kpi }).strict()
 const CashOut = z
   .object({
     kpis: z.array(Kpi),
@@ -1076,41 +884,14 @@ const DenialRow = z
     inbox_item_id: z.union([z.string(), z.null()]),
   })
   .strict()
-const DenialGroup = z
-  .object({
-    next_action: NextAction,
-    label: z.string(),
-    count: z.number().int(),
-    cents: z.number().int(),
-    rows: z.array(DenialRow),
-  })
-  .strict()
-const DenialReasonColumn = z
-  .object({ key: z.enum(['doc', 'freq', 'cob', 'tf', 'med_nec', 'other']), label: z.string() })
-  .strict()
-const DenialMatrixCell = z
-  .object({ reason: z.enum(['doc', 'freq', 'cob', 'tf', 'med_nec', 'other']), count: z.number().int() })
-  .strict()
-const DenialMatrixRow = z
-  .object({ payer: PayerRef, cells: z.array(DenialMatrixCell), total: z.number().int() })
-  .strict()
+const DenialGroup = z.object({ next_action: NextAction, label: z.string(), count: z.number().int(), cents: z.number().int(), rows: z.array(DenialRow) }).strict()
+const DenialReasonColumn = z.object({ key: z.enum(['doc', 'freq', 'cob', 'tf', 'med_nec', 'other']), label: z.string() }).strict()
+const DenialMatrixCell = z.object({ reason: z.enum(['doc', 'freq', 'cob', 'tf', 'med_nec', 'other']), count: z.number().int() }).strict()
+const DenialMatrixRow = z.object({ payer: PayerRef, cells: z.array(DenialMatrixCell), total: z.number().int() }).strict()
 const DenialMatrix = z
-  .object({
-    columns: z.array(DenialReasonColumn),
-    payers: z.array(DenialMatrixRow),
-    totals: z.array(DenialMatrixCell),
-    total: z.number().int(),
-    excluded: z.number().int(),
-  })
+  .object({ columns: z.array(DenialReasonColumn), payers: z.array(DenialMatrixRow), totals: z.array(DenialMatrixCell), total: z.number().int(), excluded: z.number().int() })
   .strict()
-const DenialsOut = z
-  .object({
-    groups: z.array(DenialGroup),
-    total: z.number().int(),
-    in_flight: z.array(ClaimSummary),
-    matrix: DenialMatrix,
-  })
-  .strict()
+const DenialsOut = z.object({ groups: z.array(DenialGroup), total: z.number().int(), in_flight: z.array(ClaimSummary), matrix: DenialMatrix }).strict()
 const RemitKind = z.enum(['835', 'paper_eob'])
 const DepositStatus = z.enum(['deposited', 'expected', 'not_deposited'])
 const LineMatch = z.enum(['auto', 'review', 'unmatched'])
@@ -1159,41 +940,19 @@ const PatientBalanceRow = z
   })
   .strict()
 const PatientBalances = z
-  .object({
-    items: z.array(PatientBalanceRow),
-    total: z.number().int(),
-    ar_cents: z.number().int(),
-    credits_cents: z.number().int(),
-    credit_count: z.number().int(),
-  })
+  .object({ items: z.array(PatientBalanceRow), total: z.number().int(), ar_cents: z.number().int(), credits_cents: z.number().int(), credit_count: z.number().int() })
   .strict()
 const Advancing = z.object({ advance_id: z.string(), to: z.string().datetime({ offset: true }) }).strict()
 const ClockOut = z
-  .object({
-    now: z.string().datetime({ offset: true }),
-    frozen: z.boolean().optional().default(true),
-    advancing: z.union([Advancing, z.null()]).optional(),
-  })
+  .object({ now: z.string().datetime({ offset: true }), frozen: z.boolean().optional().default(true), advancing: z.union([Advancing, z.null()]).optional() })
   .strict()
 const AdvanceIn = z
   .object({ minutes: z.union([z.number(), z.null()]), to: z.union([z.string(), z.null()]) })
   .partial()
   .strict()
-const AdvanceAccepted = z
-  .object({
-    advance_id: z.string(),
-    from: z.string().datetime({ offset: true }),
-    to: z.string().datetime({ offset: true }),
-  })
-  .strict()
+const AdvanceAccepted = z.object({ advance_id: z.string(), from: z.string().datetime({ offset: true }), to: z.string().datetime({ offset: true }) }).strict()
 const EventFired = z
-  .object({
-    at: z.string().datetime({ offset: true }),
-    kind: z.string(),
-    summary: z.string(),
-    job_id: z.string(),
-    data: z.object({}).partial().strict().passthrough().optional(),
-  })
+  .object({ at: z.string().datetime({ offset: true }), kind: z.string(), summary: z.string(), job_id: z.string(), data: z.object({}).partial().strict().passthrough().optional() })
   .strict()
 const AdvanceOut = z
   .object({
@@ -1212,9 +971,7 @@ const AdvanceOut = z
   })
   .strict()
 const ReseedOut = z.object({ scenario: z.string(), now: z.string().datetime({ offset: true }), meta: Meta }).strict()
-const RunList = z
-  .object({ items: z.array(Run), total: z.number().int(), next_cursor: z.union([z.string(), z.null()]).optional() })
-  .strict()
+const RunList = z.object({ items: z.array(Run), total: z.number().int(), next_cursor: z.union([z.string(), z.null()]).optional() }).strict()
 const RunDetail = z.object({ run: Run, evidence: z.array(Evidence), last_event_id: z.number().int() }).strict()
 const AgentsStatus = z
   .object({

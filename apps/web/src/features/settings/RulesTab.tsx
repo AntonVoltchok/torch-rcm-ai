@@ -103,13 +103,21 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                 data-rule-id={r.id}
                 aria-selected={r.id === selectedId}
                 onClick={() => select(r.id)}
-                className={cn('h-10 cursor-pointer border-b border-line align-middle', r.id === selectedId ? 'bg-act-bg' : 'hover:bg-hover', r.learned && 'shadow-[inset_3px_0_0_var(--color-ok)]')}
+                className={cn(
+                  'h-10 cursor-pointer border-b border-line align-middle',
+                  r.id === selectedId ? 'bg-act-bg' : 'hover:bg-hover',
+                  r.learned && 'shadow-[inset_3px_0_0_var(--color-ok)]',
+                )}
               >
                 <td className="min-w-60 px-2 py-1.5">
                   <div className="font-medium">{r.label}</div>
                   <div className="text-xs text-soft">
                     ✦ {AGENT_NAME[r.agent]}
-                    {r.learned && <Chip tone="ok" className="ml-1">learned</Chip>}
+                    {r.learned && (
+                      <Chip tone="ok" className="ml-1">
+                        learned
+                      </Chip>
+                    )}
                   </div>
                 </td>
                 <td className="min-w-28 px-2 text-sm text-mid">{r.scope}</td>
@@ -129,7 +137,11 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                 <td className="px-2 text-sm text-mid">{r.reverses}</td>
                 <td
                   className="px-2 text-right text-sm"
-                  title={r.routine > 0 ? `${r.routine} routine runs this week. Routine payer contact is not a decision, so it stays out of the decisions below · ${r.waiting} waiting in the Inbox` : `${r.ran} ran without review this week · ${r.waiting} waiting in the Inbox`}
+                  title={
+                    r.routine > 0
+                      ? `${r.routine} routine runs this week. Routine payer contact is not a decision, so it stays out of the decisions below · ${r.waiting} waiting in the Inbox`
+                      : `${r.ran} ran without review this week · ${r.waiting} waiting in the Inbox`
+                  }
                 >
                   {r.routine > 0 ? (
                     <>

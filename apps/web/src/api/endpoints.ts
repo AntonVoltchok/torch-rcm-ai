@@ -40,26 +40,20 @@ export const api = {
   inbox: (p: { state: string; kind?: string | undefined; agent?: string | undefined }, signal?: AbortSignal) =>
     http.get('/inbox', S.InboxList, { ...p, group: true, ...loc() }, signal),
   inboxItem: (id: string) => http.get(`/inbox/${enc(id)}`, S.InboxItemDetail),
-  approve: (id: string, edits?: Record<string, unknown>) =>
-    http.post(`/inbox/${enc(id)}:approve`, S.ApproveResponse, edits ? { edits } : {}, { idempotencyKey: `approve:${id}` }),
-  approveGroup: (groupKey: string) =>
-    http.post('/inbox:approve-group', S.ApproveGroupResponse, { group_key: groupKey }, { idempotencyKey: `approve-group:${groupKey}` }),
+  approve: (id: string, edits?: Record<string, unknown>) => http.post(`/inbox/${enc(id)}:approve`, S.ApproveResponse, edits ? { edits } : {}, { idempotencyKey: `approve:${id}` }),
+  approveGroup: (groupKey: string) => http.post('/inbox:approve-group', S.ApproveGroupResponse, { group_key: groupKey }, { idempotencyKey: `approve-group:${groupKey}` }),
   reject: (id: string, reason: string) => http.post(`/inbox/${enc(id)}:reject`, S.ItemResponse, { reason }),
   snooze: (id: string, until: string) => http.post(`/inbox/${enc(id)}:snooze`, S.ItemResponse, { until }),
   reopen: (id: string) => http.post(`/inbox/${enc(id)}:reopen`, S.ItemResponse),
   alwaysAutoRun: (id: string) => http.post(`/inbox/${enc(id)}:always-auto-run`, S.ProposalResponse),
 
   // claims
-  claims: (p: ClaimsApiParams, cursor: string | undefined, signal?: AbortSignal) =>
-    http.get('/claims', S.ClaimList, { ...p, cursor, limit: 200, ...loc() }, signal),
+  claims: (p: ClaimsApiParams, cursor: string | undefined, signal?: AbortSignal) => http.get('/claims', S.ClaimList, { ...p, cursor, limit: 200, ...loc() }, signal),
   claim: (id: string) => http.get(`/claims/${enc(id)}`, S.ClaimDetail),
-  correctedClaim: (id: string, changes: Record<string, unknown>) =>
-    http.post(`/claims/${enc(id)}:corrected`, S.CorrectedClaimResponse, { changes }),
-  triage: (id: string, agent?: 'claims' | 'followup') =>
-    http.post(`/claims/${enc(id)}:triage`, S.TriageAccepted, agent ? { agent } : {}),
+  correctedClaim: (id: string, changes: Record<string, unknown>) => http.post(`/claims/${enc(id)}:corrected`, S.CorrectedClaimResponse, { changes }),
+  triage: (id: string, agent?: 'claims' | 'followup') => http.post(`/claims/${enc(id)}:triage`, S.TriageAccepted, agent ? { agent } : {}),
   views: () => http.get('/views', S.ViewList),
-  saveView: (name: string, search_params: Record<string, unknown>) =>
-    http.post('/views', S.SavedView, { name, search_params }),
+  saveView: (name: string, search_params: Record<string, unknown>) => http.post('/views', S.SavedView, { name, search_params }),
 
   // runs
   /** `RunDetail {run, evidence, last_event_id}`; hooks/useRun.ts folds it into the cached RunView. */

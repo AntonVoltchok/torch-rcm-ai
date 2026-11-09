@@ -26,7 +26,9 @@ function AgentsSwitch() {
   const s = agents.data
   if (!s) return null
   if (user.role !== 'owner') {
-    return s.paused ? <span className="rounded-md border border-line-strong bg-hover px-2 py-0.5 text-sm font-medium text-ink">Agents paused by {s.paused_by ?? 'the owner'}</span> : null
+    return s.paused ? (
+      <span className="rounded-md border border-line-strong bg-hover px-2 py-0.5 text-sm font-medium text-ink">Agents paused by {s.paused_by ?? 'the owner'}</span>
+    ) : null
   }
   return (
     <span className="inline-flex items-center gap-2">
@@ -35,7 +37,13 @@ function AgentsSwitch() {
           Paused {s.paused_at ? time(s.paused_at) : ''} · {count(s.paused_runs)} runs parked
         </span>
       )}
-      <Button variant={s.paused ? 'primary' : 'danger'} size="sm" disabled={kill.isPending} onClick={() => kill.mutate(!s.paused)} title="Queued runs park, running runs stop at the next step; the payers and the clock keep going">
+      <Button
+        variant={s.paused ? 'primary' : 'danger'}
+        size="sm"
+        disabled={kill.isPending}
+        onClick={() => kill.mutate(!s.paused)}
+        title="Queued runs park, running runs stop at the next step; the payers and the clock keep going"
+      >
         {s.paused ? 'Resume agents' : 'Pause all agents'}
       </Button>
     </span>

@@ -28,7 +28,12 @@ export function EditPlanForm({ item, onSubmit, onCancel, busy }: { item: InboxIt
       ))}
       <label className="flex items-start gap-2 text-sm">
         <span className="w-28 text-mid">Note to payer</span>
-        <textarea {...register('note', { maxLength: 500 })} rows={2} className="flex-1 rounded border border-line bg-white px-2 py-1" placeholder="Optional · goes in the claim remarks" />
+        <textarea
+          {...register('note', { maxLength: 500 })}
+          rows={2}
+          className="flex-1 rounded border border-line bg-white px-2 py-1"
+          placeholder="Optional · goes in the claim remarks"
+        />
       </label>
       {formState.errors.note && <span className="text-xs text-risk-ink">500 characters at most.</span>}
       <div className="flex gap-2">

@@ -17,7 +17,5 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL, viewport: { width: 1440, height: 900 }, trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
-  webServer: real
-    ? undefined
-    : { command: 'pnpm dev:mocks', url: baseURL, reuseExistingServer: !process.env.CI, timeout: 120_000 },
+  webServer: real ? undefined : { command: 'pnpm dev:mocks', url: baseURL, reuseExistingServer: !process.env.CI, timeout: 120_000 },
 })

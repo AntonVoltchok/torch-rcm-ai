@@ -20,14 +20,24 @@ export function ModeControl({
 }) {
   if (row.control === 'human_only') {
     return (
-      <span className="inline-flex items-center gap-1 text-sm font-semibold text-ink" data-testid="human-only" title="Tier 3 commits the practice: a person, always. Agents may draft.">
+      <span
+        className="inline-flex items-center gap-1 text-sm font-semibold text-ink"
+        data-testid="human-only"
+        title="Tier 3 commits the practice: a person, always. Agents may draft."
+      >
         Human only
       </span>
     )
   }
   return (
     <div className="flex flex-col gap-0.5">
-      <div role="radiogroup" aria-label={`Mode for ${row.label}`} data-rule={row.id} className="inline-flex overflow-hidden rounded-md border border-line-strong" onMouseLeave={() => onPreview(null)}>
+      <div
+        role="radiogroup"
+        aria-label={`Mode for ${row.label}`}
+        data-rule={row.id}
+        className="inline-flex overflow-hidden rounded-md border border-line-strong"
+        onMouseLeave={() => onPreview(null)}
+      >
         {row.options.map((m) => {
           const on = m === row.mode
           return (
@@ -48,7 +58,13 @@ export function ModeControl({
               className={cn(
                 'whitespace-nowrap border-l border-line-strong px-2 py-0.5 text-xs font-medium first:border-l-0 disabled:cursor-wait',
                 // Ask is the practice's move, so it takes the practice hue; auto is green; observe is neutral.
-                on ? (m === 'auto' ? 'bg-ok-bg text-ok' : m === 'observe' ? 'bg-light text-ink' : 'bg-practice-bg text-practice-ink') : 'bg-paper text-mid hover:bg-hover hover:text-ink',
+                on
+                  ? m === 'auto'
+                    ? 'bg-ok-bg text-ok'
+                    : m === 'observe'
+                      ? 'bg-light text-ink'
+                      : 'bg-practice-bg text-practice-ink'
+                  : 'bg-paper text-mid hover:bg-hover hover:text-ink',
               )}
             >
               {MODE_LABEL[m]}

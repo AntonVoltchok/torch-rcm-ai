@@ -27,27 +27,28 @@ function Shell() {
   const touring = useTourOpen()
   return (
     <>
-    <div id="app-shell" className="flex h-full min-w-[1280px] bg-canvas" inert={touring}>
-      <a
-        href="#main"
-        className="sr-only z-50 rounded-md bg-act px-3 py-2 font-semibold text-white focus:not-sr-only focus:absolute focus:left-3 focus:top-3"
-      >
-        Skip to content
-      </a>
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ShellHeader header={chrome.header} />
-        <main
-          id="main"
-          tabIndex={-1}
-          className={cn('flex min-h-0 min-w-0 flex-1 flex-col outline-none', chrome.panel && 'panel mx-4 mb-4 overflow-auto', !chrome.panel && chrome.header === 'none' && 'pt-3.5')}
-        >
-          <Outlet />
-        </main>
+      <div id="app-shell" className="flex h-full min-w-[1280px] bg-canvas" inert={touring}>
+        <a href="#main" className="sr-only z-50 rounded-md bg-act px-3 py-2 font-semibold text-white focus:not-sr-only focus:absolute focus:left-3 focus:top-3">
+          Skip to content
+        </a>
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <ShellHeader header={chrome.header} />
+          <main
+            id="main"
+            tabIndex={-1}
+            className={cn(
+              'flex min-h-0 min-w-0 flex-1 flex-col outline-none',
+              chrome.panel && 'panel mx-4 mb-4 overflow-auto',
+              !chrome.panel && chrome.header === 'none' && 'pt-3.5',
+            )}
+          >
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
-    <TourLayer />
-    <Toaster />
+      <TourLayer />
+      <Toaster />
     </>
   )
 }

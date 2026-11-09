@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest'
 import type { Evidence, RunView, RunViewStep } from '@/api/schema'
 import { applyDoneEvent, applyStatusEvent, applyStepEvent, mergeSnapshot, reduceRunMessage, runViewOf } from './runEvents'
 
-const step = (idx: number, name: string): RunViewStep => ({ idx, name, label: '', status: 'pending', tool: '', input_summary: '', output_summary: '', progress_lines: [], evidence_ids: [] })
+const step = (idx: number, name: string): RunViewStep => ({
+  idx,
+  name,
+  label: '',
+  status: 'pending',
+  tool: '',
+  input_summary: '',
+  output_summary: '',
+  progress_lines: [],
+  evidence_ids: [],
+})
 
 const base = (): RunView => ({
   id: 'run_1',
@@ -20,7 +30,16 @@ const base = (): RunView => ({
   last_event_id: null,
 })
 
-const nea: Evidence = { id: 'ev_nea', kind: 'nea_attachment', title: 'PA uploaded', excerpt: 'NEA# 47731888', captured_at: '2026-10-28T10:40:00-04:00', reference: '47731888', suspicious: false, source: '' }
+const nea: Evidence = {
+  id: 'ev_nea',
+  kind: 'nea_attachment',
+  title: 'PA uploaded',
+  excerpt: 'NEA# 47731888',
+  captured_at: '2026-10-28T10:40:00-04:00',
+  reference: '47731888',
+  suspicious: false,
+  source: '',
+}
 /** What `event: step` carries (`agents/runtime.py`): references, hydrated by the next GET /runs/{id}. */
 const neaRef = { id: nea.id, kind: nea.kind, title: nea.title }
 
@@ -86,7 +105,7 @@ describe('run event reducer', () => {
     expect(merged.last_event_id).toBe(3)
   })
 
-  it('folds GET /runs/{id} RunDetail into the cached view; a mutation\'s bare Run replays from the start', () => {
+  it("folds GET /runs/{id} RunDetail into the cached view; a mutation's bare Run replays from the start", () => {
     const { evidence: _e, last_event_id: _l, ...run } = base()
     const view = runViewOf({ run, evidence: [nea], last_event_id: 7 })
     expect(view.evidence.map((e) => e.id)).toEqual(['ev_nea'])
@@ -112,7 +131,7 @@ describe('run event reducer', () => {
     expect(applyDoneEvent(running, {}, 9).status).toBe('running')
   })
 
-  it('after a desync, the server\'s failed status is what renders', () => {
+  it("after a desync, the server's failed status is what renders", () => {
     const running = applyStatusEvent(base(), { status: 'running' }, 1)
     const stuck = reduceRunMessage(running, { id: 9, event: 'done', data: 'not json' }).run
     const merged = mergeSnapshot(stuck, { ...base(), status: 'failed', audit_line: 'Upload to NEA failed' })

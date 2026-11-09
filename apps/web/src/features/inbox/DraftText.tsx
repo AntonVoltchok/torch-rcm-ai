@@ -19,7 +19,15 @@ export function DraftText({ draft, payer }: { draft: Draft; payer: string | null
         {draft.segments.map((s) => (
           <li key={s.text} data-testid="draft-segment" className="grid grid-cols-[1fr_168px] gap-4 border-b border-line px-3 py-2 last:border-b-0">
             <span>{s.text}</span>
-            <span className="text-xs leading-[1.4] text-soft">{s.cites.length > 0 ? s.cites.map((t) => <cite key={t} className="block not-italic">{t}</cite>) : 'No citation: the request itself'}</span>
+            <span className="text-xs leading-[1.4] text-soft">
+              {s.cites.length > 0
+                ? s.cites.map((t) => (
+                    <cite key={t} className="block not-italic">
+                      {t}
+                    </cite>
+                  ))
+                : 'No citation: the request itself'}
+            </span>
           </li>
         ))}
       </ol>

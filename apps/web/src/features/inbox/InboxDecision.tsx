@@ -120,7 +120,13 @@ export function InboxDecision(p: Props) {
               selected={members.length > 1 && m.id === item.id}
               name={
                 c ? (
-                  <Link to="/claims/$claimId" params={{ claimId: c.id }} search={{ from: `inbox:${m.id}` }} title={`Open claim #${c.number}`} className="text-ink no-underline hover:underline">
+                  <Link
+                    to="/claims/$claimId"
+                    params={{ claimId: c.id }}
+                    search={{ from: `inbox:${m.id}` }}
+                    title={`Open claim #${c.number}`}
+                    className="text-ink no-underline hover:underline"
+                  >
                     {name}
                   </Link>
                 ) : (
@@ -286,4 +292,3 @@ export function InboxDecision(p: Props) {
     </article>
   )
 }
-

@@ -223,7 +223,17 @@ interface State {
 }
 
 /** A step before it starts, with the API's defaults filled in. */
-const newStep = (idx: number, name: string): RunViewStep => ({ idx, name, label: '', status: 'pending', tool: '', input_summary: '', output_summary: '', progress_lines: [], evidence_ids: [] })
+const newStep = (idx: number, name: string): RunViewStep => ({
+  idx,
+  name,
+  label: '',
+  status: 'pending',
+  tool: '',
+  input_summary: '',
+  output_summary: '',
+  progress_lines: [],
+  evidence_ids: [],
+})
 
 function initialState(): State {
   const bgRun: RunView = {
@@ -448,7 +458,10 @@ export class MockDb {
     if (!first) return []
     if (first.kind === 'eligibility_flag') return ['Note added for the front desk']
     if (!first.proposed_action) return []
-    return touches(first.proposed_action.action, items.flatMap((i) => this.wordsCtx(i) ?? []))
+    return touches(
+      first.proposed_action.action,
+      items.flatMap((i) => this.wordsCtx(i) ?? []),
+    )
   }
   /** The API's `claim_move`: whose move, with the viewer deciding only `mine`. */
   moveOf(c: MockClaim, viewer: UserId | null = 'usr_dana', opts: { closedItem?: string; excludeRun?: string; openItem?: string } = {}): ClaimMove {
@@ -473,7 +486,8 @@ export class MockDb {
     const claim = this.claimOf(item)
     if (!claim) return null
     const leftAt = item.proposed_action?.params?.file_departed_at
-    if (typeof leftAt === 'string') return { editable_until: null, file_time: claim.queued_file?.at ?? at(this.s.now.slice(0, 10), leftAt), departed: true, alternatives: ['corrected_claim'] }
+    if (typeof leftAt === 'string')
+      return { editable_until: null, file_time: claim.queued_file?.at ?? at(this.s.now.slice(0, 10), leftAt), departed: true, alternatives: ['corrected_claim'] }
     if (!claim.queued_file) return null
     return { editable_until: plusMinutes(claim.queued_file.at, -1), file_time: claim.queued_file.at, departed: false, alternatives: [] }
   }
@@ -566,17 +580,23 @@ export class MockDb {
     const mineOrShared = (i: MockInboxItem) => (state === 'open' ? visible.has(i.id) : !i.assignee_user_id || i.assignee_user_id === user || isOwner(user))
     const items = this.s.items.filter(
       (i) =>
-        (state === 'done' ? !['open', 'snoozed'].includes(i.state) : i.state === state) &&
-        mineOrShared(i) &&
-        (!p.kind || i.kind === p.kind) &&
-        (!p.agent || i.agent === p.agent),
+        (state === 'done' ? !['open', 'snoozed'].includes(i.state) : i.state === state) && mineOrShared(i) && (!p.kind || i.kind === p.kind) && (!p.agent || i.agent === p.agent),
     )
     const groups: InboxGroup[] = []
     for (const item of items) {
       if (!item.group_key) continue
       let g = groups.find((x) => x.group_key === item.group_key)
       if (!g) {
-        g = { group_key: item.group_key, title: GROUP_META[item.group_key]?.title ?? item.group_key, headline: '', count: 0, cents: 0, item_ids: [], action_label: null, touches: [] }
+        g = {
+          group_key: item.group_key,
+          title: GROUP_META[item.group_key]?.title ?? item.group_key,
+          headline: '',
+          count: 0,
+          cents: 0,
+          item_ids: [],
+          action_label: null,
+          touches: [],
+        }
         groups.push(g)
       }
       g.count++
@@ -646,14 +666,22 @@ export class MockDb {
     const field = desc ? sort.slice(1) : sort
     const key = (c: MockClaim): number | string => {
       switch (field) {
-        case 'number': return c.number
-        case 'patient': return c.patient_name
-        case 'payer': return c.payer_key
-        case 'dos': return c.dos
-        case 'billed': return c.billed_cents
-        case 'status': return STATUS_ORDER[c.status]
-        case 'last_activity': return c.last_activity?.at ?? ''
-        default: return c.age_days ?? -1
+        case 'number':
+          return c.number
+        case 'patient':
+          return c.patient_name
+        case 'payer':
+          return c.payer_key
+        case 'dos':
+          return c.dos
+        case 'billed':
+          return c.billed_cents
+        case 'status':
+          return STATUS_ORDER[c.status]
+        case 'last_activity':
+          return c.last_activity?.at ?? ''
+        default:
+          return c.age_days ?? -1
       }
     }
     rows = [...rows].sort((a, b) => {
@@ -709,7 +737,9 @@ export class MockDb {
       // `who` is the party that acted, as the API's timeline: people, agents (and Vyne file queueing), the payer side.
       timeline: c.timeline.map((e) => ({ ...e, kind: e.lane, who: e.who ?? whoActed(e) })),
       timeline_next_cursor: null,
-      open_inbox_items: this.openItems().filter((i) => i.claim_id === id).map((i) => this.itemOut(i)),
+      open_inbox_items: this.openItems()
+        .filter((i) => i.claim_id === id)
+        .map((i) => this.itemOut(i)),
       holds: c.hold ? [c.hold] : [],
       file_entries: c.queued_file ? [this.fileEntry(c, c.queued_file)] : [],
       parent_claim_id: c.parent_claim_id,
@@ -885,7 +915,13 @@ export class MockDb {
     const params = item.proposed_action?.params ?? {}
     const fileLeft = typeof params.file_departed_at === 'string'
     if (fileLeft) {
-      throw new MockError(409, 'file_departed', `#${this.claimOf(item)?.number ?? ''} left in the ${String(params.file_departed_at)} file. Your edits go as a corrected claim.`, { left_at: params.file_departed_at }, ['corrected_claim'])
+      throw new MockError(
+        409,
+        'file_departed',
+        `#${this.claimOf(item)?.number ?? ''} left in the ${String(params.file_departed_at)} file. Your edits go as a corrected claim.`,
+        { left_at: params.file_departed_at },
+        ['corrected_claim'],
+      )
     }
     const resolved = this.resolve(item, 'approved', user)
     const run = this.startRun({
@@ -945,7 +981,12 @@ export class MockDb {
     this.assertNotBusy(members)
     const label = `Approve ${members.length} (${GROUP_META[groupKey]?.title ?? groupKey})`
     const results = members.map((m) => this.approve(m.id, user, label))
-    return { items: results.map((r) => r.item), runs: results.flatMap((r) => (r.run ? [r.run] : [])), changes: this.changes(before, user, members, statuses), meta: { counts: this.counts(user) } }
+    return {
+      items: results.map((r) => r.item),
+      runs: results.flatMap((r) => (r.run ? [r.run] : [])),
+      changes: this.changes(before, user, members, statuses),
+      meta: { counts: this.counts(user) },
+    }
   }
 
   reject(id: string, user: UserId, reason: string) {
@@ -1095,7 +1136,12 @@ export class MockDb {
       if (phase) {
         this.s.now = phase.now
         const events = phase.run()
-        this.s.advance = { ...cur, now: phase.now, events_fired: [...fired, ...events], runs_started: (cur.runs_started ?? 0) + events.filter((e) => e.kind.startsWith('run.')).length }
+        this.s.advance = {
+          ...cur,
+          now: phase.now,
+          events_fired: [...fired, ...events],
+          runs_started: (cur.runs_started ?? 0) + events.filter((e) => e.kind.startsWith('run.')).length,
+        }
         this.s.advancePhase = i + 1
         this.fire('advance', { ...this.s.advance, events_fired: fired.length + events.length })
       } else {
@@ -1183,7 +1229,21 @@ export class MockDb {
       c.reason_text = `${d.carc}${d.rarc ? ` · ${d.rarc}` : ''}`
       c.agent_note = d.item.tier === 3 ? 'appeal drafted · person signs' : d.root_cause === 'ours' ? 'held · root cause ours' : 'fix proposed'
       this.pushTimelineAt(c, at('2026-10-29', '05:40'), { lane: 'payer', title: `Denied ${c.reason_text} · ${d.decoded}` })
-      this.addItem({ id: `itm_${d.number}`, kind: d.item.tier === 3 ? 'review_draft' : 'approve_action', claim: c, agent: d.item.agent, tier: d.item.tier, title: d.item.title, recommendation: d.item.recommendation, summary: d.item.summary, action: d.item.action, ruleId: d.item.rule_id, situation: d.item.situation, rootCause: d.root_cause, created: at('2026-10-29', '06:05') })
+      this.addItem({
+        id: `itm_${d.number}`,
+        kind: d.item.tier === 3 ? 'review_draft' : 'approve_action',
+        claim: c,
+        agent: d.item.agent,
+        tier: d.item.tier,
+        title: d.item.title,
+        recommendation: d.item.recommendation,
+        summary: d.item.summary,
+        action: d.item.action,
+        ruleId: d.item.rule_id,
+        situation: d.item.situation,
+        rootCause: d.root_cause,
+        created: at('2026-10-29', '06:05'),
+      })
       out.push(this.event('claim_denied', `#${c.number} ${c.patient_name} denied ${c.reason_text}`, { claim_id: c.id, carc: d.carc, rarc: d.rarc }))
     }
     // Six paid on contract.
@@ -1214,7 +1274,21 @@ export class MockDb {
       const c = this.s.claims.find((x) => x.number === k.number)
       if (!c) continue
       const payer = PAYER_REF[c.payer_key].short_name
-      this.addItem({ id: `itm_${c.number}`, kind: 'approve_action', claim: c, agent: 'followup', tier: 1, title: `#${c.number} · ${c.patient_name} · ${payer} · status check due`, recommendation: `Check #${c.number} with ${payer} (portal, then IVR). The Status check rule is Ask, so nothing contacts the payer until you approve.`, summary: `Day ${c.age_days ?? 30} with no 835: the status-check cadence came due at 07:00.`, action: 'status_check', ruleId: 'rule_t1_status_check', situation: 'pending:status_due', rootCause: 'unknown', created: at('2026-10-29', '07:00') })
+      this.addItem({
+        id: `itm_${c.number}`,
+        kind: 'approve_action',
+        claim: c,
+        agent: 'followup',
+        tier: 1,
+        title: `#${c.number} · ${c.patient_name} · ${payer} · status check due`,
+        recommendation: `Check #${c.number} with ${payer} (portal, then IVR). The Status check rule is Ask, so nothing contacts the payer until you approve.`,
+        summary: `Day ${c.age_days ?? 30} with no 835: the status-check cadence came due at 07:00.`,
+        action: 'status_check',
+        ruleId: 'rule_t1_status_check',
+        situation: 'pending:status_due',
+        rootCause: 'unknown',
+        created: at('2026-10-29', '07:00'),
+      })
       out.push(this.event('run.followup', `#${c.number} status check due · proposed → Inbox`, { claim_id: c.id }))
     }
     return out
@@ -1225,7 +1299,22 @@ export class MockDb {
     c.last_activity = { at: when, label: e.title.slice(0, 40) }
   }
 
-  private addItem(p: { id: string; kind: MockInboxItem['kind']; claim: MockClaim; agent: AgentKind; tier: Tier; title: string; recommendation: string; summary: string; action: NonNullable<MockInboxItem['proposed_action']>['action']; ruleId: string | null; situation: string; rootCause: MockInboxItem['root_cause']; created: string; cents?: number }) {
+  private addItem(p: {
+    id: string
+    kind: MockInboxItem['kind']
+    claim: MockClaim
+    agent: AgentKind
+    tier: Tier
+    title: string
+    recommendation: string
+    summary: string
+    action: NonNullable<MockInboxItem['proposed_action']>['action']
+    ruleId: string | null
+    situation: string
+    rootCause: MockInboxItem['root_cause']
+    created: string
+    cents?: number
+  }) {
     if (this.s.items.some((i) => i.id === p.id)) return
     const item: MockInboxItem = {
       id: p.id,
@@ -1253,7 +1342,23 @@ export class MockDb {
     this.s.items = [...this.s.items, item]
     this.s.week = [
       ...this.s.week,
-      weekRow({ run_id: this.id('run'), at: p.created, agent: p.agent, action_kind: p.action, action: p.summary, subject: `#${p.claim.number} · ${p.claim.patient_name}`, claim_id: p.claim.id, outcome: 'Awaiting you', inbox_item_id: item.id, rule_id: p.ruleId, tier: p.tier, root_cause: p.rootCause, cents: item.cents, decision: true, ran: false }),
+      weekRow({
+        run_id: this.id('run'),
+        at: p.created,
+        agent: p.agent,
+        action_kind: p.action,
+        action: p.summary,
+        subject: `#${p.claim.number} · ${p.claim.patient_name}`,
+        claim_id: p.claim.id,
+        outcome: 'Awaiting you',
+        inbox_item_id: item.id,
+        rule_id: p.ruleId,
+        tier: p.tier,
+        root_cause: p.rootCause,
+        cents: item.cents,
+        decision: true,
+        ran: false,
+      }),
     ]
   }
 
@@ -1274,23 +1379,30 @@ export class MockDb {
   rules(): RulesOut {
     const open = this.openItems()
     const decisions = this.decisions()
-    const tiers = ([1, 2, 3] as const).map((tier) => ({
-      tier,
-      label: TIER_TEXT[tier].label,
-      description: TIER_TEXT[tier].description,
-      rows: this.s.rules
-        .filter((r) => r.tier === tier)
-        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id.localeCompare(b.id))
-        .map((rule) => ({
-          rule,
-          ran_without_review_7d: decisions.filter((d) => d.rule_id === rule.id && d.ran).length,
-          routine_runs_7d: ROUTINE_RUNS[rule.id] ?? 0,
-          waiting: open.filter((i) => i.rule_id === rule.id).length,
-          confidence: this.confidenceOf(rule),
-          signed_by_name: nameOf(rule.signed_by),
-          locked: tier === 3,
-        })),
-    })).map((g) => ({ ...g, count: g.rows.length, ran_without_review_7d: g.rows.reduce((a, r) => a + r.ran_without_review_7d, 0), waiting: g.rows.reduce((a, r) => a + r.waiting, 0) }))
+    const tiers = ([1, 2, 3] as const)
+      .map((tier) => ({
+        tier,
+        label: TIER_TEXT[tier].label,
+        description: TIER_TEXT[tier].description,
+        rows: this.s.rules
+          .filter((r) => r.tier === tier)
+          .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id.localeCompare(b.id))
+          .map((rule) => ({
+            rule,
+            ran_without_review_7d: decisions.filter((d) => d.rule_id === rule.id && d.ran).length,
+            routine_runs_7d: ROUTINE_RUNS[rule.id] ?? 0,
+            waiting: open.filter((i) => i.rule_id === rule.id).length,
+            confidence: this.confidenceOf(rule),
+            signed_by_name: nameOf(rule.signed_by),
+            locked: tier === 3,
+          })),
+      }))
+      .map((g) => ({
+        ...g,
+        count: g.rows.length,
+        ran_without_review_7d: g.rows.reduce((a, r) => a + r.ran_without_review_7d, 0),
+        waiting: g.rows.reduce((a, r) => a + r.waiting, 0),
+      }))
     return {
       tiers,
       rules_count: tiers.reduce((a, t) => a + t.count, 0),
@@ -1378,7 +1490,9 @@ export class MockDb {
   }
 
   private requestSignoff(rule: Rule, change: RulePatch, user: UserId): MockInboxItem {
-    const pending = this.openItems().find((i) => i.kind === 'owner_signoff' && i.rule_id === rule.id && JSON.stringify(i.proposed_action?.params?.change) === JSON.stringify(change))
+    const pending = this.openItems().find(
+      (i) => i.kind === 'owner_signoff' && i.rule_id === rule.id && JSON.stringify(i.proposed_action?.params?.change) === JSON.stringify(change),
+    )
     if (pending) return pending
     const preview = this.preview(rule.id, change.mode ?? rule.mode, change.max_cents ?? rule.scope?.max_cents ?? null)
     const item: MockInboxItem = {
@@ -1389,7 +1503,9 @@ export class MockDb {
       agent: null,
       rule_id: rule.id,
       title: `Sign-off · ${rule.label}`,
-      summary: `${USER_NAME[user]} asked to change a tier-2 rule: ${Object.entries(change).map(([k, v]) => `${k} → ${String(v)}`).join(', ')}`,
+      summary: `${USER_NAME[user]} asked to change a tier-2 rule: ${Object.entries(change)
+        .map(([k, v]) => `${k} → ${String(v)}`)
+        .join(', ')}`,
       recommendation: `This week, ${preview.would_run} of ${preview.total} decisions would have run without review (now ${preview.baseline_would_run}).`,
       plan_steps: [],
       confidence: null,
@@ -1429,7 +1545,18 @@ export class MockDb {
     }
     const baseline = decisions.filter((d) => d.ran).length
     const heldTotal = Object.values(held).reduce((a, n) => a + n, 0)
-    return { rule_id: ruleId, mode: m, max_cents: cap, would_run: count, total: decisions.length, baseline_would_run: baseline, held_by_root_cause: held, held_total: heldTotal, before_holds: count + heldTotal, net_change: count - baseline }
+    return {
+      rule_id: ruleId,
+      mode: m,
+      max_cents: cap,
+      would_run: count,
+      total: decisions.length,
+      baseline_would_run: baseline,
+      held_by_root_cause: held,
+      held_total: heldTotal,
+      before_holds: count + heldTotal,
+      net_change: count - baseline,
+    }
   }
 
   setPracticeCap(cents: number, user: UserId) {
@@ -1484,7 +1611,19 @@ export class MockDb {
     const accepted = { ...proposal, state: 'accepted' as const }
     this.s.proposals = this.s.proposals.map((p) => (p.id === id ? accepted : p))
     this.s.rules = [...this.s.rules.filter((r) => r.id !== rule.id), rule]
-    this.s.ruleChanges = [...this.s.ruleChanges, { id: `rch_${rule.id}_1`, rule_id: rule.id, at: this.s.now, by: user, before: {}, after: { mode: 'auto', max_cents: scope.max_cents, origin: 'learned' }, items_affected_since: 0, summary: `Accepted proposal: ${proposal.title}` }]
+    this.s.ruleChanges = [
+      ...this.s.ruleChanges,
+      {
+        id: `rch_${rule.id}_1`,
+        rule_id: rule.id,
+        at: this.s.now,
+        by: user,
+        before: {},
+        after: { mode: 'auto', max_cents: scope.max_cents, origin: 'learned' },
+        items_affected_since: 0,
+        summary: `Accepted proposal: ${proposal.title}`,
+      },
+    ]
     this.changed()
     return { proposal: accepted, rule, meta: { counts: this.counts(user) } }
   }
@@ -1551,15 +1690,33 @@ export class MockDb {
     const builtToday = this.s.claims.filter((c) => c.built_at.slice(0, 10) === today).sort((a, b) => a.built_at.localeCompare(b.built_at))
     const isLeaving = (c: MockClaim) => c.status === 'ready' || Boolean(c.queued_file)
     const sent = builtToday.filter((c) => !c.hold && !isLeaving(c))
-    const leaving = [...builtToday.filter((c) => !c.hold && isLeaving(c)), ...this.s.claims.filter((c) => c.built_at.slice(0, 10) < today && !c.hold && c.queued_file?.at.slice(0, 10) === today)]
+    const leaving = [
+      ...builtToday.filter((c) => !c.hold && isLeaving(c)),
+      ...this.s.claims.filter((c) => c.built_at.slice(0, 10) < today && !c.hold && c.queued_file?.at.slice(0, 10) === today),
+    ]
     const holds = this.s.claims.filter((c) => c.hold && !c.hold.cleared_at).map(held)
     holds.sort((a, b) => (a.timely_days_left ?? 1e6) - (b.timely_days_left ?? 1e6))
     const hhmm = this.s.now.slice(11, 16)
     const next = FILE_TIMES.find((t) => t > hhmm)
-    const lastSent = sent.map((c) => c.sent_at ?? '').filter(Boolean).sort().at(-1)
+    const lastSent = sent
+      .map((c) => c.sent_at ?? '')
+      .filter(Boolean)
+      .sort()
+      .at(-1)
     const sentRows = sent.map(row)
     const leavingRows = leaving.map(row)
-    const notBillable = today === '2026-10-28' ? [{ patient: { id: 'pat_ortega_j', name: 'Javier Ortega', display_name: 'J. Ortega', dob: '1966-08-08' }, cdt: 'D4341', quadrant: 'UR', fee_cents: 24000, reason: 'no pocket depths charted for this quadrant · not billable (TorchRCM never nudges documentation)' }] : []
+    const notBillable =
+      today === '2026-10-28'
+        ? [
+            {
+              patient: { id: 'pat_ortega_j', name: 'Javier Ortega', display_name: 'J. Ortega', dob: '1966-08-08' },
+              cdt: 'D4341',
+              quadrant: 'UR',
+              fee_cents: 24000,
+              reason: 'no pocket depths charted for this quadrant · not billable (TorchRCM never nudges documentation)',
+            },
+          ]
+        : []
     const total = (cents: number[]) => ({ count: cents.length, cents: cents.reduce((a, n) => a + n, 0) })
     const byFile = new Map<string | null, LedgerRow[]>()
     for (const r of leavingRows) byFile.set(r.file_time, [...(byFile.get(r.file_time) ?? []), r])
@@ -1588,7 +1745,12 @@ export class MockDb {
   /** GET /eligibility?date — the next business day through +3 (or exactly `date`), as the API. */
   eligibility(date?: string | null): EligibilityOut {
     const today = this.s.now.slice(0, 10)
-    const start = date ?? ELIGIBILITY.map((r) => r.start.slice(0, 10)).filter((d) => d > today).sort()[0] ?? today
+    const start =
+      date ??
+      ELIGIBILITY.map((r) => r.start.slice(0, 10))
+        .filter((d) => d > today)
+        .sort()[0] ??
+      today
     const span = date ? 0 : 3
     const open = new Set(this.openItems().map((i) => i.id))
     const rows = ELIGIBILITY.filter((r) => {
@@ -1621,7 +1783,12 @@ export class MockDb {
     const arCents = ar.reduce((a, c) => a + c.billed_cents, 0)
     const PATIENT_AR = 3_310_000
     const DAILY = 402_000
-    const buckets: [string, number, number][] = [['0_30', 0, 30], ['31_60', 31, 60], ['61_90', 61, 90], ['90_plus', 91, 1e6]]
+    const buckets: [string, number, number][] = [
+      ['0_30', 0, 30],
+      ['31_60', 31, 60],
+      ['61_90', 61, 90],
+      ['90_plus', 91, 1e6],
+    ]
     const aging = buckets.map(([bucket, lo, hi]) => {
       const rows = ar.filter((c) => (c.age_days ?? 0) >= lo && (c.age_days ?? 0) <= hi)
       const cents = rows.reduce((a, c) => a + c.billed_cents, 0)
@@ -1656,7 +1823,14 @@ export class MockDb {
       agent_impact: {
         items_auto: ran,
         items_to_you: this.decisions().filter((d) => !d.ran).length,
-        hours_saved_est: { key: 'hours_saved', label: 'Hours saved (estimate)', value: Math.round((ran * 9) / 6) / 10, unit: 'count', formula: 'items run without review × 9 min', basis: 'estimate: median manual handling time from the 12-month approval log' },
+        hours_saved_est: {
+          key: 'hours_saved',
+          label: 'Hours saved (estimate)',
+          value: Math.round((ran * 9) / 6) / 10,
+          unit: 'count',
+          formula: 'items run without review × 9 min',
+          basis: 'estimate: median manual handling time from the 12-month approval log',
+        },
       },
     }
   }
@@ -1672,7 +1846,10 @@ export class MockDb {
       if (c.in_flight) inFlight.push(this.summary(c))
       const route = routeDenial(c.denial.carc, c.denial.rarc, c.payer_key, SELF_FUNDED_CLAIMS.has(c.id))
       // the API's `_denial_signer`: the open item's named signer, else the route's (treating dentist or owner)
-      const itemSigner = open.filter((i) => i.claim_id === c.id).map(signerOf).find((u) => u !== null)
+      const itemSigner = open
+        .filter((i) => i.claim_id === c.id)
+        .map(signerOf)
+        .find((u) => u !== null)
       const routeSigner = route.signer_role === 'rendering_dentist' ? (treatingDentist(c) ?? 'usr_morgan') : route.signer_role === 'owner' ? 'usr_morgan' : null
       const signerId = itemSigner ?? routeSigner
       const signer = signerId ? USER_NAME[signerId] : null
@@ -1835,7 +2012,21 @@ export class MockDb {
       run.evidence = [...run.evidence, EvidenceSchema.parse(sp.evidence)]
     }
     const evidence = sp?.evidence ? [{ id: sp.evidence.id, kind: sp.evidence.kind, title: sp.evidence.title }] : []
-    this.emit(run.id, 'step', { run_id: run.id, idx: step.idx, name: step.name, label: step.label, phase: 'completed', status: 'ok', output_summary: step.output_summary, progress_lines: step.progress_lines, policy_verdict: step.policy_verdict, evidence_ids: step.evidence_ids, evidence, planner: run.planner, model_situation_label: run.model_situation_label })
+    this.emit(run.id, 'step', {
+      run_id: run.id,
+      idx: step.idx,
+      name: step.name,
+      label: step.label,
+      phase: 'completed',
+      status: 'ok',
+      output_summary: step.output_summary,
+      progress_lines: step.progress_lines,
+      policy_verdict: step.policy_verdict,
+      evidence_ids: step.evidence_ids,
+      evidence,
+      planner: run.planner,
+      model_situation_label: run.model_situation_label,
+    })
     const situation = this.plans.get(run.id)?.situation
     if (step.name === 'decide' && situation) {
       run.model_situation_label = situation.label
@@ -1852,12 +2043,35 @@ export class MockDb {
     step.status = 'failed'
     step.finished_at = this.s.now
     step.output_summary = message
-    this.emit(run.id, 'step', { run_id: run.id, idx: step.idx, name: step.name, label: step.label, phase: 'completed', status: 'failed', output_summary: message, progress_lines: step.progress_lines, planner: run.planner })
+    this.emit(run.id, 'step', {
+      run_id: run.id,
+      idx: step.idx,
+      name: step.name,
+      label: step.label,
+      phase: 'completed',
+      status: 'failed',
+      output_summary: message,
+      progress_lines: step.progress_lines,
+      planner: run.planner,
+    })
     const claim = this.s.claims.find((c) => c.id === run.claim_id)
     const approved = this.s.items.find((i) => i.id === run.inbox_item_id)
     if (approved && !this.s.items.some((i) => i.run_id === run.id && i.kind === 'run_failed')) {
       this.s.items = [
-        { ...approved, id: `itm_fail_${run.id}`, kind: 'run_failed', state: 'open', tier: null, run_id: run.id, title: `Run stopped · ${step.label || step.name}${claim ? ` · #${claim.number}` : ''}`, summary: message, recommendation: `Nothing was changed or sent. ${approved.recommendation}`, resolved_by: null, resolved_at: null, created_at: this.s.now },
+        {
+          ...approved,
+          id: `itm_fail_${run.id}`,
+          kind: 'run_failed',
+          state: 'open',
+          tier: null,
+          run_id: run.id,
+          title: `Run stopped · ${step.label || step.name}${claim ? ` · #${claim.number}` : ''}`,
+          summary: message,
+          recommendation: `Nothing was changed or sent. ${approved.recommendation}`,
+          resolved_by: null,
+          resolved_at: null,
+          created_at: this.s.now,
+        },
         ...this.s.items,
       ]
     }
@@ -1948,7 +2162,11 @@ export class MockDb {
       case 'reprocessing_request':
         return item.kind === 'review_draft'
           ? [
-              { name: 'act:render_request', label: `Fill in ${payer}'s reprocessing form (history correction)`, output: `Fill in ${payer}'s reprocessing form (history correction)` },
+              {
+                name: 'act:render_request',
+                label: `Fill in ${payer}'s reprocessing form (history correction)`,
+                output: `Fill in ${payer}'s reprocessing form (history correction)`,
+              },
               { name: 'act:payer_submit', label: `Submit to ${payer} with the enclosures`, output: `Submit to ${payer} with the enclosures` },
             ]
           : [
@@ -1988,7 +2206,15 @@ export class MockDb {
       const tooth = item.proposed_action?.params?.tooth
       if (typeof tooth !== 'string') throw new MockError(422, 'invalid_params', `${item.id} names no tooth`)
       const nea = String(47731820 + (claim.number % 97))
-      const neaEvidence: Evidence = { id: `ev_${claim.number}_nea`, kind: 'nea_attachment', title: `PA #${tooth} uploaded to NEA FastAttach`, excerpt: `NEA# ${nea} · periapical #${tooth} · from PMS imaging`, captured_at: this.s.now, reference: nea, gathered_by: 'code' }
+      const neaEvidence: Evidence = {
+        id: `ev_${claim.number}_nea`,
+        kind: 'nea_attachment',
+        title: `PA #${tooth} uploaded to NEA FastAttach`,
+        excerpt: `NEA# ${nea} · periapical #${tooth} · from PMS imaging`,
+        captured_at: this.s.now,
+        reference: nea,
+        gathered_by: 'code',
+      }
       return {
         steps: [
           { name: 'act:fetch_image', label: 'Fetch the PA x-ray from imaging', output: `PA #${tooth} · PMS imaging · ${claim.number === 4821 ? '10/12 10:41' : 'on file'}` },
@@ -1999,7 +2225,10 @@ export class MockDb {
         onDone: (db, run) => {
           run.result_summary = `Resubmit queued · leaves 11:15`
           run.audit_line = `Follow-up · Resubmit with attachment · #${claim.number} · Delta · PA via NEA# ${nea} · approved by ${USER_NAME[user]} · until the 11:15 file leaves`
-          claim.attachments = [...claim.attachments, { id: db.id('att'), kind: 'pa', nea_number: nea, source: 'pms_imaging', created_at: db.now, note: `PA #${tooth} · uploaded via NEA` }]
+          claim.attachments = [
+            ...claim.attachments,
+            { id: db.id('att'), kind: 'pa', nea_number: nea, source: 'pms_imaging', created_at: db.now, note: `PA #${tooth} · uploaded via NEA` },
+          ]
           claim.in_flight = 'resubmit queued · leaves 11:15'
           claim.queued_file = { at: at(db.now.slice(0, 10), '11:15'), kind: 'resubmit' }
           claim.agent_note = 'resubmit queued · 11:15'
@@ -2037,18 +2266,40 @@ export class MockDb {
 
   private triagePlan(claim: MockClaim): RunPlan {
     if (claim.number === 4744) {
-      const portal: Evidence = { id: 'ev_4744_portal', kind: 'portal_screenshot', title: 'MetLife portal correspondence · 10/22', excerpt: '“Please provide the date of extraction of tooth #14 and indicate whether this is an initial placement or a replacement prosthesis.”', captured_at: at('2026-10-22', '09:12'), reference: 'ML-CORR-1022-4410', gathered_by: 'agent' }
-      const note: Evidence = { id: 'ev_4744_note', kind: 'note_excerpt', title: 'PMS note · 2019-03-02 · D7140 #14', excerpt: 'Extraction #14, non-restorable fracture. Signed Dr. Morgan 2019-03-02.', captured_at: this.s.now, reference: 'VIS-2019-0302-14', gathered_by: 'agent' }
+      const portal: Evidence = {
+        id: 'ev_4744_portal',
+        kind: 'portal_screenshot',
+        title: 'MetLife portal correspondence · 10/22',
+        excerpt: '“Please provide the date of extraction of tooth #14 and indicate whether this is an initial placement or a replacement prosthesis.”',
+        captured_at: at('2026-10-22', '09:12'),
+        reference: 'ML-CORR-1022-4410',
+        gathered_by: 'agent',
+      }
+      const note: Evidence = {
+        id: 'ev_4744_note',
+        kind: 'note_excerpt',
+        title: 'PMS note · 2019-03-02 · D7140 #14',
+        excerpt: 'Extraction #14, non-restorable fracture. Signed Dr. Morgan 2019-03-02.',
+        captured_at: this.s.now,
+        reference: 'VIS-2019-0302-14',
+        gathered_by: 'agent',
+      }
       return {
         steps: [
           { name: 'gather_case', output: 'Case file: claim, coverage (missing-tooth clause), 2 status checks, 1 correspondence' },
-          { name: 'investigate', output: '3 reads chosen by the agent', progress: ['read portal correspondence 10/22', 'PMS visit 2019-03-02 · D7140 #14', 'coverage · missing-tooth clause'], evidence: portal },
+          {
+            name: 'investigate',
+            output: '3 reads chosen by the agent',
+            progress: ['read portal correspondence 10/22', 'PMS visit 2019-03-02 · D7140 #14', 'coverage · missing-tooth clause'],
+            evidence: portal,
+          },
           { name: 'decide', output: 'Records request · Ask Dana → inbox', verdict: 'propose', evidence: note },
           { name: 'report', output: 'New inbox item with 2 citations' },
         ],
         situation: {
           label: 'payer asks for missing-tooth history',
-          rationale: 'MetLife’s 10/22 letter asks when #14 was extracted and whether the bridge is initial or a replacement. The signed 2019-03-02 D7140 #14 note answers both, so a records request with that note fits the reviewed envelope. The classifier could not name this situation, so it goes to Dana rather than running.',
+          rationale:
+            'MetLife’s 10/22 letter asks when #14 was extracted and whether the bridge is initial or a replacement. The signed 2019-03-02 D7140 #14 note answers both, so a records request with that note fits the reviewed envelope. The classifier could not name this situation, so it goes to Dana rather than running.',
         },
         onDone: (db, run) => {
           run.result_summary = 'Proposed: records request with the 2019 extraction note'
@@ -2078,7 +2329,12 @@ export class MockDb {
               run_id: run.id,
             },
           ]
-          db.pushTimeline(claim.id, { lane: 'agent', run_id: run.id, title: 'Triage: payer asks for missing-tooth history → records request proposed', evidence_ids: [portal.id, note.id] })
+          db.pushTimeline(claim.id, {
+            lane: 'agent',
+            run_id: run.id,
+            title: 'Triage: payer asks for missing-tooth history → records request proposed',
+            evidence_ids: [portal.id, note.id],
+          })
           db.s.week = [
             ...db.s.week,
             weekRow({
@@ -2142,6 +2398,8 @@ export class MockDb {
 
   /** Test hook: mark an item's payer file as departed so approve returns 409 file_departed. */
   departFile(itemId: string, leftAt: string) {
-    this.s.items = this.s.items.map((i) => (i.id === itemId && i.proposed_action ? { ...i, proposed_action: { ...i.proposed_action, params: { ...i.proposed_action.params, file_departed_at: leftAt } } } : i))
+    this.s.items = this.s.items.map((i) =>
+      i.id === itemId && i.proposed_action ? { ...i, proposed_action: { ...i.proposed_action, params: { ...i.proposed_action.params, file_departed_at: leftAt } } } : i,
+    )
   }
 }

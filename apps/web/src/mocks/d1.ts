@@ -28,8 +28,15 @@ const HOLD_HOLDER: Record<string, [MoveWho, Role | null]> = {
   reprocessing_requested: ['payer', null],
 }
 export const FILING_ACTIONS = new Set([
-  'resubmit_with_attachment', 'reprocessing_request', 'records_request', 'formal_appeal', 'corrected_claim',
-  'send_claim_pms_codes', 'send_claim_agent_text', 'fix_demographics_resend', 'cob_order_change',
+  'resubmit_with_attachment',
+  'reprocessing_request',
+  'records_request',
+  'formal_appeal',
+  'corrected_claim',
+  'send_claim_pms_codes',
+  'send_claim_agent_text',
+  'fix_demographics_resend',
+  'cob_order_change',
 ])
 const PAYER_REQUESTS = new Set(['reprocessing_request', 'records_request'])
 const PAYER_ACKS = new Set(['payer_277ca_a1', 'payer_277ca_a7'])
@@ -158,7 +165,13 @@ export interface MoveFacts {
 
 export function claimMove(f: MoveFacts): ClaimMove {
   const { claim, viewer } = f
-  const move = (who: MoveWho, label: string, role: Role | null = null, userId: string | null = null, mine = false): ClaimMove => ({ who, holder_role: role, holder_user_id: userId, mine, label })
+  const move = (who: MoveWho, label: string, role: Role | null = null, userId: string | null = null, mine = false): ClaimMove => ({
+    who,
+    holder_role: role,
+    holder_user_id: userId,
+    mine,
+    label,
+  })
   const billing = viewer !== null && ['billing', 'owner'].includes(USER_ROLE[viewer])
   if (claim.closed_reason) return move('nobody', 'Closed')
   if (f.activeRuns.length) return move('agents', f.activeRuns.every((r) => r.status === 'paused') ? 'Agents paused' : 'With the agents')
@@ -303,16 +316,17 @@ const PHRASES: Record<string, (c: WordsCtx) => string> = {
   reprocessing_request: (c) => (c.drafted ? `Send this note to ${c.payer}` : c.params.basis === 'ny_prompt_pay' ? 'Send prompt-pay request' : `Ask ${c.payer} to reprocess`),
   request_835: (c) => `Ask ${c.payer} for the 835`,
   send_claim_pms_codes: (c) => `Send ${plural(c.n, 'claim', 'claims')}`,
-  fix_demographics_resend: (c) => (c.params.field === 'subscriber_id' ? 'Update ID and resend' : `Update ${(FIELD_WORD[String(c.params.field)] ?? 'field').toLowerCase()} and resend`),
+  fix_demographics_resend: (c) =>
+    c.params.field === 'subscriber_id' ? 'Update ID and resend' : `Update ${(FIELD_WORD[String(c.params.field)] ?? 'field').toLowerCase()} and resend`,
   eligibility_check: () => 'Check eligibility',
   post_era_line: (c) =>
     followUp('post_era_line', c.params)?.[0] === 'reprocessing_request' && c.params.disputed_cents
       ? `Post ${c.payer}'s payment, ask ${c.payer} to reprocess ${dollars(c.params.disputed_cents)}`
       : c.params.post === 'patient_share_only' && c.params.disputed_cents
-      ? `Post ${c.payer}'s payment, dispute ${dollars(c.params.disputed_cents)}`
-      : c.params.post === 'patient_share_only'
-        ? 'Post the patient share'
-        : `Post ${c.payer}'s payment`,
+        ? `Post ${c.payer}'s payment, dispute ${dollars(c.params.disputed_cents)}`
+        : c.params.post === 'patient_share_only'
+          ? 'Post the patient share'
+          : `Post ${c.payer}'s payment`,
   update_pms_benefits: () => 'Update benefits in the PMS',
   send_claim_agent_text: () => 'Send claim with the reviewed narrative',
   corrected_claim: () => 'Send a corrected claim',
@@ -337,7 +351,10 @@ const counted = (w: string, rest: string): Touch => [`${w} ${rest}`, `${pluralOf
 /** Each recipe's step effects, in step order (the API's `RecipeStep.effect`). */
 const EFFECTS: Record<string, (c: WordsCtx) => Touch[]> = {
   resubmit_with_attachment: (c) => [counted(ATTACHMENT_WORD[String(c.params.attachment_kind)] ?? 'attachment', 'uploaded to NEA'), queued(c, NEA_LEAD_MIN)],
-  records_request: (c) => [['records packet uploaded to NEA', 'records packets uploaded to NEA'], [`set of records sent to ${c.payer}`, `sets of records sent to ${c.payer}`]],
+  records_request: (c) => [
+    ['records packet uploaded to NEA', 'records packets uploaded to NEA'],
+    [`set of records sent to ${c.payer}`, `sets of records sent to ${c.payer}`],
+  ],
   status_check: (c) => [[`status check with ${c.payer}`, `status checks with ${c.payer}`]],
   payer_rep_call: (c) => [[`call to ${c.payer} provider services`, `calls to ${c.payer} provider services`]],
   reprocessing_request: (c) => [
@@ -365,7 +382,10 @@ const EFFECTS: Record<string, (c: WordsCtx) => Touch[]> = {
   hold_claim: () => [],
 }
 const LEFT_TO_POST: Record<string, (c: WordsCtx) => string[]> = {
-  write_off: (c) => [`${dollars(c.params.writeoff_cents)} write-off to post in the PMS`, ...(c.params.patient_transfer_cents ? [`${dollars(c.params.patient_transfer_cents)} to move to patient balance`] : [])],
+  write_off: (c) => [
+    `${dollars(c.params.writeoff_cents)} write-off to post in the PMS`,
+    ...(c.params.patient_transfer_cents ? [`${dollars(c.params.patient_transfer_cents)} to move to patient balance`] : []),
+  ],
   formal_appeal: (c) => [`Signed appeal to send to ${c.payer}`],
   void_claim: (c) => [`Void to file with ${c.payer}`],
   discretionary_refund: (c) => [`${dollars(c.params.cents)} refund to issue`],
@@ -373,8 +393,13 @@ const LEFT_TO_POST: Record<string, (c: WordsCtx) => string[]> = {
   waiver: (c) => [`${dollars(c.params.cents)} waiver to post`],
 }
 const REVERSES: Record<string, 'until_file_leaves' | 'until_day_close' | 'void_only'> = {
-  resubmit_with_attachment: 'until_file_leaves', send_claim_pms_codes: 'until_file_leaves', fix_demographics_resend: 'until_file_leaves',
-  send_claim_agent_text: 'until_file_leaves', post_era_line: 'until_day_close', patient_transfer: 'until_day_close', corrected_claim: 'void_only',
+  resubmit_with_attachment: 'until_file_leaves',
+  send_claim_pms_codes: 'until_file_leaves',
+  fix_demographics_resend: 'until_file_leaves',
+  send_claim_agent_text: 'until_file_leaves',
+  post_era_line: 'until_day_close',
+  patient_transfer: 'until_day_close',
+  corrected_claim: 'void_only',
 }
 const CONTACTS_PAYER = new Set(['status_check', 'payer_rep_call', 'records_request', 'resubmit_with_attachment', 'reprocessing_request', 'request_835', 'eligibility_check'])
 
@@ -502,15 +527,47 @@ export function changeNote(status: ClaimStatus, actions: string[], payers: strin
 // ── plain procedure names (the API's world/fees.py PLAIN) ────────────────────────────────────────────────
 
 const PLAIN: Record<string, string> = {
-  D0120: 'Periodic exam', D0140: 'Limited exam', D0150: 'Comprehensive exam', D0210: 'Full-mouth x-rays', D0220: 'PA x-ray',
-  D0230: 'PA x-ray, additional', D0272: 'Bitewings, two', D0274: 'Bitewings, four', D0330: 'Panoramic x-ray', D1110: 'Adult cleaning',
-  D1120: 'Child cleaning', D1206: 'Fluoride varnish', D1208: 'Fluoride', D1351: 'Sealant', D2140: 'Amalgam, one surface',
-  D2150: 'Amalgam, two surfaces', D2391: 'Composite, one surface', D2392: 'Composite, two surfaces', D2393: 'Composite, three surfaces',
-  D2394: 'Composite, four+ surfaces', D2740: 'Crown', D2750: 'Crown, PFM', D2950: 'Core buildup', D2954: 'Post and core',
-  D3310: 'Root canal, anterior', D3320: 'Root canal, premolar', D3330: 'Root canal, molar', D4341: 'Scaling and root planing, 4+ teeth',
-  D4342: 'Scaling and root planing, 1-3 teeth', D4910: 'Perio maintenance', D6010: 'Implant', D6057: 'Custom abutment',
-  D6065: 'Implant crown', D6240: 'Bridge pontic', D6750: 'Bridge retainer crown', D7140: 'Extraction', D7210: 'Surgical extraction',
-  D9110: 'Palliative treatment', D9941: 'Athletic mouthguard', D9944: 'Night guard', D9972: 'Whitening, per arch',
+  D0120: 'Periodic exam',
+  D0140: 'Limited exam',
+  D0150: 'Comprehensive exam',
+  D0210: 'Full-mouth x-rays',
+  D0220: 'PA x-ray',
+  D0230: 'PA x-ray, additional',
+  D0272: 'Bitewings, two',
+  D0274: 'Bitewings, four',
+  D0330: 'Panoramic x-ray',
+  D1110: 'Adult cleaning',
+  D1120: 'Child cleaning',
+  D1206: 'Fluoride varnish',
+  D1208: 'Fluoride',
+  D1351: 'Sealant',
+  D2140: 'Amalgam, one surface',
+  D2150: 'Amalgam, two surfaces',
+  D2391: 'Composite, one surface',
+  D2392: 'Composite, two surfaces',
+  D2393: 'Composite, three surfaces',
+  D2394: 'Composite, four+ surfaces',
+  D2740: 'Crown',
+  D2750: 'Crown, PFM',
+  D2950: 'Core buildup',
+  D2954: 'Post and core',
+  D3310: 'Root canal, anterior',
+  D3320: 'Root canal, premolar',
+  D3330: 'Root canal, molar',
+  D4341: 'Scaling and root planing, 4+ teeth',
+  D4342: 'Scaling and root planing, 1-3 teeth',
+  D4910: 'Perio maintenance',
+  D6010: 'Implant',
+  D6057: 'Custom abutment',
+  D6065: 'Implant crown',
+  D6240: 'Bridge pontic',
+  D6750: 'Bridge retainer crown',
+  D7140: 'Extraction',
+  D7210: 'Surgical extraction',
+  D9110: 'Palliative treatment',
+  D9941: 'Athletic mouthguard',
+  D9944: 'Night guard',
+  D9972: 'Whitening, per arch',
 }
 
 export function plainProcedures(lines: { cdt: string; tooth?: string | null }[]): string {
@@ -537,8 +594,7 @@ export function trackRecord(k: number, n: number, outcome: string): Confidence {
 
 // ── could this rule learn? (the API's agents/policy.py `learnable`) ─────────────────────────────────────
 
-export const ROOT_CAUSE_OURS_REASON =
-  'Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review.'
+export const ROOT_CAUSE_OURS_REASON = 'Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review.'
 
 interface LearnRule {
   label: string
@@ -598,8 +654,7 @@ export function procedureNoun(cdt: string | null | undefined): string {
 const SENTENCES: Record<string, (f: HeadlineFacts) => string> = {
   'denied:CO-16:N29:pa_missing': (f) => `${f.payer} needs the PA x-ray for ${subject(f)}`,
   'denied:CO-16:M127:records_request': (f) => `${f.payer} asked for records before paying ${subject(f)}`,
-  'denied:CO-119:frequency_history_conflict': (f) =>
-    `${f.payer} denied ${subject(f)} as too frequent; its tooth history doesn't match our chart`,
+  'denied:CO-119:frequency_history_conflict': (f) => `${f.payer} denied ${subject(f)} as too frequent; its tooth history doesn't match our chart`,
   'denied:CO-22:cob_order': (f) => `${f.payer} says another plan pays first on ${subject(f)}`,
   'denied:CO-50:N10:formal_appeal': (f) => `${f.payer} denied ${subject(f)} as not medically necessary`,
   'denied:CO-29:timely_filing_appeal': (f) => `${f.payer} says ${subject(f)} was filed too late`,
@@ -627,7 +682,7 @@ export function claimHeadline(situation: string | null | undefined, f: HeadlineF
 
 /** The API's `group_headline`: one counted sentence when every member shares situation, payer and procedure. */
 export function groupHeadline(members: { situation?: string; payer: string; procedure: string }[], fallback: string): string {
-  const one = <T,>(xs: T[]) => (new Set(xs).size === 1 ? xs[0] : undefined)
+  const one = <T>(xs: T[]) => (new Set(xs).size === 1 ? xs[0] : undefined)
   const situation = one(members.map((m) => m.situation))
   const payer = one(members.map((m) => m.payer))
   const procedure = one(members.map((m) => m.procedure))
@@ -646,8 +701,7 @@ export function visitWhen(now: string, start: string): string {
   const h = +start.slice(11, 13)
   const time = `${h % 12 || 12}:${start.slice(14, 16)} ${h < 12 ? 'AM' : 'PM'}`
   const weekday = WEEKDAY[new Date(day(start)).getUTCDay()] ?? ''
-  const when =
-    days === 0 ? "today's" : days === 1 ? "tomorrow's" : days > 1 && days < 7 ? `${weekday}'s` : `the ${+start.slice(5, 7)}/${+start.slice(8, 10)}`
+  const when = days === 0 ? "today's" : days === 1 ? "tomorrow's" : days > 1 && days < 7 ? `${weekday}'s` : `the ${+start.slice(5, 7)}/${+start.slice(8, 10)}`
   return `${when} ${time} visit`
 }
 

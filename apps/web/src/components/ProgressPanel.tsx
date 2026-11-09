@@ -41,22 +41,12 @@ const VERDICT: Record<PolicyVerdict, { label: string; tone: 'ok' | 'act' | 'caut
 }
 
 function StepDot({ status }: { status: RunStep['status'] }) {
-  const base =
-    'relative z-[1] mt-0.5 flex size-4 flex-none items-center justify-center rounded-full text-xs font-bold leading-none text-white'
+  const base = 'relative z-[1] mt-0.5 flex size-4 flex-none items-center justify-center rounded-full text-xs font-bold leading-none text-white'
   if (status === 'ok') return <span className={cn(base, 'bg-agents')}>✓</span>
   if (status === 'failed') return <span className={cn(base, 'bg-risk')}>✕</span>
-  if (status === 'running')
-    return (
-      <span
-        className={cn(base, 'animate-pulse bg-paper shadow-[inset_0_0_0_5px_var(--color-agents)]')}
-        aria-label="running"
-      />
-    )
-  if (status === 'skipped')
-    return <span className={cn(base, 'bg-paper text-soft shadow-[inset_0_0_0_1.5px_var(--color-line-strong)]')}>–</span>
-  return (
-    <span className={cn(base, 'bg-paper shadow-[inset_0_0_0_1.5px_var(--color-line-strong)]')} aria-label="pending" />
-  )
+  if (status === 'running') return <span className={cn(base, 'animate-pulse bg-paper shadow-[inset_0_0_0_5px_var(--color-agents)]')} aria-label="running" />
+  if (status === 'skipped') return <span className={cn(base, 'bg-paper text-soft shadow-[inset_0_0_0_1.5px_var(--color-line-strong)]')}>–</span>
+  return <span className={cn(base, 'bg-paper shadow-[inset_0_0_0_1.5px_var(--color-line-strong)]')} aria-label="pending" />
 }
 
 function StepRow({ step, run, last }: { step: RunViewStep; run: RunView; last: boolean }) {
@@ -76,14 +66,7 @@ function StepRow({ step, run, last }: { step: RunViewStep; run: RunView; last: b
       <StepDot status={step.status} />
       <div className="min-w-0">
         <div
-          className={cn(
-            step.status === 'pending'
-              ? 'text-soft'
-              : step.status === 'failed'
-                ? 'font-medium text-risk-ink'
-                : 'text-ink',
-            step.status === 'running' && 'font-medium',
-          )}
+          className={cn(step.status === 'pending' ? 'text-soft' : step.status === 'failed' ? 'font-medium text-risk-ink' : 'text-ink', step.status === 'running' && 'font-medium')}
         >
           {step.label || step.name}
         </div>
@@ -94,13 +77,9 @@ function StepRow({ step, run, last }: { step: RunViewStep; run: RunView; last: b
             ))}
           </ul>
         )}
-        {isDecide && run.model_situation_label && (
-          <div className="text-sm text-mid">Agent’s label: “{run.model_situation_label}”</div>
-        )}
+        {isDecide && run.model_situation_label && <div className="text-sm text-mid">Agent’s label: “{run.model_situation_label}”</div>}
         {isDecide && typeof rationale === 'string' && rationale && <p className="m-0 text-sm text-mid">{rationale}</p>}
-        {step.output_summary && step.output_summary !== step.label && (
-          <small className="block text-sm text-mid">{step.output_summary}</small>
-        )}
+        {step.output_summary && step.output_summary !== step.label && <small className="block text-sm text-mid">{step.output_summary}</small>}
         {step.policy_verdict && (
           <Chip tone={VERDICT[step.policy_verdict].tone} className="mt-0.5">
             {VERDICT[step.policy_verdict].label}
@@ -121,13 +100,7 @@ function RunMeta({ run, mode }: { run: RunView; mode: StreamMode }) {
     <p className="m-0 mt-2 text-xs text-soft">
       {[
         run.planner ? PLANNER_LABEL[run.planner] : null,
-        isTerminal(run.status)
-          ? null
-          : mode === 'desynced'
-            ? 'stream lost, checking the server every 2 s'
-            : mode === 'poll'
-              ? 'updating every 2 s'
-              : 'live',
+        isTerminal(run.status) ? null : mode === 'desynced' ? 'stream lost, checking the server every 2 s' : mode === 'poll' ? 'updating every 2 s' : 'live',
       ]
         .filter(Boolean)
         .join(', ')}
@@ -150,8 +123,7 @@ function RunBlock({
   onRun: (id: string, run: RunView | undefined) => void
 }) {
   const { run, mode, error } = useRun(launched.run_id)
-  const claim = useQuery({ ...claimQuery(launched.claim_id ?? 'none'), enabled: Boolean(launched.claim_id) }).data
-    ?.claim
+  const claim = useQuery({ ...claimQuery(launched.claim_id ?? 'none'), enabled: Boolean(launched.claim_id) }).data?.claim
   useEffect(() => {
     onRun(launched.run_id, run)
   }, [launched.run_id, run, onRun])
@@ -170,48 +142,19 @@ function RunBlock({
               : 'Done'
           : `Step ${Math.min(done + 1, run.steps.length)} of ${run.steps.length}`
   return (
-    <section
-      aria-label={`Run ${launched.label}`}
-      data-run={launched.run_id}
-      data-run-status={run?.status}
-      className="border-b border-line last:border-b-0"
-    >
+    <section aria-label={`Run ${launched.label}`} data-run={launched.run_id} data-run-status={run?.status} className="border-b border-line last:border-b-0">
       <RelayRow
         className="border-b-0"
         name={
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={expanded}
-            className="flex min-w-0 items-center gap-1.5 text-left"
-          >
-            <span
-              aria-hidden
-              className={cn(
-                'inline-block size-1.5 flex-none border-b-[1.5px] border-r-[1.5px] border-soft',
-                expanded ? 'rotate-45' : '-rotate-45',
-              )}
-            />
+          <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex min-w-0 items-center gap-1.5 text-left">
+            <span aria-hidden className={cn('inline-block size-1.5 flex-none border-b-[1.5px] border-r-[1.5px] border-soft', expanded ? 'rotate-45' : '-rotate-45')} />
             <span className="truncate font-semibold">{launched.label}</span>
-            <span
-              className={cn('flex-none text-sm', run?.status === 'failed' ? 'font-medium text-risk-ink' : 'text-mid')}
-            >
-              {where}
-            </span>
+            <span className={cn('flex-none text-sm', run?.status === 'failed' ? 'font-medium text-risk-ink' : 'text-mid')}>{where}</span>
           </button>
         }
         cents={claim?.billed_cents}
         status={claim?.status}
-        baton={
-          claim ? (
-            <Baton
-              who={claim.move.who}
-              held={claim.move.mine ? 'mine' : 'other'}
-              size="lg"
-              label={claim.move.label || undefined}
-            />
-          ) : null
-        }
+        baton={claim ? <Baton who={claim.move.who} held={claim.move.mine ? 'mine' : 'other'} size="lg" label={claim.move.label || undefined} /> : null}
       />
       {error ? <p className="m-0 px-3 pb-2 text-sm text-risk-ink">Could not load this run.</p> : null}
       {run && expanded && (
@@ -222,10 +165,7 @@ function RunBlock({
             ))}
           </ol>
           {run.audit_line && (
-            <p
-              className="m-0 mt-2 rounded-md border border-line bg-fill px-2 py-1 font-mono text-xs text-mid"
-              data-testid="audit-line"
-            >
+            <p className="m-0 mt-2 rounded-md border border-line bg-fill px-2 py-1 font-mono text-xs text-mid" data-testid="audit-line">
               Audit: {run.audit_line}
             </p>
           )}
@@ -280,29 +220,17 @@ function Changes({ changes }: { changes: StripChange[] }) {
           const tile = c.key.startsWith('tile.') ? strip?.tiles.find((t) => `tile.${t.status}` === c.key) : undefined
           const denied = c.key === 'tile.denied'
           return (
-            <div
-              key={c.key}
-              data-change={c.key}
-              className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-line py-[7px]"
-            >
+            <div key={c.key} data-change={c.key} className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-line py-[7px]">
               <dt className={cn('mr-auto font-medium', denied && 'text-risk-ink')}>{c.label}</dt>
               <dd className="m-0 inline-flex items-center gap-1 whitespace-nowrap text-mid">
                 {same ? (
                   <>
                     <span className="text-soft">stays</span>{' '}
-                    <strong
-                      className={cn(
-                        'font-semibold text-ink',
-                        denied ? 'nums-proportional text-kpi text-risk-ink' : 'text-md',
-                      )}
-                    >
-                      {c.after}
-                    </strong>
+                    <strong className={cn('font-semibold text-ink', denied ? 'nums-proportional text-kpi text-risk-ink' : 'text-md')}>{c.after}</strong>
                   </>
                 ) : (
                   <>
-                    {c.before} <span className="text-soft">to</span>{' '}
-                    <strong className="text-md font-semibold text-ink">{c.after}</strong>
+                    {c.before} <span className="text-soft">to</span> <strong className="text-md font-semibold text-ink">{c.after}</strong>
                   </>
                 )}
               </dd>
@@ -379,20 +307,18 @@ export function ProgressPanel({
     : !done && wasStarting.current
       ? 'Started. The steps show as they run.'
       : done
-    ? failed.length > 0
-      ? failed[0]?.result_summary || firstFailedStep?.output_summary || 'A step failed.'
-      : views.length === 1
-        ? views[0]?.result_summary || 'Done.'
-        : `All ${views.length} runs finished.`
-    : null
+        ? failed.length > 0
+          ? failed[0]?.result_summary || firstFailedStep?.output_summary || 'A step failed.'
+          : views.length === 1
+            ? views[0]?.result_summary || 'Done.'
+            : `All ${views.length} runs finished.`
+        : null
 
   const outcome = (
     <div
       className={cn(
         'mt-4 grid items-start gap-6',
-        (done ? failed.length === 0 && launch.changes?.length : launch.touches?.length)
-          ? 'grid-cols-[minmax(0,1fr)_minmax(0,340px)]'
-          : 'grid-cols-1',
+        (done ? failed.length === 0 && launch.changes?.length : launch.touches?.length) ? 'grid-cols-[minmax(0,1fr)_minmax(0,340px)]' : 'grid-cols-1',
       )}
     >
       <div>
@@ -403,19 +329,13 @@ export function ProgressPanel({
           <p aria-live="polite" className="m-0 mt-0.5 text-sm text-ink">
             {summary}
           </p>
-          {done &&
-            failed.length > 0 &&
-            firstFailedStep?.output_summary &&
-            failed[0]?.result_summary &&
-            firstFailedStep.output_summary !== failed[0].result_summary && (
-              <p className="m-0 mt-1 text-sm" data-testid="failed-step">
-                {firstFailedStep.label}: {firstFailedStep.output_summary}
-              </p>
-            )}
+          {done && failed.length > 0 && firstFailedStep?.output_summary && failed[0]?.result_summary && firstFailedStep.output_summary !== failed[0].result_summary && (
+            <p className="m-0 mt-1 text-sm" data-testid="failed-step">
+              {firstFailedStep.label}: {firstFailedStep.output_summary}
+            </p>
+          )}
         </div>
-        <p className="m-0 mt-2 text-xs text-soft">
-          Runs in the background, so you can leave this screen. Steps resume after a reload.
-        </p>
+        <p className="m-0 mt-2 text-xs text-soft">Runs in the background, so you can leave this screen. Steps resume after a reload.</p>
         {done && footer && (
           <div ref={footRef} className="mt-4 flex flex-wrap items-center gap-2.5">
             {footer({ done, failed })}
@@ -432,9 +352,7 @@ export function ProgressPanel({
           </ul>
         </div>
       )}
-      {done && failed.length === 0 && launch.changes && launch.changes.length > 0 && (
-        <Changes changes={launch.changes} />
-      )}
+      {done && failed.length === 0 && launch.changes && launch.changes.length > 0 && <Changes changes={launch.changes} />}
     </div>
   )
 
@@ -451,22 +369,13 @@ export function ProgressPanel({
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h1
-            ref={headRef}
-            tabIndex={-1}
-            className={cn('m-0 font-semibold tracking-[-.014em] outline-none', pane ? 'text-title' : 'text-md')}
-          >
+          <h1 ref={headRef} tabIndex={-1} className={cn('m-0 font-semibold tracking-[-.014em] outline-none', pane ? 'text-title' : 'text-md')}>
             {agent ? `${agent} agent: ${launch.title}` : heading}
           </h1>
           {!agent && launch.action_label && <p className="m-0 mt-1.5 text-mid">{launch.title}</p>}
         </div>
         {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close progress"
-            className="rounded-md px-1.5 text-lg leading-none text-mid hover:bg-hover hover:text-ink"
-          >
+          <button type="button" onClick={onClose} aria-label="Close progress" className="rounded-md px-1.5 text-lg leading-none text-mid hover:bg-hover hover:text-ink">
             ×
           </button>
         )}
@@ -474,7 +383,9 @@ export function ProgressPanel({
 
       {done && outcome}
       <RelayTable count={starting ? starting.length : launch.runs.length}>
-        {starting?.map((r, i) => <StartingBlock key={i} row={r} />)}
+        {starting?.map((r, i) => (
+          <StartingBlock key={i} row={r} />
+        ))}
         {launch.runs.map((r) => (
           <RunBlock
             key={r.run_id}

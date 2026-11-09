@@ -95,7 +95,10 @@ export function TourSidebarRow() {
                 setOpen(false)
                 start(id, toggle.current)
               }}
-              className={cn('flex items-center gap-1.5 px-2.5 py-1.5 text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none', id === 'main' && 'border-b border-line pb-2 font-medium')}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1.5 text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none',
+                id === 'main' && 'border-b border-line pb-2 font-medium',
+              )}
             >
               <span aria-hidden className={cn('w-3 flex-none text-ok', !seen[id] && 'invisible')}>
                 ✓

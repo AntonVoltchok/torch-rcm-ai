@@ -5,6 +5,10 @@ export const SETTINGS_TABS = ['rules', 'proposals', 'changes'] as const
 export type SettingsTab = (typeof SETTINGS_TABS)[number]
 export const settingsSearchSchema = z.object({
   tab: z.enum(SETTINGS_TABS).optional().catch(undefined),
-  rule: z.string().regex(/^[\w-]{1,80}$/).optional().catch(undefined),
+  rule: z
+    .string()
+    .regex(/^[\w-]{1,80}$/)
+    .optional()
+    .catch(undefined),
 })
 export type SettingsSearch = z.output<typeof settingsSearchSchema>

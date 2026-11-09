@@ -77,7 +77,18 @@ describe('rules table selectors', () => {
 
 describe('preview and changes selectors', () => {
   it('reads “41 → 44 of this week’s 54” with the ours guard holding 3 (net 41)', () => {
-    const v = previewView({ rule_id: 'rule_t1_delta_pa', mode: 'auto', max_cents: null, would_run: 41, total: 54, baseline_would_run: 41, held_by_root_cause: { ours: 3 }, held_total: 3, before_holds: 44, net_change: 0 })
+    const v = previewView({
+      rule_id: 'rule_t1_delta_pa',
+      mode: 'auto',
+      max_cents: null,
+      would_run: 41,
+      total: 54,
+      baseline_would_run: 41,
+      held_by_root_cause: { ours: 3 },
+      held_total: 3,
+      before_holds: 44,
+      net_change: 0,
+    })
     expect(v.headline).toBe('41 → 44 of this week’s 54 would have run')
     expect(v.holdLine).toBe('but 3 of the 44 are root cause: ours → held for Dana · net 41')
     expect(v.net).toBe(41)
@@ -85,22 +96,64 @@ describe('preview and changes selectors', () => {
   })
 
   it('has no hold line when nothing is held', () => {
-    const v = previewView({ rule_id: 'rule_t1_reprocessing', mode: 'auto', max_cents: null, would_run: 42, total: 53, baseline_would_run: 41, held_by_root_cause: {}, held_total: 0, before_holds: 42, net_change: 1 })
+    const v = previewView({
+      rule_id: 'rule_t1_reprocessing',
+      mode: 'auto',
+      max_cents: null,
+      would_run: 42,
+      total: 53,
+      baseline_would_run: 41,
+      held_by_root_cause: {},
+      held_total: 0,
+      before_holds: 42,
+      net_change: 1,
+    })
     expect(v.headline).toBe('41 → 42 of this week’s 53 would have run')
     expect(v.holdLine).toBeNull()
     expect(v.changeLine).toBe('1 more would have run without review.')
-    expect(previewView({ ...v, rule_id: 'r', mode: 'ask', max_cents: null, would_run: 39, total: 53, baseline_would_run: 41, held_by_root_cause: {}, held_total: 0, before_holds: 39, net_change: -2 }).changeLine).toBe('2 fewer would have run without review.')
+    expect(
+      previewView({
+        ...v,
+        rule_id: 'r',
+        mode: 'ask',
+        max_cents: null,
+        would_run: 39,
+        total: 53,
+        baseline_would_run: 41,
+        held_by_root_cause: {},
+        held_total: 0,
+        before_holds: 39,
+        net_change: -2,
+      }).changeLine,
+    ).toBe('2 fewer would have run without review.')
   })
 
   it('writes before → after for the keys that changed, with modes in people’s words', () => {
-    const lines = changeDiff({ id: 'c', rule_id: 'r', at: '2026-10-28T10:40:00-04:00', by: 'usr_morgan', before: { mode: 'auto', signed_by: 'usr_morgan', max_cents: null }, after: { mode: 'ask', signed_by: 'usr_morgan', max_cents: null }, items_affected_since: 0, summary: '' })
+    const lines = changeDiff({
+      id: 'c',
+      rule_id: 'r',
+      at: '2026-10-28T10:40:00-04:00',
+      by: 'usr_morgan',
+      before: { mode: 'auto', signed_by: 'usr_morgan', max_cents: null },
+      after: { mode: 'ask', signed_by: 'usr_morgan', max_cents: null },
+      items_affected_since: 0,
+      summary: '',
+    })
     expect(lines).toEqual(['mode: Runs without review → Ask Dana'])
   })
 
   it('words the server’s Monday digest (this week from Monday), and the mock’s digest equals its changes', () => {
-    expect(digestText({ period_start: '2026-10-26', sends_on: '2026-11-02', changes: 2, items_run: 2, awaiting_signoff: 1 })).toBe('Mon digest to Dr. Morgan (week of 10/26, so far): 2 changes · 2 ran under them · 1 awaits sign-off')
+    expect(digestText({ period_start: '2026-10-26', sends_on: '2026-11-02', changes: 2, items_run: 2, awaiting_signoff: 1 })).toBe(
+      'Mon digest to Dr. Morgan (week of 10/26, so far): 2 changes · 2 ran under them · 1 awaits sign-off',
+    )
     const out = new MockDb({ stepDelayMs: 0, schedule: () => undefined }).ruleChanges()
     const week = out.items.filter((c) => c.at >= '2026-10-26')
-    expect(out.digest).toEqual({ period_start: '2026-10-26', sends_on: '2026-11-02', changes: week.length, items_run: week.reduce((a, c) => a + (c.items_affected_since ?? 0), 0), awaiting_signoff: 0 })
+    expect(out.digest).toEqual({
+      period_start: '2026-10-26',
+      sends_on: '2026-11-02',
+      changes: week.length,
+      items_run: week.reduce((a, c) => a + (c.items_affected_since ?? 0), 0),
+      awaiting_signoff: 0,
+    })
   })
 })

@@ -42,7 +42,7 @@ describe('denials worklist selectors', () => {
     expect(deadlineLabel(by(4797), '2026-10-29')).toEqual({ text: 'records request · no payer deadline', days: null })
   })
 
-  it("sends a payer × reason matrix equal to the rows, leaving plan limits out (the browser adds nothing)", () => {
+  it('sends a payer × reason matrix equal to the rows, leaving plan limits out (the browser adds nothing)', () => {
     const d = db.denials('usr_morgan')
     const m = d.matrix
     const keys = m.columns.map((c) => c.key)

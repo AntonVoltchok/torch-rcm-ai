@@ -3,3 +3,6 @@ public
 src/routeTree.gen.ts
 src/api/generated.ts
 pnpm-lock.yaml
+node_modules
+test-results
+playwright-report

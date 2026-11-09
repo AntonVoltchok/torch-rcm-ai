@@ -6,20 +6,7 @@
  */
 const FILES = import.meta.glob<string>('./payloads/*.txt', { query: '?raw', import: 'default' })
 
-export const PAYLOADS = [
-  'prompt_4821',
-  'plan_4821',
-  'tools',
-  'policy',
-  'guard',
-  'recipe_resubmit',
-  'case_4744',
-  'plan_4744',
-  'models',
-  'router',
-  'mockonly',
-  'search',
-] as const
+export const PAYLOADS = ['prompt_4821', 'plan_4821', 'tools', 'policy', 'guard', 'recipe_resubmit', 'case_4744', 'plan_4744', 'models', 'router', 'mockonly', 'search'] as const
 export type PayloadName = (typeof PAYLOADS)[number]
 
 export async function loadPayload(name: PayloadName): Promise<string> {

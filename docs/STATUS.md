@@ -2,6 +2,10 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Prettier is a gate (Sonnet 5.5)
+
+`make lint` and the CI web job now run `pnpm format:check` (it was only in `make fmt`, so it never ran in lint); `apps/web/.prettierrc.json` is `printWidth: 180` (smallest reformat diff of 120/140/160/180), followed by a whitespace-only reformat of `apps/web`. Stacked on `feat/onboarding-tours`.
+
 ## 2026-11-09 — Onboarding tours in the app (Opus 5.5)
 
 **State:** branch `feat/onboarding-tours` (off `feat/d1-dashboard`), PR against `feat/d1-dashboard`. ADR-0009; decisions D13–D19 in `docs/design/onboarding/DECISIONS.md`; implementation red team in `docs/design/onboarding/red-team.md`.

@@ -152,16 +152,26 @@ export function useApproveGroup(opts: { onLaunched?: (l: Launch) => void } & Ref
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (v: ApproveGroupVars) => api.approveGroup(v.groupKey),
-    onMutate: async (v) => ({ snapshot: await removeOptimistically(qc, v.items.map((i) => i.id)) }),
+    onMutate: async (v) => ({
+      snapshot: await removeOptimistically(
+        qc,
+        v.items.map((i) => i.id),
+      ),
+    }),
     onSuccess: (res, v) => {
-      opts.onLaunched?.(recordLaunch(qc, 'approve_group', `Approve ${res.items.length} · ${v.title}`, res.runs, res.items, res.changes, v.wording ?? { action_label: null, touches: [] }))
+      opts.onLaunched?.(
+        recordLaunch(qc, 'approve_group', `Approve ${res.items.length} · ${v.title}`, res.runs, res.items, res.changes, v.wording ?? { action_label: null, touches: [] }),
+      )
     },
     onError: (err, v, ctx) => {
       rollback(qc, ctx?.snapshot)
       refuse(opts, { message: explain(err), tone: 'bad', departed: false }, v)
     },
     onSettled: (_d, _e, v) => {
-      settle(qc, v.items.map((i) => i.claim?.id))
+      settle(
+        qc,
+        v.items.map((i) => i.claim?.id),
+      )
     },
   })
 }
@@ -230,4 +240,3 @@ export function useCorrectedClaim() {
     },
   })
 }
-

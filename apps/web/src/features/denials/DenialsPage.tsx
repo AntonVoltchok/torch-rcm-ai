@@ -41,7 +41,12 @@ function Summary({ d }: { d: DenialsOut }) {
   const tile = strip.data?.tiles.find((t) => t.status === 'denied')
   const first = worklistOrder(d).find((r) => r.claim.move.mine)
   return (
-    <section aria-label="Denials summary" data-testid="denials-summary" data-tour="denials-summary" className="panel mx-4 mb-3 flex flex-none flex-wrap items-center gap-x-8 gap-y-3 px-5 py-3">
+    <section
+      aria-label="Denials summary"
+      data-testid="denials-summary"
+      data-tour="denials-summary"
+      className="panel mx-4 mb-3 flex flex-none flex-wrap items-center gap-x-8 gap-y-3 px-5 py-3"
+    >
       <div className="flex items-baseline gap-3">
         <span className="text-kpi font-semibold text-risk-ink nums-proportional">{count(d.total)}</span>
         <span className="text-sm text-mid">

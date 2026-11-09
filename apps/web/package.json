@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "dev:mocks": "VITE_USE_MOCKS=1 vite",
@@ -61,6 +63,15 @@
     "vite": "^6.3.5",
     "vitest": "^3.2.0"
   },
-  "msw": { "workerDirectory": ["public"] },
-  "pnpm": { "onlyBuiltDependencies": ["esbuild", "msw"] }
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "msw"
+    ]
+  }
 }

@@ -24,8 +24,7 @@ export class ApiError extends Error {
   }
 }
 
-export const isApiError = (e: unknown, code?: string): e is ApiError =>
-  e instanceof ApiError && (code === undefined || e.code === code)
+export const isApiError = (e: unknown, code?: string): e is ApiError => e instanceof ApiError && (code === undefined || e.code === code)
 
 type QueryValue = string | number | boolean | null | undefined | readonly (string | number)[]
 export type Query = Record<string, QueryValue>
@@ -120,10 +119,7 @@ function pushCounts(json: unknown): void {
 }
 
 export const http = {
-  get: <S extends z.ZodTypeAny>(path: string, schema: S, query?: Query, signal?: AbortSignal) =>
-    request('GET', path, schema, { query, signal }),
-  post: <S extends z.ZodTypeAny>(path: string, schema: S, body?: unknown, opts: Omit<RequestOpts, 'body'> = {}) =>
-    request('POST', path, schema, { ...opts, body }),
-  patch: <S extends z.ZodTypeAny>(path: string, schema: S, body?: unknown, opts: Omit<RequestOpts, 'body'> = {}) =>
-    request('PATCH', path, schema, { ...opts, body }),
+  get: <S extends z.ZodTypeAny>(path: string, schema: S, query?: Query, signal?: AbortSignal) => request('GET', path, schema, { query, signal }),
+  post: <S extends z.ZodTypeAny>(path: string, schema: S, body?: unknown, opts: Omit<RequestOpts, 'body'> = {}) => request('POST', path, schema, { ...opts, body }),
+  patch: <S extends z.ZodTypeAny>(path: string, schema: S, body?: unknown, opts: Omit<RequestOpts, 'body'> = {}) => request('PATCH', path, schema, { ...opts, body }),
 }

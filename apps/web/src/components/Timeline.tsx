@@ -63,10 +63,14 @@ export function Timeline({ entries, nowLabel }: { entries: TimelineEntry[]; nowL
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-ink">
               <span>{e.title}</span>
-              {e.root_cause === 'ours' && <span className="rounded-full border border-risk-line bg-risk-bg px-2 text-xs font-semibold leading-[18px] text-risk-ink">root cause: ours</span>}
+              {e.root_cause === 'ours' && (
+                <span className="rounded-full border border-risk-line bg-risk-bg px-2 text-xs font-semibold leading-[18px] text-risk-ink">root cause: ours</span>
+              )}
             </div>
             {e.detail && <div className="text-sm leading-[1.4] text-mid">{e.detail}</div>}
-            {e.evidence_ids && e.evidence_ids.length > 0 && (e.run_id ? <RunEvidence runId={e.run_id} ids={e.evidence_ids} /> : <div className="mt-1 text-xs text-mid">{EVIDENCE_LABEL(e.evidence_ids.length)}</div>)}
+            {e.evidence_ids &&
+              e.evidence_ids.length > 0 &&
+              (e.run_id ? <RunEvidence runId={e.run_id} ids={e.evidence_ids} /> : <div className="mt-1 text-xs text-mid">{EVIDENCE_LABEL(e.evidence_ids.length)}</div>)}
           </li>
         ))}
         {nowLabel && (

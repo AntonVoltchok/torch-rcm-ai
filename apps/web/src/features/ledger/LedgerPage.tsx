@@ -30,7 +30,16 @@ const who = (r: { claim: { patient: { display_name: string }; payer: { short_nam
 )
 
 function Ack({ chip }: { chip: AckChip }) {
-  return <span className={cn('whitespace-nowrap text-sm font-medium', chip.tone === 'ok' ? 'text-ok' : chip.tone === 'bad' ? 'text-risk-ink' : chip.tone === 'pending' ? 'text-mid' : 'text-soft')}>{chip.text}</span>
+  return (
+    <span
+      className={cn(
+        'whitespace-nowrap text-sm font-medium',
+        chip.tone === 'ok' ? 'text-ok' : chip.tone === 'bad' ? 'text-risk-ink' : chip.tone === 'pending' ? 'text-mid' : 'text-soft',
+      )}
+    >
+      {chip.text}
+    </span>
+  )
 }
 
 function Section({ title, sub, children, testId }: { title: string; sub?: string; children: ReactNode; testId: string }) {
@@ -57,8 +66,29 @@ function LeavingTable({ rows, date }: { rows: LedgerRow[]; date: string }) {
         { header: 'Procedures', cell: (r) => <span className="text-mid">{r.claim.procedures}</span> },
         { header: 'Billed', cell: (r) => money(r.claim.billed_cents), className: 'text-right tabular-nums' },
         { header: 'Built', cell: (r) => (r.built_at.startsWith(date) ? time(r.built_at) : dateTime(r.built_at)), className: NW },
-        { header: 'Checks', cell: (r) => <span className={r.checks_passed === r.checks_total ? 'text-ok' : 'font-medium text-ink'}>{r.checks_passed === r.checks_total ? '✓' : '!'} {r.checks_passed}/{r.checks_total}</span>, className: NW },
-        { header: 'Agent text', cell: (r) => (r.agent_text ? <span className="text-agents-ink" title="The narrative is agent-written, so the claim is tier 2">narrative · tier 2</span> : <span className="text-mid" title="PMS codes as-is">none · tier 1</span>), className: NW },
+        {
+          header: 'Checks',
+          cell: (r) => (
+            <span className={r.checks_passed === r.checks_total ? 'text-ok' : 'font-medium text-ink'}>
+              {r.checks_passed === r.checks_total ? '✓' : '!'} {r.checks_passed}/{r.checks_total}
+            </span>
+          ),
+          className: NW,
+        },
+        {
+          header: 'Agent text',
+          cell: (r) =>
+            r.agent_text ? (
+              <span className="text-agents-ink" title="The narrative is agent-written, so the claim is tier 2">
+                narrative · tier 2
+              </span>
+            ) : (
+              <span className="text-mid" title="PMS codes as-is">
+                none · tier 1
+              </span>
+            ),
+          className: NW,
+        },
         {
           header: 'Status',
           cell: (r) => (
@@ -87,7 +117,11 @@ export function LedgerPage() {
             const groups = fileGroups(d)
             return (
               <div className="flex flex-col gap-6 p-5">
-                <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-lg border border-line bg-fill px-4 py-2.5 text-base" data-testid="ledger-summary" data-tour="ledger-summary">
+                <div
+                  className="flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-lg border border-line bg-fill px-4 py-2.5 text-base"
+                  data-testid="ledger-summary"
+                  data-tour="ledger-summary"
+                >
                   <span>
                     {shortDate(d.date)} · <b>{count(t.on_ledger)} on the ledger</b>
                   </span>
@@ -113,7 +147,11 @@ export function LedgerPage() {
                     <Section
                       key={g.file.file_time ?? 'none'}
                       testId="ledger-leaving"
-                      title={g.file.file_time ? `Leaving in the ${time(g.file.file_time)} file · ${g.file.count} · ${money(g.file.cents)}` : `Not yet filed · ${g.file.count} · ${money(g.file.cents)}`}
+                      title={
+                        g.file.file_time
+                          ? `Leaving in the ${time(g.file.file_time)} file · ${g.file.count} · ${money(g.file.cents)}`
+                          : `Not yet filed · ${g.file.count} · ${money(g.file.cents)}`
+                      }
                       sub="editable until it leaves · no 277CA until then · then void only (freq. 8)"
                     >
                       <LeavingTable rows={g.rows} date={d.date} />
@@ -121,7 +159,11 @@ export function LedgerPage() {
                   ))
                 )}
 
-                <Section title={`Sent today · ${t.sent.count} · ${money(t.sent.cents)}`} sub="999 (file) → Vyne 277CA (minutes) → payer 277CA (usually overnight) · void only (freq. 8)" testId="ledger-sent">
+                <Section
+                  title={`Sent today · ${t.sent.count} · ${money(t.sent.cents)}`}
+                  sub="999 (file) → Vyne 277CA (minutes) → payer 277CA (usually overnight) · void only (freq. 8)"
+                  testId="ledger-sent"
+                >
                   {d.sent.length === 0 ? (
                     <p className="m-0 text-sm text-soft">No claims have left today yet.</p>
                   ) : (
@@ -146,7 +188,11 @@ export function LedgerPage() {
                   )}
                 </Section>
 
-                <Section title={`Held · ${t.held.count} · ${money(t.held.cents)}`} sub="sorted by days left · a hold cannot be snoozed · alert Dana at 60 d left, Dr. Morgan at 30 d" testId="ledger-held">
+                <Section
+                  title={`Held · ${t.held.count} · ${money(t.held.cents)}`}
+                  sub="sorted by days left · a hold cannot be snoozed · alert Dana at 60 d left, Dr. Morgan at 30 d"
+                  testId="ledger-held"
+                >
                   {d.held.length === 0 ? (
                     <p className="m-0 text-sm text-soft">Nothing is held.</p>
                   ) : (

@@ -62,7 +62,12 @@ export function CodePane({ tabs }: { tabs: CodeTab[] }) {
         <b className="truncate font-mono font-semibold text-ink">{tab.source}</b>
         <span className={cn('ml-auto flex-none rounded px-1.5 text-[10.5px] font-semibold', k.cls)}>{k.label}</span>
       </div>
-      <div role={tabs.length > 1 ? 'tabpanel' : undefined} id={`${id}-panel`} aria-labelledby={tabs.length > 1 ? `${id}-tab-${on}` : undefined} className="flex min-h-0 flex-1 flex-col">
+      <div
+        role={tabs.length > 1 ? 'tabpanel' : undefined}
+        id={`${id}-panel`}
+        aria-labelledby={tabs.length > 1 ? `${id}-tab-${on}` : undefined}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <PaneBody key={`${on}:${tab.label}`} load={tab.load} />
       </div>
     </div>
@@ -90,7 +95,12 @@ function ClaimBody({ field }: { field?: string | undefined }) {
   const id = useLocation({ select: (l) => /^\/claims\/([^/]+)$/.exec(l.pathname)?.[1] }) ?? FOLLOWED.claim
   return (
     <QueryBody
-      load={{ type: 'query', queryKey: qk.claim(id), queryFn: () => api.claim(id), ...(field ? { select: (d: unknown) => ({ [field]: (d as Record<string, unknown>)[field] }) } : {}) }}
+      load={{
+        type: 'query',
+        queryKey: qk.claim(id),
+        queryFn: () => api.claim(id),
+        ...(field ? { select: (d: unknown) => ({ [field]: (d as Record<string, unknown>)[field] }) } : {}),
+      }}
     />
   )
 }
@@ -115,7 +125,11 @@ function Pre({ text }: { text: string }) {
   // A streaming run re-renders this on every event; highlight once per text, not per render.
   const lines = useMemo(() => text.split('\n').map(highlight), [text])
   return (
-    <pre tabIndex={0} aria-label="Payload" className="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-3 pb-3 pt-2 font-mono text-[11.75px] leading-normal text-ink [overflow-wrap:anywhere] [tab-size:2]">
+    <pre
+      tabIndex={0}
+      aria-label="Payload"
+      className="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-3 pb-3 pt-2 font-mono text-[11.75px] leading-normal text-ink [overflow-wrap:anywhere] [tab-size:2]"
+    >
       {lines.map((ln, i) => (
         <span key={i}>
           {ln}
@@ -161,9 +175,24 @@ export function highlight(line: string): ReactNode {
         </span>,
       )
       if (colon) out.push(colon)
-    } else if (num !== undefined) out.push(<span key={at} className="text-practice-ink">{num}</span>)
-    else if (tag !== undefined) out.push(<span key={at} className="text-risk-ink">{tag}</span>)
-    else if (comment !== undefined) out.push(<span key={at} className="text-soft">{comment}</span>)
+    } else if (num !== undefined)
+      out.push(
+        <span key={at} className="text-practice-ink">
+          {num}
+        </span>,
+      )
+    else if (tag !== undefined)
+      out.push(
+        <span key={at} className="text-risk-ink">
+          {tag}
+        </span>,
+      )
+    else if (comment !== undefined)
+      out.push(
+        <span key={at} className="text-soft">
+          {comment}
+        </span>,
+      )
     last = at + whole.length
   }
   if (last < line.length) out.push(line.slice(last))

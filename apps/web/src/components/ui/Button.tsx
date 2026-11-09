@@ -33,7 +33,12 @@ export function Button({ variant = 'default', size = 'md', kbd, className, child
     >
       {children}
       {kbd && (
-        <kbd className={cn('rounded px-1.5 py-0.5 font-sans text-xs font-medium leading-none', variant === 'primary' ? 'bg-[rgb(10_20_60/0.28)] text-white' : 'border border-line bg-hover text-mid')}>
+        <kbd
+          className={cn(
+            'rounded px-1.5 py-0.5 font-sans text-xs font-medium leading-none',
+            variant === 'primary' ? 'bg-[rgb(10_20_60/0.28)] text-white' : 'border border-line bg-hover text-mid',
+          )}
+        >
           {kbd}
         </kbd>
       )}

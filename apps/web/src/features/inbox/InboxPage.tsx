@@ -123,8 +123,7 @@ export function InboxPage() {
   // it) until the URL catches up with the server's answer. Once the 202 has recorded the launch, the same panel
   // (same key) shows it, so focus and the live region carry over.
   const ownsPane =
-    attempt !== null &&
-    (search.launch === STARTING || (attempt.pending && search.launch === undefined && search.item !== undefined && attempt.itemIds.includes(search.item)))
+    attempt !== null && (search.launch === STARTING || (attempt.pending && search.launch === undefined && search.item !== undefined && attempt.itemIds.includes(search.item)))
   const runPane = ownsPane
     ? attemptLaunch
       ? { key: attempt.key, launch: attemptLaunch, starting: undefined }
@@ -157,8 +156,17 @@ export function InboxPage() {
   }
   const doApproveGroup = (g: InboxGroup, gm: InboxItem[]) => {
     setRefused(null)
-    approveGroup.mutate({ groupKey: g.group_key, title: g.title, items: gm, wording: { action_label: g.action_label, touches: g.touches }, ...(selected ? { from: selected } : {}) })
-    removeAndAdvance(gm.map((m) => m.id), { group: undefined, launch: STARTING })
+    approveGroup.mutate({
+      groupKey: g.group_key,
+      title: g.title,
+      items: gm,
+      wording: { action_label: g.action_label, touches: g.touches },
+      ...(selected ? { from: selected } : {}),
+    })
+    removeAndAdvance(
+      gm.map((m) => m.id),
+      { group: undefined, launch: STARTING },
+    )
   }
   /** A or ⇧A while an approval is on its way: say so, instead of a key that does nothing. */
   const waitForIt = () => {
@@ -206,7 +214,14 @@ export function InboxPage() {
   ) : list.isError ? (
     <QueryError error={list.error} what="the Inbox" onRetry={() => void list.refetch()} />
   ) : !data || items.length === 0 ? (
-    <EmptyState title="Nothing needs you" action={<Link to="/activity" className="font-medium text-act">See Activity →</Link>}>
+    <EmptyState
+      title="Nothing needs you"
+      action={
+        <Link to="/activity" className="font-medium text-act">
+          See Activity →
+        </Link>
+      }
+    >
       {ranAlone !== null ? `Agents handled ${count(ranAlone)} items this week without you.` : 'Agents are handling the rest.'}
     </EmptyState>
   ) : null
@@ -292,7 +307,9 @@ export function InboxPage() {
         title="Inbox"
         sub={
           inboxOpen !== null && s
-            ? [`${plural(inboxOpen, 'item')} need you: ${plural(s.inbox_claims, 'claim')}, ${plural(s.inbox_visits, 'upcoming visit')}`, waitingLine(s.inbox_waiting)].filter(Boolean).join(' · ')
+            ? [`${plural(inboxOpen, 'item')} need you: ${plural(s.inbox_claims, 'claim')}, ${plural(s.inbox_visits, 'upcoming visit')}`, waitingLine(s.inbox_waiting)]
+                .filter(Boolean)
+                .join(' · ')
             : undefined
         }
       />
@@ -339,7 +356,15 @@ function latestAttempt(single: ReturnType<typeof useApprove>, batch: ReturnType<
     ok: many.isSuccess,
     itemIds: v.items.map((i) => i.id),
     runId: many.data?.runs[0]?.id,
-    standIn: { id: STARTING, kind: 'approve_group', title: `Approve ${v.items.length} · ${v.title}`, runs: [], started_at: '', action_label: v.wording?.action_label ?? null, touches: v.wording?.touches ?? [] },
+    standIn: {
+      id: STARTING,
+      kind: 'approve_group',
+      title: `Approve ${v.items.length} · ${v.title}`,
+      runs: [],
+      started_at: '',
+      action_label: v.wording?.action_label ?? null,
+      touches: v.wording?.touches ?? [],
+    },
     rows: v.items.map(runRow),
   }
 }

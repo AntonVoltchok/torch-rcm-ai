@@ -194,7 +194,10 @@ export function AttachmentsAndAcks({ attachments, acks }: { attachments: Attachm
           <ol className="m-0 list-none p-0">
             {acks.map((a) => (
               <li key={a.id} className={cn('py-0.5', /a7|reject/.test(a.stage) && 'text-risk-ink')}>
-                {a.message}, <span className="text-mid">{shortDate(a.at)} at {time(a.at)}</span>
+                {a.message},{' '}
+                <span className="text-mid">
+                  {shortDate(a.at)} at {time(a.at)}
+                </span>
               </li>
             ))}
           </ol>

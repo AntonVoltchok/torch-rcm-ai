@@ -18,8 +18,22 @@ export const AGE_LABEL: Record<AgeBucket, string> = { '0_30': '0–30 d', '31_60
 export const SORT_FIELDS = ['number', 'patient', 'payer', 'dos', 'billed', 'status', 'age', 'last_activity'] as const
 export type SortField = (typeof SORT_FIELDS)[number]
 export const SortParam = z.enum([
-  'number', '-number', 'patient', '-patient', 'payer', '-payer', 'dos', '-dos',
-  'billed', '-billed', 'status', '-status', 'age', '-age', 'last_activity', '-last_activity',
+  'number',
+  '-number',
+  'patient',
+  '-patient',
+  'payer',
+  '-payer',
+  'dos',
+  '-dos',
+  'billed',
+  '-billed',
+  'status',
+  '-status',
+  'age',
+  '-age',
+  'last_activity',
+  '-last_activity',
 ])
 export type SortParam = z.infer<typeof SortParam>
 export const DEFAULT_SORT: SortParam = '-age'
@@ -27,11 +41,7 @@ export const DEFAULT_SORT: SortParam = '-age'
 /** `?status=denied` (one) or `?status=denied&status=pending` (many) — both become an array. */
 const statusList = z.union([z.array(ClaimStatus), ClaimStatus.transform((s) => [s])])
 /** `?flag=true` / `?flag=1`. */
-export const boolParam = z.union([
-  z.boolean(),
-  z.enum(['true', '1']).transform(() => true),
-  z.enum(['false', '0']).transform(() => false),
-])
+export const boolParam = z.union([z.boolean(), z.enum(['true', '1']).transform(() => true), z.enum(['false', '0']).transform(() => false)])
 
 export const claimsSearchSchema = z.object({
   status: statusList.optional().catch(undefined),

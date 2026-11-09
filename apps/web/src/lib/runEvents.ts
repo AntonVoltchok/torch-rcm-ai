@@ -104,20 +104,12 @@ const addNew = (have: string[], incoming: string[]): string[] => {
   return fresh.length ? [...have, ...fresh] : have
 }
 
-export function applyStatusEvent(
-  run: RunView,
-  ev: { status: RunStatus; planner?: Run['planner'] | null },
-  eventId: number | null,
-): RunView {
+export function applyStatusEvent(run: RunView, ev: { status: RunStatus; planner?: Run['planner'] | null }, eventId: number | null): RunView {
   return bumpId({ ...run, status: nextRunStatus(run.status, ev.status), planner: ev.planner ?? run.planner }, eventId)
 }
 
 /** A `done` with no status keeps the current one: only the server says how a run ended. */
-export function applyDoneEvent(
-  run: RunView,
-  ev: { status?: RunStatus | null; audit_line?: string | null; result_summary?: string | null },
-  eventId: number | null,
-): RunView {
+export function applyDoneEvent(run: RunView, ev: { status?: RunStatus | null; audit_line?: string | null; result_summary?: string | null }, eventId: number | null): RunView {
   return bumpId(
     {
       ...run,

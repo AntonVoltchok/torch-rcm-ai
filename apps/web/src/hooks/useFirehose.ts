@@ -52,7 +52,9 @@ export function useFirehose(): void {
         // An advance another tab (or the CLI) started: tell the clock so the sidebar shows it and disables the control.
         // Completion (invalidate everything, once) is handled by useAdvanceCompletion, whichever channel says done.
         qc.setQueryData<Clock>(qk.clock, (old) =>
-          old ? { ...old, now: adv.done ? old.now : adv.now, advancing: adv.done ? old.advancing : { advance_id: adv.advance_id, to: old.advancing?.to ?? adv.to ?? adv.now } } : old,
+          old
+            ? { ...old, now: adv.done ? old.now : adv.now, advancing: adv.done ? old.advancing : { advance_id: adv.advance_id, to: old.advancing?.to ?? adv.to ?? adv.now } }
+            : old,
         )
       }
     }

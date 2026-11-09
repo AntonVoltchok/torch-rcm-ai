@@ -33,11 +33,17 @@ export async function step8(page: Page) {
     await expect(page.getByTestId('badge-eligibility')).toHaveText('3')
     await expect(page.getByTestId('badge-activity')).toHaveText('41')
     // #4744's situation had no name, so it shows no track record, not the records-request rule's 91 of 97.
-    await page.getByRole('list', { name: 'Inbox items' }).getByRole('button', { name: /P\. Hale #4744/ }).click()
+    await page
+      .getByRole('list', { name: 'Inbox items' })
+      .getByRole('button', { name: /P\. Hale #4744/ })
+      .click()
     await expect(page.getByTestId('track-record')).toContainText('No track record. TorchRCM couldn')
     await expect(page.getByTestId('track-record')).not.toContainText('%')
     // Castillo's situation has a name: its own record (Guardian CO-16 · M127), not the rule's 91 of 97.
-    await page.getByRole('list', { name: 'Inbox items' }).getByRole('button', { name: /A\. Castillo #4797/ }).click()
+    await page
+      .getByRole('list', { name: 'Inbox items' })
+      .getByRole('button', { name: /A\. Castillo #4797/ })
+      .click()
     await expect(page.getByTestId('track-record')).toContainText('6 of 7 paid within 30 days')
     await expect(page.getByTestId('track-record')).not.toContainText('91')
   })

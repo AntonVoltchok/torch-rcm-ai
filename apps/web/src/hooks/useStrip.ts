@@ -4,8 +4,7 @@ import { api } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import { useSession } from '@/state/session'
 
-export const stripQuery = (location: string | undefined) =>
-  queryOptions({ queryKey: qk.strip(location), queryFn: api.strip, staleTime: 30_000 })
+export const stripQuery = (location: string | undefined) => queryOptions({ queryKey: qk.strip(location), queryFn: api.strip, staleTime: 30_000 })
 
 export function useStrip() {
   const { locationId } = useSession()

@@ -42,11 +42,25 @@ function Row({ r, observe }: { r: ActivityRow; observe: boolean }) {
   return (
     <tr data-run-id={r.run_id} data-style={style} className={cn('h-10 border-b border-line', shadow && 'italic text-mid')} title={r.audit_line || undefined}>
       <td className="whitespace-nowrap px-2 text-mid">{time(r.at)}</td>
-      <td className="whitespace-nowrap px-2">{r.agent ? <span className="font-medium text-agents-ink">✦ {AGENT_NAME[r.agent]}</span> : <span className="rounded border border-line px-1.5 text-xs font-medium text-ink">{r.actor ?? 'person'}</span>}</td>
+      <td className="whitespace-nowrap px-2">
+        {r.agent ? (
+          <span className="font-medium text-agents-ink">✦ {AGENT_NAME[r.agent]}</span>
+        ) : (
+          <span className="rounded border border-line px-1.5 text-xs font-medium text-ink">{r.actor ?? 'person'}</span>
+        )}
+      </td>
       <td className="px-2">
         <span>{r.action}</span> {r.tier ? <TierBadge tier={r.tier} compact /> : null}
       </td>
-      <td className="whitespace-nowrap px-2">{r.claim_id ? <Link to="/claims/$claimId" params={{ claimId: r.claim_id }}>{r.subject}</Link> : <span className="text-mid">{r.subject}</span>}</td>
+      <td className="whitespace-nowrap px-2">
+        {r.claim_id ? (
+          <Link to="/claims/$claimId" params={{ claimId: r.claim_id }}>
+            {r.subject}
+          </Link>
+        ) : (
+          <span className="text-mid">{r.subject}</span>
+        )}
+      </td>
       <td className="w-56 max-w-56 px-2 not-italic" title="Who holds this claim today, not when this happened">
         {r.move ? <MoveCell move={r.move} /> : <span className="text-soft">—</span>}
       </td>
@@ -59,7 +73,9 @@ function Row({ r, observe }: { r: ActivityRow; observe: boolean }) {
           </Chip>
         ) : style === 'awaiting' ? (
           <Link to="/inbox" className="no-underline">
-            <Chip tone="neutral" className="!bg-practice-bg !text-practice-ink">⚑ Awaiting you</Chip>
+            <Chip tone="neutral" className="!bg-practice-bg !text-practice-ink">
+              ⚑ Awaiting you
+            </Chip>
           </Link>
         ) : (
           <span className="text-mid">{r.outcome}</span>
@@ -97,7 +113,12 @@ export function ActivityPage() {
             </option>
           ))}
         </select>
-        <select aria-label="Agent" value={search.agent ?? ''} className={select} onChange={(e) => void navigate({ search: (s) => ({ ...s, agent: AgentKind.safeParse(e.target.value).data }) })}>
+        <select
+          aria-label="Agent"
+          value={search.agent ?? ''}
+          className={select}
+          onChange={(e) => void navigate({ search: (s) => ({ ...s, agent: AgentKind.safeParse(e.target.value).data }) })}
+        >
           <option value="">Agent: All</option>
           {AgentKind.options.map((a) => (
             <option key={a} value={a}>
@@ -105,7 +126,12 @@ export function ActivityPage() {
             </option>
           ))}
         </select>
-        <select aria-label="Outcome" value={search.outcome ?? ''} className={select} onChange={(e) => void navigate({ search: (s) => ({ ...s, outcome: ActivityOutcome.safeParse(e.target.value).data }) })}>
+        <select
+          aria-label="Outcome"
+          value={search.outcome ?? ''}
+          className={select}
+          onChange={(e) => void navigate({ search: (s) => ({ ...s, outcome: ActivityOutcome.safeParse(e.target.value).data }) })}
+        >
           <option value="">Outcome: All</option>
           {ActivityOutcome.options.map((o) => (
             <option key={o} value={o}>

@@ -17,9 +17,20 @@ describe('inbox selectors', () => {
 
   it('reads a draft with the evidence each sentence cites', () => {
     const evidence = [{ id: 'ev_a', title: 'Delta EOB · 03/2022' }] as Parameters<typeof draftOf>[1]
-    const payload = { draft: { segments: [{ text: 'Crown was on #31.', evidence_ids: ['ev_a', 'ev_gone'] }, { text: 'Please reprocess.', evidence_ids: [] }], human_must_complete: ['sign below'] } }
+    const payload = {
+      draft: {
+        segments: [
+          { text: 'Crown was on #31.', evidence_ids: ['ev_a', 'ev_gone'] },
+          { text: 'Please reprocess.', evidence_ids: [] },
+        ],
+        human_must_complete: ['sign below'],
+      },
+    }
     expect(draftOf(payload, evidence)).toEqual({
-      segments: [{ text: 'Crown was on #31.', cites: ['Delta EOB · 03/2022'] }, { text: 'Please reprocess.', cites: [] }],
+      segments: [
+        { text: 'Crown was on #31.', cites: ['Delta EOB · 03/2022'] },
+        { text: 'Please reprocess.', cites: [] },
+      ],
       mustComplete: ['sign below'],
     })
     expect(draftOf({ root_cause: 'ours' }, evidence)).toBeNull()

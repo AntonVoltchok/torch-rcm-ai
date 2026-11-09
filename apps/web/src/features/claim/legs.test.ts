@@ -50,19 +50,34 @@ describe('history legs', () => {
   })
 
   it('leaves out entries with no party and draws no ghost for a holder who is not you', () => {
-    const h = buildHistory(detail([e(null, 'note', 'n'), e('practice', 'visit', 'Visit')], move({ mine: false, holder_role: 'owner', label: 'Dr. Morgan signs' }), [{ run_id: 'x', lands: 'practice' }]))
+    const h = buildHistory(
+      detail([e(null, 'note', 'n'), e('practice', 'visit', 'Visit')], move({ mine: false, holder_role: 'owner', label: 'Dr. Morgan signs' }), [{ run_id: 'x', lands: 'practice' }]),
+    )
     expect(legsOf(h).map((l) => l.words[0])).toEqual(['Visit'])
     expect(legsOf(h)[0]?.now).toBe(true)
     expect(h.ghost).toBeNull()
   })
 
   it('names the holder when it is not you', () => {
-    const h = buildHistory(detail([e('practice', 'visit', 'Visit'), e('payer', 'remittance', 'Delta ERA · Denied PR-119 · Max met')], move({ mine: false, label: 'Dr. Morgan signs' })))
+    const h = buildHistory(
+      detail([e('practice', 'visit', 'Visit'), e('payer', 'remittance', 'Delta ERA · Denied PR-119 · Max met')], move({ mine: false, label: 'Dr. Morgan signs' })),
+    )
     expect(legsOf(h).at(-1)?.words).toEqual(['Dr. Morgan signs'])
   })
 
   it('folds only unpinned legs, keeps order, and never folds the first, fix, outcome or now leg', () => {
-    const mk = (i: number, flags: Partial<Leg> = {}): Leg => ({ key: `l${i}`, party: i % 2 ? 'agents' : 'payer', from: 'x', to: 'x', words: [`w${i}`], titles: [], fix: false, outcome: false, now: false, ...flags })
+    const mk = (i: number, flags: Partial<Leg> = {}): Leg => ({
+      key: `l${i}`,
+      party: i % 2 ? 'agents' : 'payer',
+      from: 'x',
+      to: 'x',
+      words: [`w${i}`],
+      titles: [],
+      fix: false,
+      outcome: false,
+      now: false,
+      ...flags,
+    })
     const legs = [mk(0), mk(1), mk(2, { outcome: true }), mk(3), mk(4), mk(5), mk(6, { fix: true }), mk(7), mk(8, { now: true })]
     const out = fold(legs, 6)
     expect(out.length).toBeLessThanOrEqual(7)

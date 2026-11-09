@@ -141,9 +141,7 @@ function Spotlight({ step }: { step: Step }) {
     el?.scrollBy({ top: e.deltaY, left: e.deltaX })
   }
 
-  const hole = rect
-    ? { top: 0, left: 0, transform: `translate(${rect.left - PAD}px, ${rect.top - PAD}px)`, width: rect.width + 2 * PAD, height: rect.height + 2 * PAD }
-    : null
+  const hole = rect ? { top: 0, left: 0, transform: `translate(${rect.left - PAD}px, ${rect.top - PAD}px)`, width: rect.width + 2 * PAD, height: rect.height + 2 * PAD } : null
   const Body = step.body
   const missing = anchor.rect === false
 
@@ -199,7 +197,12 @@ function Spotlight({ step }: { step: Step }) {
             ×
           </button>
         </div>
-        <div className={cn('grid min-h-0 flex-1 gap-4 px-4 pt-2', codeOpen ? (pos.narrow ? 'grid-rows-[fit-content(55%)_minmax(0,1fr)]' : 'grid-cols-[minmax(0,42fr)_minmax(0,58fr)]') : 'grid-cols-1')}>
+        <div
+          className={cn(
+            'grid min-h-0 flex-1 gap-4 px-4 pt-2',
+            codeOpen ? (pos.narrow ? 'grid-rows-[fit-content(55%)_minmax(0,1fr)]' : 'grid-cols-[minmax(0,42fr)_minmax(0,58fr)]') : 'grid-cols-1',
+          )}
+        >
           <div className="flex min-h-0 flex-col gap-2.5 overflow-auto pb-1 pr-0.5 text-[13.5px] leading-relaxed text-ink" data-testid="tour-text">
             <h2 id="tour-title" className="m-0 text-[17px] font-semibold leading-tight tracking-[-0.012em] [text-wrap:balance]">
               {step.title}
@@ -248,7 +251,12 @@ function Spotlight({ step }: { step: Step }) {
               <i key={s.id} className={cn('h-1.5 w-1.5 rounded-full', i === n ? 'bg-act' : i < n ? 'bg-soft' : 'bg-line-strong')} />
             ))}
           </span>
-          <button type="button" onClick={() => go(idx - 1)} disabled={idx === 0 || busy} className="rounded-md border border-line-strong bg-paper px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40">
+          <button
+            type="button"
+            onClick={() => go(idx - 1)}
+            disabled={idx === 0 || busy}
+            className="rounded-md border border-line-strong bg-paper px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+          >
             Back
           </button>
           <button
@@ -311,7 +319,12 @@ function TourModal({ step }: { step: Step }) {
             <span className="min-w-[240px] flex-1">
               The tour’s Try-its changed this practice (an approval, a triage or the clock). To walk the demo script from its start, reset the demo to the seed first.
             </span>
-            <button type="button" disabled={busy} onClick={() => void reset()} className="rounded-md border border-act bg-paper px-2.5 py-1 font-semibold text-act hover:bg-act hover:text-white disabled:opacity-50">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void reset()}
+              className="rounded-md border border-act bg-paper px-2.5 py-1 font-semibold text-act hover:bg-act hover:text-white disabled:opacity-50"
+            >
               {busy ? RESET_DEMO.busy : RESET_DEMO.label}
             </button>
             {resetError && (
@@ -325,19 +338,19 @@ function TourModal({ step }: { step: Step }) {
           <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0" aria-label="Screen tours">
             {toursFor(role).map((id) => (
               <li key={id} className="flex">
-              <button
-                type="button"
-                onClick={() => start(id)}
-                className="flex w-full min-w-0 flex-col gap-1 rounded-[9px] border border-line bg-paper px-3 py-2 text-left hover:border-act"
-              >
-                <span className="flex items-center gap-1.5 text-[13.5px] font-semibold">
-                  {TOURS[id].name}
-                  <span className={cn('ml-auto rounded px-1.5 text-[10.5px] font-semibold', seen[id] ? 'bg-ok-bg text-ok' : 'border border-line bg-fill text-mid')}>
-                    {seen[id] ? '✓ seen' : 'not yet'}
+                <button
+                  type="button"
+                  onClick={() => start(id)}
+                  className="flex w-full min-w-0 flex-col gap-1 rounded-[9px] border border-line bg-paper px-3 py-2 text-left hover:border-act"
+                >
+                  <span className="flex items-center gap-1.5 text-[13.5px] font-semibold">
+                    {TOURS[id].name}
+                    <span className={cn('ml-auto rounded px-1.5 text-[10.5px] font-semibold', seen[id] ? 'bg-ok-bg text-ok' : 'border border-line bg-fill text-mid')}>
+                      {seen[id] ? '✓ seen' : 'not yet'}
+                    </span>
                   </span>
-                </span>
-                <span className="text-xs leading-snug text-mid">{TOURS[id].blurb}</span>
-              </button>
+                  <span className="text-xs leading-snug text-mid">{TOURS[id].blurb}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -351,7 +364,12 @@ function TourModal({ step }: { step: Step }) {
           <button type="button" onClick={welcome ? exit : () => start('main')} className="rounded-lg border border-line-strong bg-paper px-4 py-2 text-[13.5px] font-semibold">
             {welcome ? 'Skip, use the app' : 'Replay main tour'}
           </button>
-          <button type="button" data-tour-next="" onClick={welcome ? () => go((active?.idx ?? 0) + 1) : exit} className="rounded-lg border border-act bg-act px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-act-hover">
+          <button
+            type="button"
+            data-tour-next=""
+            onClick={welcome ? () => go((active?.idx ?? 0) + 1) : exit}
+            className="rounded-lg border border-act bg-act px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-act-hover"
+          >
             {welcome ? 'Start the tour' : 'Finish'}
           </button>
         </footer>

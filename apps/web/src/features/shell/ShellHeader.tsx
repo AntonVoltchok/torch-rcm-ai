@@ -27,9 +27,7 @@ function FullCards() {
   const strip = useStrip()
   if (strip.data) return <WhoseMoveCards strip={strip.data} />
   if (strip.isError) {
-    return (
-      <div className="panel flex items-center px-4 text-sm text-mid">Whose move: counts unavailable. The pipeline beside this has a retry.</div>
-    )
+    return <div className="panel flex items-center px-4 text-sm text-mid">Whose move: counts unavailable. The pipeline beside this has a retry.</div>
   }
   return (
     <div className="grid grid-cols-3 gap-3">

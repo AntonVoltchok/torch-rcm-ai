@@ -22,7 +22,13 @@ export function TopBarControls() {
           if (term) void navigate({ to: '/claims', search: { q: term } })
         }}
       >
-        <svg aria-hidden viewBox="0 0 16 16" className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 fill-none stroke-soft" strokeWidth={1.5} strokeLinecap="round">
+        <svg
+          aria-hidden
+          viewBox="0 0 16 16"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 fill-none stroke-soft"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        >
           <path d="M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0zm-1.2 3.3 3.2 3.2" />
         </svg>
         <input
