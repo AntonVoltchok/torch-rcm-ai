@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/Button'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { InboxDecision, type DetailPanel } from './InboxDecision'
 import { InboxQueue } from './InboxQueue'
-import { groupFor, groupRowId, inboxGroups, itemOrder, keyOrder, nextSelection } from './selectors'
+import { groupFor, groupRowId, inboxGroups, itemOrder, keyOrder, nextSelection, waitingLine } from './selectors'
 
 const route = getRouteApi('/inbox')
 
@@ -218,7 +218,11 @@ export function InboxPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Inbox"
-        sub={inboxOpen !== null && s ? `${plural(inboxOpen, 'item')} need you: ${plural(s.inbox_claims, 'claim')}, ${plural(s.inbox_visits, 'upcoming visit')}` : undefined}
+        sub={
+          inboxOpen !== null && s
+            ? [`${plural(inboxOpen, 'item')} need you: ${plural(s.inbox_claims, 'claim')}, ${plural(s.inbox_visits, 'upcoming visit')}`, waitingLine(s.inbox_waiting)].filter(Boolean).join(' · ')
+            : undefined
+        }
       />
       <div className="grid min-h-0 flex-1 grid-cols-[516px_minmax(0,1fr)] gap-3 px-4 pb-4 pt-3">
         <InboxQueue

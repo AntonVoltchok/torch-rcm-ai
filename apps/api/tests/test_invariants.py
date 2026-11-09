@@ -76,8 +76,8 @@ def test_inbox_badge_equals_open_items_and_activity_awaiting(canonical: Snapshot
     from torch_rcm.readmodels.activity import activity
 
     s = strip(canonical, "usr_dana")
-    assert s.inbox_open == len(canonical.open_items) == activity(canonical).summary.awaiting_you == 12
-    assert s.inbox_claims == len({i.claim_id for i in canonical.open_items if i.claim_id})
+    assert s.inbox_open + sum(w.count for w in s.inbox_waiting) == len(canonical.open_items) == 12
+    assert s.inbox_open == activity(canonical, viewer_id="usr_dana").summary.awaiting_you == 11  # rt-truth
 
 
 def test_every_claim_is_built_at_checkout_after_its_visit(canonical: Snapshot) -> None:

@@ -2,15 +2,15 @@
  "approve_4733": {
   "changes": [
    {
-    "after": 8,
-    "before": 9,
+    "after": 7,
+    "before": 8,
     "key": "inbox",
     "label": "Your Inbox",
     "note": null
    },
    {
-    "after": 5,
-    "before": 6,
+    "after": 4,
+    "before": 5,
     "key": "inbox_claims",
     "label": "Claims in your Inbox",
     "note": null
@@ -128,15 +128,15 @@
  "group_approve": {
   "changes": [
    {
-    "after": 9,
-    "before": 12,
+    "after": 8,
+    "before": 11,
     "key": "inbox",
     "label": "Your Inbox",
     "note": null
    },
    {
-    "after": 6,
-    "before": 9,
+    "after": 5,
+    "before": 8,
     "key": "inbox_claims",
     "label": "Claims in your Inbox",
     "note": null

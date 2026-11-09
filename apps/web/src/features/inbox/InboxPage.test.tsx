@@ -24,7 +24,7 @@ const SEND = /Send prompt-pay request/
 async function openBrooks() {
   renderApp('/inbox?item=itm_4705')
   await screen.findByRole('article', { name: /#4705/ })
-  await waitFor(() => expect(screen.getByTestId('badge-inbox')).toHaveTextContent('12'))
+  await waitFor(() => expect(screen.getByTestId('badge-inbox')).toHaveTextContent('11'))
   expect(row('itm_4705')).not.toBeNull()
 }
 
@@ -44,10 +44,10 @@ describe('Inbox approve', () => {
     await user.click(within(await decision('4705')).getByRole('button', { name: SEND }))
 
     await waitFor(() => expect(row('itm_4705')).toBeNull())
-    expect(screen.getByTestId('badge-inbox')).toHaveTextContent('12') // counts are the server's: unchanged until it answers
+    expect(screen.getByTestId('badge-inbox')).toHaveTextContent('11') // counts are the server's: unchanged until it answers
     release()
 
-    await waitFor(() => expect(screen.getByTestId('badge-inbox')).toHaveTextContent('11'), { timeout: 3000 })
+    await waitFor(() => expect(screen.getByTestId('badge-inbox')).toHaveTextContent('10'), { timeout: 3000 })
     expect(await screen.findByRole('region', { name: 'Agent progress' }, { timeout: 3000 })).toBeInTheDocument()
     expect(row('itm_4705')).toBeNull()
   })
@@ -66,7 +66,7 @@ describe('Inbox approve', () => {
     await waitFor(() => expect(row('itm_4705')).toBeNull())
     await waitFor(() => expect(row('itm_4705')).not.toBeNull())
     expect(await screen.findByText(/Approval failed; nothing was sent/)).toBeInTheDocument()
-    expect(screen.getByTestId('badge-inbox')).toHaveTextContent('12')
+    expect(screen.getByTestId('badge-inbox')).toHaveTextContent('11')
     expect(screen.queryByRole('region', { name: 'Agent progress' })).toBeNull()
   })
 
@@ -200,5 +200,27 @@ describe('Inbox approve', () => {
     await user.click(await within(pane).findByRole('button', { name: /^Back to .*#4851/ }))
     const back = await decision('4851')
     expect(back).toHaveAccessibleName(/Run stopped/)
+  })
+})
+
+describe('Inbox counts (final D1 red team #4)', () => {
+  it('says how many need you and who the rest wait on; badge, header and the All tab are one number', async () => {
+    renderApp('/inbox')
+    await waitFor(() => expect(screen.getByTestId('badge-inbox')).toHaveTextContent('11'))
+    expect(screen.getByText('11 items need you: 8 claims, 3 upcoming visits · 1 waiting on Dr. Morgan')).toBeInTheDocument()
+    expect(within(screen.getByRole('tablist', { name: 'Filter' })).getByRole('tab', { name: /All/ })).toHaveTextContent('11')
+    const waiting = screen.getByRole('region', { name: 'Waiting on Dr. Morgan' })
+    expect(within(waiting).getByRole('heading')).toHaveTextContent('Waiting on Dr. Morgan · 1$1,240')
+    expect(waiting.querySelector('[data-item-id="itm_4611"]')).not.toBeNull()
+    expect(row('itm_4611')).toBeNull() // not listed as Dana's
+  })
+
+  it('shows the unnamed #4744 as having no track record, not the records-request rule’s', async () => {
+    api.db.triage('clm_4744', 'usr_dana')
+    await waitFor(() => expect(api.db.inbox({}).items.some((i) => i.id === 'itm_4744')).toBe(true), { timeout: 3000 })
+    renderApp('/inbox?item=itm_4744')
+    const pane = within(await screen.findByTestId('track-record', {}, { timeout: 3000 }))
+    expect(pane.getByText(/No track record\. TorchRCM couldn't match this to a known situation/)).toBeInTheDocument()
+    expect(pane.queryByText(/%|of 97/)).toBeNull()
   })
 })

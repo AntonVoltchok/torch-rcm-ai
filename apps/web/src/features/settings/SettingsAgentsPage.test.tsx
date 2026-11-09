@@ -52,7 +52,7 @@ describe('Settings › Agents', () => {
     await user.click(within(era).getByRole('radio', { name: 'Ask Dana' }))
     expect(await screen.findByText('Sent to Dr. Morgan for sign-off')).toBeInTheDocument()
     await waitFor(async () => expect(checked(await ruleRow('rule_t2_post_era'))).toBe('Runs without review'))
-    expect(api.db.strip(undefined, 'usr_dana').inbox_open).toBe(12)
+    expect(api.db.strip(undefined, 'usr_dana').inbox_open).toBe(11)
     expect(api.db.strip(undefined, 'usr_morgan').inbox_open).toBe(13)
   })
 

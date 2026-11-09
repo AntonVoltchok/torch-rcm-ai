@@ -31,7 +31,7 @@ def claim(s: Snapshot, number: int) -> Claim:
 def test_group_approve_changes_match_the_strip_and_denied_stays(rt: Runtime) -> None:
     out = inbox_svc.approve_group(ctx(rt), GROUP)
     rows = {c.key: c for c in out.changes}
-    assert (rows["inbox"].before, rows["inbox"].after) == (12, 9)
+    assert (rows["inbox"].before, rows["inbox"].after) == (11, 8)
     denied = rows["tile.denied"]
     assert (denied.before, denied.after) == (5, 5)
     assert denied.note == "Stays denied until Delta processes the resubmission"

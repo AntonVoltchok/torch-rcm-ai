@@ -267,6 +267,9 @@ def unknown_property_failures(rt: Any) -> list[str]:
         items = rt.store.find(InboxItem, {"claim_id": claim_id, "state": InboxItemState.OPEN})
         if len(items) != 1:
             failures.append(f"{claim_id}: {len(items)} open inbox items (expected 1)")
+        for item in items:
+            if (c := item.confidence) is not None and (c.pct is not None or c.n):
+                failures.append(f"{claim_id}: an unknown situation shows a track record ({c.k} of {c.n})")
     return failures
 
 
@@ -326,7 +329,19 @@ def reconciled_failures(rt: Any) -> list[str]:
     for label, got, want in (
         ("A/R", (st.ar_count, st.ar_cents), T.AR_TOTAL),
         ("open", (st.open_count, st.open_cents), T.OPEN_TOTAL),
-        ("inbox", (st.inbox_open, st.inbox_open_cents), (T.INBOX_OPEN["count"], T.INBOX_OPEN["cents"])),
+        (
+            "inbox",
+            (
+                st.inbox_open + sum(w.count for w in st.inbox_waiting),
+                st.inbox_open_cents + sum(w.cents for w in st.inbox_waiting),
+            ),
+            (T.INBOX_OPEN["count"], T.INBOX_OPEN["cents"]),
+        ),
+        (
+            "waiting",
+            [(w.label, w.count, w.cents) for w in st.inbox_waiting],
+            [(T.INBOX_WAITING["label"], T.INBOX_WAITING["count"], T.INBOX_WAITING["cents"])],
+        ),
     ):
         if got != want:
             failures.append(f"{label} {got} ≠ {want}")

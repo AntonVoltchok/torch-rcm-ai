@@ -7438,6 +7438,17 @@
             "type": "integer",
             "title": "Total Cents"
           },
+          "actionable": {
+            "type": "integer",
+            "title": "Actionable"
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/InboxWaitingGroup"
+            },
+            "type": "array",
+            "title": "Waiting"
+          },
           "next_cursor": {
             "anyOf": [
               {
@@ -7469,9 +7480,84 @@
         "required": [
           "items",
           "total",
-          "total_cents"
+          "total_cents",
+          "actionable",
+          "waiting"
         ],
         "title": "InboxList"
+      },
+      "InboxWaiting": {
+        "properties": {
+          "signer_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Signer Ids"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "cents": {
+            "type": "integer",
+            "title": "Cents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "signer_ids",
+          "label",
+          "count",
+          "cents"
+        ],
+        "title": "InboxWaiting",
+        "description": "Open items in the viewer's queue that only someone else can sign, one row per set of signers. The server\nwrites `label` (the same names everywhere); `signer_ids` is who has the item in their own `inbox_open`."
+      },
+      "InboxWaitingGroup": {
+        "properties": {
+          "signer_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Signer Ids"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "cents": {
+            "type": "integer",
+            "title": "Cents"
+          },
+          "item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Item Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "signer_ids",
+          "label",
+          "count",
+          "cents",
+          "item_ids"
+        ],
+        "title": "InboxWaitingGroup"
       },
       "InjectIn": {
         "properties": {
@@ -10023,6 +10109,13 @@
             "type": "integer",
             "title": "Inbox Visits"
           },
+          "inbox_waiting": {
+            "items": {
+              "$ref": "#/components/schemas/InboxWaiting"
+            },
+            "type": "array",
+            "title": "Inbox Waiting"
+          },
           "paid_month_count": {
             "type": "integer",
             "title": "Paid Month Count"
@@ -10081,6 +10174,7 @@
           "inbox_open_cents",
           "inbox_claims",
           "inbox_visits",
+          "inbox_waiting",
           "paid_month_count",
           "paid_month_cents",
           "open_count",

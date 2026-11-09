@@ -63,6 +63,8 @@ export const {
   InboxItemKind,
   InboxItemState,
   InboxList,
+  InboxWaiting,
+  InboxWaitingGroup,
   Kpi,
   Learnable,
   LedgerRow,
@@ -190,6 +192,8 @@ export type InboxItemDetail = z.infer<typeof InboxItemDetail>
 export type InboxItemKind = z.infer<typeof InboxItemKind>
 export type InboxItemState = z.infer<typeof InboxItemState>
 export type InboxList = z.infer<typeof InboxList>
+export type InboxWaiting = z.infer<typeof InboxWaiting>
+export type InboxWaitingGroup = z.infer<typeof InboxWaitingGroup>
 export type Kpi = z.infer<typeof Kpi>
 export type Learnable = z.infer<typeof Learnable>
 export type Ledger = z.infer<typeof Ledger>

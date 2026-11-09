@@ -158,6 +158,15 @@ const InboxItemOut = z
     learnable: Learnable,
   })
   .strict()
+const InboxWaitingGroup = z
+  .object({
+    signer_ids: z.array(z.string()),
+    label: z.string(),
+    count: z.number().int(),
+    cents: z.number().int(),
+    item_ids: z.array(z.string()),
+  })
+  .strict()
 const InboxGroup = z
   .object({
     group_key: z.string(),
@@ -175,6 +184,8 @@ const InboxList = z
     items: z.array(InboxItemOut),
     total: z.number().int(),
     total_cents: z.number().int(),
+    actionable: z.number().int(),
+    waiting: z.array(InboxWaitingGroup),
     next_cursor: z.union([z.string(), z.null()]).optional(),
     groups: z.union([z.array(InboxGroup), z.null()]).optional(),
   })
@@ -440,6 +451,9 @@ const StatusCount = z.object({ status: ClaimStatus, count: z.number().int() }).s
 const MoveCount = z
   .object({ who: MoveWho, count: z.number().int(), cents: z.number().int(), by_status: z.array(StatusCount) })
   .strict()
+const InboxWaiting = z
+  .object({ signer_ids: z.array(z.string()), label: z.string(), count: z.number().int(), cents: z.number().int() })
+  .strict()
 const NavBadges = z
   .object({ payments: z.number().int(), eligibility: z.number().int(), activity: z.number().int() })
   .strict()
@@ -451,6 +465,7 @@ const Strip = z
     inbox_open_cents: z.number().int(),
     inbox_claims: z.number().int(),
     inbox_visits: z.number().int(),
+    inbox_waiting: z.array(InboxWaiting),
     paid_month_count: z.number().int(),
     paid_month_cents: z.number().int(),
     open_count: z.number().int(),
@@ -1260,6 +1275,7 @@ export const schemas = {
   RootCause,
   Learnable,
   InboxItemOut,
+  InboxWaitingGroup,
   InboxGroup,
   InboxList,
   ValidationError,
@@ -1293,6 +1309,7 @@ export const schemas = {
   StripTile,
   StatusCount,
   MoveCount,
+  InboxWaiting,
   NavBadges,
   Strip,
   Meta,

@@ -14,6 +14,8 @@ from torch_rcm.api.schemas import (
     ClaimRow,
     ClaimSummary,
     HolderCount,
+    InboxWaiting,
+    InboxWaitingGroup,
     MoveCount,
     NavBadges,
     PatientRef,
@@ -22,9 +24,9 @@ from torch_rcm.api.schemas import (
     Strip,
     StripTile,
 )
-from torch_rcm.domain.entities import Claim, InboxItem, Patient, Remittance
+from torch_rcm.domain.entities import Claim, InboxItem, Patient, Remittance, User
 from torch_rcm.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, MoveWho, RemitStatus, Role
-from torch_rcm.readmodels.moves import claim_move, sees
+from torch_rcm.readmodels.moves import approver_roles, can_act, claim_move, sees
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.world.fees import plain_procedures
 
@@ -129,6 +131,46 @@ def visible_inbox(snap: Snapshot, user_id: str | None) -> list[InboxItem]:
     return [i for i in snap.open_items if sees(user, i)]
 
 
+def split_inbox(
+    snap: Snapshot, user_id: str | None, items: Iterable[InboxItem]
+) -> tuple[list[InboxItem], list[InboxWaitingGroup]]:
+    """The items the viewer can act on, and the rest grouped by who can (`moves.can_act`, the same predicate as the
+    403 on approve). Waiting rows keep first-seen order; each names the users who have that item in their own
+    `inbox_open`. No user reads as billing, as in `visible_inbox`."""
+    viewer = snap.users.get(user_id or "")
+    users = sorted(snap.of(User), key=lambda u: u.id)
+    yours: list[InboxItem] = []
+    waiting: dict[tuple[str, ...], list[InboxItem]] = {}
+    for item in items:
+        if _yours(viewer, item):
+            yours.append(item)
+        else:
+            waiting.setdefault(tuple(u.id for u in users if can_act(u, item)), []).append(item)
+    rows = [
+        InboxWaitingGroup(
+            signer_ids=list(ids),
+            label=" or ".join(snap.users[u].name for u in ids) or "the owner",
+            count=len(group),
+            cents=sum(i.cents for i in group),
+            item_ids=[i.id for i in group],
+        )
+        for ids, group in waiting.items()
+    ]
+    return yours, rows
+
+
+def actionable_inbox(snap: Snapshot, user_id: str | None) -> list[InboxItem]:
+    """What "N items need you" counts: the viewer's queue less what someone else signs."""
+    return split_inbox(snap, user_id, visible_inbox(snap, user_id))[0]
+
+
+def _yours(viewer: User | None, item: InboxItem) -> bool:
+    if viewer is not None:
+        return can_act(viewer, item)
+    roles = approver_roles(item)
+    return item.assignee_user_id is None and (roles is None or Role.BILLING in roles)
+
+
 def _by_holder(moves: list[ClaimMove]) -> list[HolderCount]:
     """A tile's claims split by holder, in first-seen order of MoveWho then holder (the Denied tally)."""
     counts: dict[tuple[MoveWho, Role | None, str | None, bool], int] = {}
@@ -184,7 +226,8 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
                 by_holder=_by_holder([move_of[c.id] for c in rows]),
             )
         )
-    inbox = visible_inbox(snap, user_id)
+    queue = visible_inbox(snap, user_id)
+    inbox, waiting = split_inbox(snap, user_id, queue)
     open_rows = [c for c in claims if is_open(c)]
     ar_rows = [c for c in claims if in_ar(c)]
     paid = tiles[-1]
@@ -195,6 +238,7 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
         inbox_open_cents=sum(i.cents for i in inbox),
         inbox_claims=len({i.claim_id for i in inbox if i.claim_id}),
         inbox_visits=len({i.appointment_id for i in inbox if i.claim_id is None and i.appointment_id}),
+        inbox_waiting=[InboxWaiting(**w.model_dump(exclude={"item_ids"})) for w in waiting],
         paid_month_count=paid.count,
         paid_month_cents=paid.cents,
         open_count=len(open_rows),
@@ -206,7 +250,7 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
         all_count=sum(1 for c in claims if _matches(snap, c, ALL_CLAIMS)),
         as_of=snap.now,
         paid_month_label=f"{snap.today:%b}",
-        nav_badges=nav_badges(snap, inbox),
+        nav_badges=nav_badges(snap, queue),
     )
 
 

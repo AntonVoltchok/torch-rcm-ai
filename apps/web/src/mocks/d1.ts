@@ -5,7 +5,7 @@
  * server does. `parity.test.ts` holds it to `fixtures/parity.json`, which the API regenerates and checks
  * (`apps/api/tests/test_mock_parity.py`), so a rule changed on one side fails a test on the other.
  */
-import type { ClaimMove, ClaimOutcome, ClaimStatus, Confidence, HolderCount, Learnable, MoveCount, MoveWho, Role, StripChange } from '@/api/schema'
+import type { ClaimMove, ClaimOutcome, ClaimStatus, Confidence, HolderCount, InboxWaitingGroup, Learnable, MoveCount, MoveWho, Role, StripChange } from '@/api/schema'
 import type { MockClaim } from './fixtures/claims'
 import type { MockInboxItem } from './fixtures/inbox'
 
@@ -61,6 +61,30 @@ export function sees(user: UserId, item: MockInboxItem): boolean {
 }
 
 const canAct = (user: UserId | null, item: MockInboxItem) => user !== null && sees(user, item) && canApprove(user, item)
+
+/**
+ * The API's `claims.split_inbox`: what the viewer can act on ("N items need you"), and the rest by who can, each
+ * row naming the users who have it in their own count. Users in id order, rows in first-seen order.
+ */
+export function splitInbox(items: readonly MockInboxItem[], viewer: UserId): { yours: MockInboxItem[]; waiting: InboxWaitingGroup[] } {
+  const yours: MockInboxItem[] = []
+  const rows = new Map<string, InboxWaitingGroup>()
+  const ids = [...USERS].sort()
+  for (const item of items) {
+    if (canAct(viewer, item)) {
+      yours.push(item)
+      continue
+    }
+    const signers = ids.filter((u) => canAct(u, item))
+    const key = signers.join(',')
+    const row = rows.get(key) ?? { signer_ids: signers, label: signers.map((u) => USER_NAME[u]).join(' or ') || 'the owner', count: 0, cents: 0, item_ids: [] }
+    rows.set(key, row)
+    row.count++
+    row.cents += item.cents
+    row.item_ids.push(item.id)
+  }
+  return { yours, waiting: [...rows.values()] }
+}
 const holderRole = (item: MockInboxItem): Role => item.required_role ?? approverRoles(item)?.[0] ?? 'billing'
 const sole = (role: Role) => {
   const holders = USERS.filter((u) => USER_ROLE[u] === role)
@@ -500,6 +524,12 @@ interface LearnRule {
 }
 
 /** Same order as the API: tier 3, agent-written text, tier 2, no rule, root cause ours, no metric, too few cases. */
+/** The API's `policy.UNNAMED_*`: a situation the classifier couldn't name has no track record of its own. */
+export const UNKNOWN = 'unknown'
+export const UNNAMED_BASIS = "No track record. TorchRCM couldn't match this to a known situation, so there are no past cases to compare."
+export const UNNAMED_LEARN_REASON = "TorchRCM couldn't match this to a known situation, so there are no past cases to learn from."
+export const unnamedConfidence = (outcome: string): Confidence => ({ pct: null, k: 0, n: 0, outcome, basis: UNNAMED_BASIS })
+
 export function learnable(item: MockInboxItem, rule: LearnRule | undefined, causes: (string | null | undefined)[]): Learnable {
   const no = (code: NonNullable<Learnable['code']>, reason: string): Learnable => ({ ok: false, code, reason })
   if (item.tier === 3) return no('tier_not_learnable', 'A person always does this one. It never runs on its own.')
@@ -507,6 +537,7 @@ export function learnable(item: MockInboxItem, rule: LearnRule | undefined, caus
   if (item.tier === 2) return no('tier_not_learnable', "The owner sets this rule. It isn't learned from approvals.")
   if (item.tier == null || !rule) return no('tier_not_learnable', 'No rule covers this, so a person decides each time.')
   if (causes.includes('ours')) return no('root_cause_guard', ROOT_CAUSE_OURS_REASON)
+  if (item.situation === UNKNOWN) return no('not_enough_evidence', UNNAMED_LEARN_REASON)
   if (!rule.outcome_metric || rule.outcome_metric === 'none') {
     return no('tier_not_learnable', `“${rule.label}” has no outcome to measure, so it is never learned.`)
   }

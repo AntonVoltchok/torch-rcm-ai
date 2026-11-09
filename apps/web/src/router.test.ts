@@ -26,7 +26,7 @@ describe('meta.counts on a mutation', () => {
   it('writes the strip under "All locations", where its practice-wide number is right', async () => {
     const { qc } = setup(undefined)
     await api.reject('itm_4733', 'no')
-    expect(qc.getQueryData<StripSummary>(qk.strip(undefined))?.inbox_open).toBe(11)
+    expect(qc.getQueryData<StripSummary>(qk.strip(undefined))?.inbox_open).toBe(10)
     expect(qc.getQueryState(qk.strip(undefined))?.isInvalidated).toBe(false)
   })
 

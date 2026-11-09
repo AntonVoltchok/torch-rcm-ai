@@ -117,9 +117,10 @@ def test_openapi_is_served(client) -> None:  # type: ignore[no-untyped-def]
 def test_strip_and_inbox(client) -> None:  # type: ignore[no-untyped-def]
     strip = client.get(url("/summary/strip"), headers=DANA).json()
     tiles = {t["status"]: (t["count"], t["cents"]) for t in strip["tiles"]}
-    assert tiles["denied"] == (5, 621_000) and tiles["paid"] == (118, 6_130_000) and strip["inbox_open"] == 12
+    assert tiles["denied"] == (5, 621_000) and tiles["paid"] == (118, 6_130_000) and strip["inbox_open"] == 11
+    assert [(w["label"], w["count"]) for w in strip["inbox_waiting"]] == [("Dr. Morgan", 1)]
     inbox = client.get(url("/inbox"), params={"state": "open", "group": "true"}, headers=DANA).json()
-    assert inbox["total"] == 12 and inbox["groups"][0]["count"] == 3
+    assert (inbox["total"], inbox["actionable"]) == (12, 11) and inbox["groups"][0]["count"] == 3
     item = client.get(url("/inbox/itm_4821"), headers=DANA).json()
     assert item["confidence"]["pct"] == 92 and len(item["evidence"]) == 5
 
@@ -130,7 +131,7 @@ def test_approve_group_202_and_meta_counts(client) -> None:  # type: ignore[no-u
     )
     assert r.status_code == 202
     body = r.json()
-    assert len(body["runs"]) == 3 and body["meta"]["counts"]["inbox_open"] == 9
+    assert len(body["runs"]) == 3 and body["meta"]["counts"]["inbox_open"] == 8
 
 
 def test_error_envelope(client) -> None:  # type: ignore[no-untyped-def]
