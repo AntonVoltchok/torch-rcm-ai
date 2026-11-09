@@ -13,7 +13,7 @@ export function ChangesTab({ changes, rules }: { changes: RuleChange[]; rules: R
   const signoffs = useInboxList({ state: 'open', kind: 'owner_signoff' })
   const digest = now ? weeklyDigest(changes, now, signoffs.data?.total ?? 0) : null
   return (
-    <div className="flex flex-col gap-2 p-4">
+    <div className="flex flex-col gap-3 p-5">
       {digest && (
         <p className="m-0 rounded-md border border-line bg-fill px-3 py-1.5 text-sm" data-testid="owner-digest">
           {digest.text}
@@ -28,7 +28,7 @@ export function ChangesTab({ changes, rules }: { changes: RuleChange[]; rules: R
           rowKey={(c) => c.id}
           cols={[
             { header: 'Date', cell: (c) => dateTime(c.at) },
-            { header: 'Who', cell: (c) => <b>{userName(c.by)}</b> },
+            { header: 'Who', cell: (c) => <span className="font-medium">{userName(c.by)}</span> },
             { header: 'Rule', cell: (c) => findRow(rules, c.rule_id)?.rule.label ?? c.rule_id },
             {
               header: 'Before → after',

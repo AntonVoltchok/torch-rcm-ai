@@ -46,6 +46,11 @@ export function fileGroups(rows: LedgerRow[]): FileGroup[] {
     .map(([k, rs]) => ({ file_time: k || null, rows: rs, cents: rs.reduce((a, r) => a + r.claim.billed_cents, 0) }))
 }
 
+/**
+ * Header and section totals, added up from the server's rows. GET /ledger/today returns every row for the day (no
+ * paging or cap), so this is a selector over complete server data, in integer cents. API gap (docs/plans/d1-build.md,
+ * "Phase 3 (rest) notes"): `LedgerToday.totals` should carry these so the browser stops adding.
+ */
 export function ledgerTotals(l: Ledger) {
   const sum = (rows: { claim: { billed_cents: number } }[]) => rows.reduce((a, r) => a + r.claim.billed_cents, 0)
   return {

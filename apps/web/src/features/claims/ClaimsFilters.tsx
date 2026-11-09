@@ -32,11 +32,11 @@ export function ClaimsFilters() {
 
   const statuses = search.status ?? []
   const toggle = (s: ClaimStatus) => set({ status: statuses.includes(s) ? statuses.filter((x) => x !== s) : [...statuses, s] })
-  const select = 'rounded-md border border-line bg-white px-2 py-0.5 text-sm text-mid'
+  const select = 'h-7 rounded-md border border-line-strong bg-paper px-2 text-sm text-mid'
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-line px-3.5 py-2 text-sm">
-      <input aria-label="Filter claims" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Claim #, patient, ICN" className="w-44 rounded-md border border-line px-2 py-0.5" />
+    <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm">
+      <input aria-label="Filter claims" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Claim #, patient, ICN" className="h-7 w-44 rounded-md border border-line-strong px-2" />
       <select aria-label="Payer" className={select} value={search.payer ?? ''} onChange={(e) => set({ payer: PayerKey.safeParse(e.target.value).data })}>
         <option value="">Payer: All</option>
         {PayerKey.options.map((p) => (
@@ -71,14 +71,14 @@ export function ClaimsFilters() {
             type="button"
             aria-pressed={statuses.includes(s)}
             onClick={() => toggle(s)}
-            className={cn('rounded-[10px] border px-2 text-2xs font-semibold leading-[18px]', statuses.includes(s) ? 'border-acc bg-acc-bg text-acc' : 'border-line bg-white text-mid')}
+            className={cn('h-6 rounded-md border px-2 text-xs font-medium', statuses.includes(s) ? 'border-act-line bg-act-bg text-act' : 'border-line bg-paper text-mid hover:bg-hover')}
           >
             {STATUS_LABEL[s]}
           </button>
         ))}
       </div>
       {(statuses.length > 0 || search.payer || search.provider || search.age || search.flag || search.q) && (
-        <button type="button" className="ml-auto font-semibold text-acc hover:underline" onClick={() => void navigate({ search: { sort: search.sort }, replace: true })}>
+        <button type="button" className="ml-auto font-medium text-act hover:underline" onClick={() => void navigate({ search: { sort: search.sort }, replace: true })}>
           Clear filters
         </button>
       )}

@@ -13,8 +13,8 @@ export function PreviewPanel({ target, ruleLabel, currentMode }: { target: Previ
   const q = usePreview(target)
   const mode = target?.mode ?? currentMode
   return (
-    <section aria-label="Live preview" aria-live="polite" className="flex min-w-[340px] flex-col gap-0.5 rounded-lg border border-acc-line bg-acc-bg px-3 py-2">
-      <div className="text-2xs font-extrabold uppercase tracking-[.06em] text-acc">
+    <section aria-label="Live preview" aria-live="polite" className="flex min-w-[340px] flex-col gap-1 rounded-lg border border-line bg-fill px-4 py-2.5">
+      <div className="text-sm font-semibold text-ink">
         Live preview{ruleLabel ? ` · ${ruleLabel}` : ''}
         {mode ? ` → ${MODE_LABEL[mode]}` : ''}
         {target?.max_cents !== undefined ? ` · cap ${money(target.max_cents)}` : ''}
@@ -24,7 +24,7 @@ export function PreviewPanel({ target, ruleLabel, currentMode }: { target: Previ
       ) : q.isPending ? (
         <SkeletonBlock className="h-9 w-full" />
       ) : q.isError ? (
-        <p className="m-0 text-sm text-bad">
+        <p className="m-0 text-sm text-risk-ink">
           Preview unavailable.{' '}
           <button type="button" className="underline" onClick={() => void q.refetch()}>
             Retry
@@ -36,17 +36,17 @@ export function PreviewPanel({ target, ruleLabel, currentMode }: { target: Previ
           return (
             <div className={q.isFetching ? 'opacity-70 transition-opacity' : undefined} data-testid="preview">
               <div className="flex items-baseline gap-2">
-                <b className="text-[22px] font-extrabold text-ink" data-testid="preview-numbers">
+                <b className="text-title font-semibold text-ink nums-proportional" data-testid="preview-numbers">
                   {v.from} → {v.to}
                 </b>
                 <span className="text-sm text-mid">of this week’s {v.total} would have run</span>
               </div>
               {v.holdLine ? (
-                <p className="m-0 text-sm font-semibold text-warn" data-testid="preview-held">
+                <p className="m-0 text-sm font-medium text-ink" data-testid="preview-held">
                   {v.holdLine}
                 </p>
               ) : (
-                <p className="m-0 text-xs text-mid">{v.to === v.from ? 'No change this week.' : `${v.to - v.from} more would have run without review.`}</p>
+                <p className="m-0 text-sm text-mid">{v.to === v.from ? 'No change this week.' : `${v.to - v.from} more would have run without review.`}</p>
               )}
             </div>
           )

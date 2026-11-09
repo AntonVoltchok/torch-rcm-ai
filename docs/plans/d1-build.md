@@ -203,3 +203,21 @@ Leans for what is left (to red-team: billing lead for wording, Director of Engin
 3. **`Confidence.k`, `Confidence.n`** (nullable ints) on the domain and agent `Confidence`; `policy.confidence()` fills them; seeded items set them. The no-base-rate basis becomes plain ("Only 3 past cases like this, so there is no base rate yet."). Cassettes do not contain the basis (checked).
 4. **409 `claim_busy`** in `_check_can_approve` (and per group member) when a queued, running or paused run is on the item's claim, details `{run_id, move_label}`; a replay of the item's own approval stays 202. Client: `explain()` shows the message; mock mirrors; `contract_dump.py` records it.
 5. **Mock divergence:** the generic `approvalPlan` onDone in `mocks/db.ts` applies the filing effect for `FILING_ACTIONS` (queue the file entry like resubmit does) so a generic approval (#4851) ends `agents` like the API; `test_mock_parity.py` adds per-approval post-run moves (`approve_runs: {item: claim_outcome.move_to + claim move}`) for every canonical approval, and `parity.test.ts` checks them.
+
+## Phase 3 (rest) notes (`d1-rest`)
+
+Screens: Today's claims, Claims, Cash, Eligibility, Activity, Settings › Agents; Payments and Patients stay `MockOnlyBanner`. Hand-over: `docs/adr/worker-notes/d1-rest.md`.
+
+Judgment calls (options, lean, red team adopted; persona: dental billing lead + hiring Director of Engineering):
+
+1. **Claims quick-view counts.** The old "All N" was `open + paid_month` (a client sum that isn't all claims), and "Paid N" was the month while the filter lists every paid claim. Options: ask the API for an all-claims total and a month filter, or drop/realign the counts. Lean, adopted: "All" has no count (the footer shows the list's `total`); "Paid" shows the paid tile's count (118 = `GET /claims?status=paid` total on the seed), titled "Every paid claim, all time". Gap below.
+2. **Ledger sums.** `LedgerToday` has no totals, and this phase may not edit the API. Lean, adopted: keep the browser sums as one named selector (`ledger/selectors.ts ledgerTotals`) over the complete, uncapped row lists in integer cents, with a comment naming the gap. Removing them would drop numbers the demo script asserts.
+3. **Hues.** Ask (rule mode), "Awaiting you" (Activity) and the ⚑ are practice amber; "Agent checking…", agent names and agent proposals are agents teal; root cause "ours", errors and the 90+ aging bar are risk red; unverified eligibility is dashed neutral (it isn't money at risk); every other bar is neutral grey (cobalt is for actions only). Every colour keeps its text label.
+
+Server gaps (for the API session; nothing computed in the browser to cover them beyond what is listed):
+
+- `LedgerToday.totals`: sent / leaving / held count and cents, and per-file groups. Today `ledgerTotals` and `fileGroups` add rows.
+- `Strip.all_count` (or a facet on `GET /claims`) for the "All" quick view; a month filter on `GET /claims` if Paid should mean "Paid · Oct".
+- `EligibilityOut.by_day[{date, verified, issue, unverified, checking}]`: the per-day tallies are still counted from rows.
+- `RulesOut.rules_count`: the Rules tab count adds tier rows; Proposals falls back to filtering open items when `proposals_open` is missing.
+- `ActivityRow.move` (or `claim.move`): Activity rows can't show a baton.
