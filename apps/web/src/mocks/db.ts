@@ -75,6 +75,9 @@ import {
   RUN_FAILED_HEADLINE,
   signerNote,
   SIGNOFF_LABEL,
+  splitInbox,
+  UNKNOWN,
+  unnamedConfidence,
   stripChanges,
   touches,
   trackRecord,
@@ -529,7 +532,8 @@ export class MockDb {
     const open = claims.filter((c) => c.status !== 'paid')
     const ar = claims.filter((c) => AR.includes(c.status))
     const flagged = claims.filter((c) => this.needsAction(c.id))
-    const inbox = this.visibleItems(user)
+    const queue = this.visibleItems(user)
+    const { yours: inbox, waiting } = splitInbox(queue, user)
     return {
       tiles,
       moves: moveCounts(open, (c) => this.moveOf(c, user)),
@@ -537,6 +541,7 @@ export class MockDb {
       inbox_open_cents: inbox.reduce((a, i) => a + i.cents, 0),
       inbox_claims: new Set(inbox.flatMap((i) => (i.claim_id ? [i.claim_id] : []))).size,
       inbox_visits: new Set(inbox.flatMap((i) => (!i.claim_id && i.appointment_id ? [i.appointment_id] : []))).size,
+      inbox_waiting: waiting.map(({ item_ids: _, ...w }) => w),
       paid_month_count: paidOct.length,
       paid_month_cents: paidOct.reduce((a, c) => a + paidTileCents(c), 0),
       open_count: open.length,
@@ -551,7 +556,7 @@ export class MockDb {
       paid_month_label: 'Oct',
       nav_badges: {
         payments: SEED_REMITS_TO_REVIEW + this.s.remitsToReview,
-        eligibility: inbox.filter((i) => i.kind === 'eligibility_flag').length,
+        eligibility: queue.filter((i) => i.kind === 'eligibility_flag').length,
         activity: this.decisions().filter((r) => r.ran).length,
       },
     }
@@ -580,11 +585,14 @@ export class MockDb {
       g.cents += item.cents
       g.item_ids.push(item.id)
     }
+    const { yours, waiting } = splitInbox(items, user)
     // A group of one is just an item.
     return {
       items: items.map((i) => this.itemOut(i, user)),
       total: items.length,
       total_cents: items.reduce((a, i) => a + i.cents, 0),
+      actionable: yours.length,
+      waiting,
       next_cursor: null,
       // As the API titles a group: the count is in the string; the words are the members' shared action.
       groups: groups
@@ -799,7 +807,7 @@ export class MockDb {
       rows,
       summary: {
         ran_without_you: this.decisions().filter((r) => r.ran).length,
-        awaiting_you: this.visibleItems(user).length,
+        awaiting_you: splitInbox(this.visibleItems(user), user).yours.length, // the strip's inbox_open
         decisions: this.decisions().length,
         status_checks: week.filter((r) => r.action_kind === 'status_check').length,
         payer_calls: week.filter((r) => r.action_kind === 'payer_rep_call').length,
@@ -2039,9 +2047,11 @@ export class MockDb {
               claim_id: claim.id,
               agent: 'followup',
               title: `#${claim.number} · ${claim.patient_name} · MetLife asks for #14 history`,
+              situation: UNKNOWN,
+              rule_id: 'rule_t1_records_request',
               recommendation: 'Send a records request via NEA with the 2019-03-02 extraction note for #14; answer: replacement prosthesis, extraction 03/02/2019.',
               summary: 'Pended for information (no CARC). The agent read the correspondence and found the 2019 extraction note.',
-              confidence: null,
+              confidence: unnamedConfidence('paid within 30 days'), // the API's policy.confidence for `unknown`
               evidence_ids: [portal.id, note.id],
               proposed_action: { action: 'records_request', params: { note_visit_ids: ['VIS-2019-0302-14'] }, cents: claim.billed_cents, requires_hold_window: false },
               plan_steps: ['Upload the 2019-03-02 note via NEA', 'Reply to the correspondence citing the NEA#'],

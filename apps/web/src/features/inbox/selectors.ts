@@ -4,7 +4,7 @@
  * group counts and cents are the server's.
  */
 import { z } from 'zod'
-import type { Evidence, InboxGroup, InboxItem, InboxList, MoveWho } from '@/api/schema'
+import type { Evidence, InboxGroup, InboxItem, InboxList, InboxWaiting, InboxWaitingGroup, MoveWho } from '@/api/schema'
 
 const DraftPayload = z.object({
   draft: z.object({
@@ -57,6 +57,14 @@ export function entries(list: InboxList): Entry[] {
 /** Someone else signs it: the server sends `signer_note` only when the viewer cannot approve. */
 export const isBlocked = (item: InboxItem): boolean => item.signer_note !== null
 
+/** "1 waiting on Dr. Morgan": the server's waiting rows (strip or list), in its order and words. */
+export const waitingLine = (rows: readonly InboxWaiting[]): string => rows.map((w) => `${w.count} waiting on ${w.label}`).join(' · ')
+
+/** The list's items under each server waiting row ("Waiting on Dr. Morgan"), in list order; the rest are the viewer's. */
+export function waitingSections(list: InboxList): { row: InboxWaitingGroup; items: InboxItem[] }[] {
+  return list.waiting.map((row) => ({ row, items: list.items.filter((i) => row.item_ids.includes(i.id)) }))
+}
+
 /** Where a group's baton lands: the members' own `lands` when they agree (they do for a batch), else no ghost. */
 export function groupLands(members: readonly InboxItem[]): MoveWho | null {
   const first = members[0]?.lands ?? null
@@ -104,6 +112,13 @@ export function withoutItems(list: InboxList, ids: readonly string[]): InboxList
     items: list.items.filter((i) => !drop.has(i.id)),
     total: Math.max(0, list.total - removed.length),
     total_cents: Math.max(0, list.total_cents - removed.reduce((a, i) => a + i.cents, 0)),
+    actionable: Math.max(0, list.actionable - removed.filter((i) => !list.waiting.some((w) => w.item_ids.includes(i.id))).length),
+    waiting: list.waiting
+      .map((w) => {
+        const gone = w.item_ids.filter((id) => drop.has(id))
+        return { ...w, item_ids: w.item_ids.filter((id) => !drop.has(id)), count: w.count - gone.length, cents: w.cents - gone.reduce((a, id) => a + (removedCents.get(id) ?? 0), 0) }
+      })
+      .filter((w) => w.count > 0),
     groups: inboxGroups(list)
       .map((g) => {
         const gone = g.item_ids.filter((id) => drop.has(id))

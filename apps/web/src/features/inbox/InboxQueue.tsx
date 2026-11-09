@@ -9,7 +9,7 @@ import type { InboxGroup, InboxItem, InboxList } from '@/api/schema'
 import { money } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { Baton, BatonLegend, batonProps } from '@/components/Baton'
-import { entries, groupLands, groupRowId, isBlocked, type Entry } from './selectors'
+import { entries, groupLands, groupRowId, isBlocked, waitingSections, type Entry } from './selectors'
 import { INBOX_TABS } from './search'
 import { RecentRuns } from './RecentRuns'
 
@@ -79,8 +79,10 @@ export function InboxQueue(props: {
   onOpenLaunch: (id: string) => void
 }) {
   const all = props.list ? entries(props.list) : []
-  const mine = all.filter((e) => e.type === 'group' || !isBlocked(e.item))
-  const blocked = all.flatMap((e) => (e.type === 'item' && isBlocked(e.item) ? [e.item] : []))
+  // Who waits on whom is the server's (`InboxList.waiting`); the rest of the list is the viewer's.
+  const sections = props.list ? waitingSections(props.list) : []
+  const waitingIds = new Set(sections.flatMap((s) => s.items.map((i) => i.id)))
+  const mine = all.filter((e) => e.type === 'group' || !waitingIds.has(e.item.id))
   return (
     <aside aria-label="Your queue" className="panel flex min-h-0 flex-col overflow-y-auto pb-2">
       <div className="sticky top-0 z-[2] flex items-center justify-between gap-3 rounded-t-[10px] bg-paper px-4 pb-2 pt-3">
@@ -88,8 +90,8 @@ export function InboxQueue(props: {
         <div role="tablist" aria-label="Filter" className="flex gap-0.5 text-sm text-mid">
           {INBOX_TABS.map((t) => {
             const on = props.kind === t.kind
-            // Only the server's total: GET /inbox sends no per-kind facets, and the UI never counts.
-            const n = t.kind ? undefined : props.list?.total
+            // Only the server's count of what is yours: GET /inbox sends no per-kind facets, and the UI never counts.
+            const n = t.kind ? undefined : props.list?.actionable
             return (
               <Link
                 key={t.label}
@@ -133,17 +135,20 @@ export function InboxQueue(props: {
               ),
             )}
           </div>
-          {mine.length === 0 && blocked.length > 0 && <p className="m-0 px-4 py-3 text-mid">Nothing of this kind is waiting on you.</p>}
-          {blocked.length > 0 && (
-            <section aria-label="Not yours to do">
-              <h3 className="mx-4 mb-1 mt-2 border-t border-line pt-2.5 text-sm font-normal text-mid">
-                Not yours to do
+          {mine.length === 0 && sections.length > 0 && <p className="m-0 px-4 py-3 text-mid">Nothing of this kind is waiting on you.</p>}
+          {sections.map(({ row, items }) => (
+            <section key={row.signer_ids.join(',')} aria-label={`Waiting on ${row.label}`} data-testid="inbox-waiting">
+              <h3 className="mx-4 mb-1 mt-2 flex justify-between gap-3 border-t border-line pt-2.5 text-sm font-normal text-mid">
+                <span>
+                  Waiting on {row.label} · {row.count}
+                </span>
+                <span className="tabular-nums">{money(row.cents)}</span>
               </h3>
-              {blocked.map((it) => (
+              {items.map((it) => (
                 <ItemRow key={it.id} item={it} selected={it.id === props.selectedId} onSelect={() => props.onSelect(it.id)} />
               ))}
             </section>
-          )}
+          ))}
         </>
       )}
       <RecentRuns active={props.activeLaunch} onOpen={props.onOpenLaunch} />

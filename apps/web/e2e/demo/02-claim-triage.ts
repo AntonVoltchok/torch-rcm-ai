@@ -5,10 +5,10 @@
  */
 import { expect, test, type Page } from '@playwright/test'
 
-/** Inherits: the Inbox after the group approve (badge 9). */
+/** Inherits: the Inbox after the group approve (badge 8). */
 export async function step3b(page: Page) {
   const badge = page.getByTestId('badge-inbox')
-  await test.step('3b · live triage on #4744: reads, label, verdict; one new item; badge 10', async () => {
+  await test.step('3b · live triage on #4744: reads, label, verdict; one new item; badge 9', async () => {
     const search = page.getByLabel('Search claims and patients')
     await search.fill('4744')
     await search.press('Enter')
@@ -24,7 +24,7 @@ export async function step3b(page: Page) {
     await expect(panel.getByText('Policy: ask Dana → Inbox')).toBeVisible()
     await expect(panel.getByText(/recorded agent plan|live agent/)).toBeVisible()
     await expect(panel.locator('[data-step="report"]')).toHaveAttribute('data-status', 'ok', { timeout: 20_000 })
-    await expect(badge).toHaveText('10')
+    await expect(badge).toHaveText('9')
     await expect(page.getByRole('region', { name: 'Open inbox items' })).toContainText('records request')
   })
 }

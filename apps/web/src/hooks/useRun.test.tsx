@@ -38,6 +38,7 @@ const counts = {
   inbox_open_cents: 941700,
   inbox_claims: 0,
   inbox_visits: 0,
+  inbox_waiting: [],
   paid_month_count: 118,
   paid_month_cents: 6130000,
   open_count: 107,
@@ -106,7 +107,7 @@ describe('useRun', () => {
     const { result } = renderHook(() => ({ run: useRun('run_t'), strip: useStrip() }), { wrapper })
 
     await waitFor(() => expect(result.current.run.run?.status).toBe('succeeded'))
-    await waitFor(() => expect(result.current.strip.data?.inbox_open).toBe(10)) // refetched for this viewer
+    await waitFor(() => expect(result.current.strip.data?.inbox_open).toBe(9)) // refetched for this viewer
     expect(written.mock.calls.filter(([key]) => key[0] === 'strip')).toEqual([]) // never written from the frame
     await waitFor(() => expect(result.current.run.mode).toBe('idle')) // a clean end: the trailing bare `done` is not a desync
     expect(qc.getQueryState(qk.inbox.all)?.isInvalidated).toBe(true)

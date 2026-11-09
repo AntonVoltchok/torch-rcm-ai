@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CLAIM_STATUSES, InboxItem, InboxItemDetail, InboxList, RunDetail } from '@/api/schema'
 import { MockDb, MockError } from './db'
+import { UNNAMED_BASIS, UNNAMED_LEARN_REASON } from './d1'
 import { GROUP_DELTA_PA } from './fixtures/inbox'
 
 /** The mock must obey the same invariants as the API (docs/spec/01-domain-model.md "Invariants"), or the demo lies. */
@@ -21,8 +22,14 @@ function invariants(db: MockDb) {
     const tile = strip.tiles.find((t) => t.status === s)
     expect(tile).toMatchObject({ count: group.length, cents: group.reduce((a, c) => a + c.billed_cents, 0), flagged: group.filter((c) => c.needs_action).length })
   }
-  const open = db.inbox({}).items
-  expect(strip.inbox_open).toBe(open.length)
+  const list = db.inbox({})
+  const open = list.items
+  // "N need you" + what waits on someone else is the whole queue, and the list says the same as the strip.
+  expect(strip.inbox_open + strip.inbox_waiting.reduce((a, w) => a + w.count, 0)).toBe(open.length)
+  expect(list.actionable).toBe(strip.inbox_open)
+  expect(list.waiting.map(({ item_ids: _, ...w }) => w)).toEqual(strip.inbox_waiting)
+  const waiting = new Set(list.waiting.flatMap((w) => w.item_ids))
+  for (const i of open) expect(i.signer_note !== null).toBe(waiting.has(i.id))
   for (const c of claims) expect(c.needs_action).toBe(open.some((i) => i.claim?.id === c.id))
   // D1's whose-move numbers add up, as the API's test_invariants `move_totals`.
   expect(strip.moves.map((m) => m.who)).toEqual(['practice', 'agents', 'payer', 'nobody'])
@@ -32,7 +39,7 @@ function invariants(db: MockDb) {
   for (const t of strip.tiles) expect(t.by_holder.reduce((a, h) => a + h.count, 0)).toBe(t.count)
   const openClaims = claims.filter((c) => c.status !== 'paid')
   for (const m of strip.moves) expect(openClaims.filter((c) => c.move.who === m.who).length).toBe(m.count)
-  expect(strip.inbox_claims).toBe(new Set(open.flatMap((i) => (i.claim ? [i.claim.id] : []))).size)
+  expect(strip.inbox_claims).toBe(new Set(open.flatMap((i) => (i.claim && !waiting.has(i.id) ? [i.claim.id] : []))).size)
 }
 
 describe('mock API', () => {
@@ -40,10 +47,10 @@ describe('mock API', () => {
     invariants(setup().db)
   })
 
-  it('demo step 3: Approve 3 → inbox 9, Denied stays 5, runs stream four steps and an audit line', () => {
+  it('demo step 3: Approve 3 → inbox 8, Denied stays 5, runs stream four steps and an audit line', () => {
     const { db, drain } = setup()
     const res = db.approveGroup(GROUP_DELTA_PA, 'usr_dana')
-    expect(res.meta.counts.inbox_open).toBe(9)
+    expect(res.meta.counts.inbox_open).toBe(8)
     expect(res.meta.counts.tiles.find((t) => t.status === 'denied')).toMatchObject({ count: 5, flagged: 2 })
     drain()
     const { run, evidence } = db.run(res.runs[0]?.id ?? '')
@@ -75,7 +82,11 @@ describe('mock API', () => {
     expect(done.model_situation_label).toBe('payer asks for missing-tooth history')
     expect(done.steps?.find((s) => s.name === 'decide')?.policy_verdict).toBe('propose')
     expect(done.steps?.find((s) => s.name === 'investigate')?.progress_lines).toContain('read portal correspondence 10/22')
-    expect(db.strip().inbox_open).toBe(13)
+    expect(db.strip().inbox_open).toBe(12)
+    // An unnamed situation borrows no track record: the item says so in words, with no percent and no k of n.
+    const item = db.inbox({}).items.find((i) => i.id === 'itm_4744')
+    expect(item?.confidence).toEqual({ pct: null, k: 0, n: 0, outcome: 'paid within 30 days', basis: UNNAMED_BASIS })
+    expect(item?.learnable).toMatchObject({ ok: false, reason: UNNAMED_LEARN_REASON })
     expect(() => db.triage('clm_4744', 'usr_dana')).toThrow(MockError)
   })
 

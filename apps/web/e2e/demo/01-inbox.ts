@@ -9,9 +9,11 @@ import { expect, test, type Page } from '@playwright/test'
 export async function step1(page: Page) {
   const badge = page.getByTestId('badge-inbox')
   const strip = page.getByRole('region', { name: 'Claim pipeline' })
-  await test.step('1 · Dana opens TorchRCM: Inbox 12, the strip, 5 agents · 1 running', async () => {
-    await expect(badge).toHaveText('12')
+  await test.step('1 · Dana opens TorchRCM: 11 need her, 1 waits on Dr. Morgan; the strip, 5 agents · 1 running', async () => {
+    await expect(badge).toHaveText('11')
     await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible()
+    await expect(page.getByText('11 items need you: 8 claims, 3 upcoming visits · 1 waiting on Dr. Morgan')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Waiting on Dr. Morgan' })).toContainText('#4611')
     for (const label of ['Sent 5', 'Rejected 2', 'Accepted 24', 'Pending 57', 'Denied 5', 'Partial 5', 'Appealed 3', 'Paid · Oct 118']) {
       await expect(strip.getByRole('link', { name: label, exact: true })).toBeVisible()
     }
@@ -51,7 +53,7 @@ export async function step2(page: Page) {
 export async function step3(page: Page) {
   const badge = page.getByTestId('badge-inbox')
   const strip = page.getByRole('region', { name: 'Claim pipeline' })
-  await test.step('3 · ⇧A approves 3: items leave, steps stream, NEA# appears, audit line; badge 9; Denied stays 5', async () => {
+  await test.step('3 · ⇧A approves 3: items leave, steps stream, NEA# appears, audit line; badge 8; Denied stays 5', async () => {
     await page.locator('body').press('Shift+A')
     await expect(page.locator('[data-group-key]')).toHaveCount(0)
     const panel = page.getByRole('region', { name: 'Agent progress' })
@@ -63,7 +65,7 @@ export async function step3(page: Page) {
     await expect(owens.getByText(/NEA# \d+/).first()).toBeVisible()
     await expect(owens.getByTestId('audit-line')).toContainText('until the 11:15 file leaves')
     await expect(panel.getByText(/you can leave/)).toBeVisible()
-    await expect(badge).toHaveText('9')
+    await expect(badge).toHaveText('8')
     await expect(strip.getByRole('link', { name: 'Denied 5', exact: true })).toBeVisible()
   })
 }

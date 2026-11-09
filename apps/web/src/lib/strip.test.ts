@@ -32,9 +32,10 @@ describe('strip selectors', () => {
     expect(stripTiles(partial).map((t) => t.status)).not.toContain('appealed')
   })
 
-  it('flags 9 claims, which with 3 eligibility items make the Inbox 12', () => {
+  it('flags 9 claims, which with 3 eligibility items make a queue of 12: 11 need Dana, 1 waits on Dr. Morgan', () => {
     expect(strip.flagged_count).toBe(9)
-    expect(navBadge(strip, 'inbox')).toBe(12)
+    expect(navBadge(strip, 'inbox')).toBe(11)
+    expect(strip.inbox_waiting).toEqual([{ signer_ids: ['usr_morgan'], label: 'Dr. Morgan', count: 1, cents: 124_000 }])
     expect(navBadge(strip, 'eligibility')).toBe(3)
     expect(navBadge(strip, 'payments')).toBe(3)
     expect(navBadge(strip, 'activity')).toBe(41)
