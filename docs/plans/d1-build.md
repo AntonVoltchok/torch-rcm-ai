@@ -130,3 +130,10 @@ Judgment calls met while building the shell. Lean first; red-teamed below.
 - 7: line-heights set with each size; all ten routes checked at 1280×800 (`e2e/shell.spec.ts` asserts no horizontal scroll).
 - 8: `acc*` are aliases of `act*` (deprecated; d1-rest replaces them). `warn*` is neutral (ink on grey), so amber only ever means "yours". `bad*` aliases `risk*`; every `text-bad` use is the phase owner's to check (list in the hand-over).
 - Missed, done here: the pipeline renders `open_count`, `ar_cents`, `flagged_count` (no client sums); KPI batons and legend marks are `aria-hidden`; the bar has a label with its counts; skip link; global reduced-motion rule. Left for d1-rest: `openTotals`/`arTotals`/`flaggedTotal`/`tileFor`'s zero tile in `lib/strip.ts` (still used by Claims).
+
+## Coordinator decisions after phase 1
+
+- **Tier gap** (`reprocessing_request` is tier 1 but can carry agent text): close it in phase 3 with a Policy guard, not a new action. The action runs unattended only when its text is the body of an approved `review_draft`; anything else is tier 2. No tool enum changes, so no cassette re-record.
+- **#4772's queued `then` follow-up never runs:** a bug; fixed in phase 3 (API session).
+- **Tier 3 posts nothing after Dr. Morgan signs #4611:** correct. Tier 3 is human-only and the PMS posting is a person's job; `touches` already says what is left to post. Kept.
+- **Mock run-step labels in lower case:** given to `d1-inbox`.
