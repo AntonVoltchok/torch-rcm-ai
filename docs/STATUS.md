@@ -89,6 +89,7 @@ _Updated by whoever ends a session. Newest first._
 - Two-tab `claim_busy` is covered by a unit test, not an e2e.
 
 **Next**
+- **One real-format adapter behind `WorldPort`.** Every outside system is simulated in `world/sim.py`, and 835, 277CA and 271 arrive as typed objects, not EDI. Parse a real-format X12 835 into `Remittance` (balancing `billed = paid + Σadj + patient`), with a fixture and a test, so the seam is shown working on real wire data. Record the scope in an ADR.
 - After merge: `make seed`. Stored `Confidence` changed shape (required `k`, `n`, `outcome`), so an older DB no longer loads its Inbox items.
 - Review-level findings still open in the worker notes:
   1. `RuleChange.items_affected_since` is a stored, hand-authored count that no run backs. It needs a derived field.
