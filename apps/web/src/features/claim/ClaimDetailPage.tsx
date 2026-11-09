@@ -209,7 +209,7 @@ export function ClaimDetailPage() {
             </Card>
           )}
           <Card title="Lines" className="col-span-2">
-            <LinesTable lines={d.lines} estimate={moneyIsEstimate(d.money)} />
+            <LinesTable lines={d.lines} estimate={moneyIsEstimate(d.money) && d.money.paid_cents === null} />
           </Card>
           <Card title="Attachments and acknowledgments" label="Attachments and acknowledgments" className="col-span-2">
             <AttachmentsAndAcks attachments={d.attachments} acks={d.acks} />

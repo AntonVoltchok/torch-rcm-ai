@@ -69,6 +69,8 @@ export function DenialCard({ d }: { d: ClaimDetail }) {
  */
 export function MoneyCard({ m, plan, payer, denial }: { m: MoneyMath; plan: string; payer: string; denial: ClaimDetail['denial'] }) {
   const est = moneyIsEstimate(m)
+  // Settled but held as a benefit variance: the expected column is the payer's share at the tracked benefits.
+  const variance = est && m.paid_cents !== null
   const neg = (c: number | null) => (c === null ? null : -c)
   const rows: [string, number | null, number | null][] = est
     ? [
@@ -94,7 +96,7 @@ export function MoneyCard({ m, plan, payer, denial }: { m: MoneyMath; plan: stri
           <thead>
             <tr className="text-xs text-soft">
               <th className="py-1 text-left font-medium" />
-              <th className="py-1 text-right font-medium">Expected, estimate</th>
+              <th className="py-1 text-right font-medium">{variance ? 'Expected' : 'Expected, estimate'}</th>
               <th className="py-1 pl-3 text-right font-medium">Per the 835</th>
             </tr>
           </thead>
@@ -117,7 +119,11 @@ export function MoneyCard({ m, plan, payer, denial }: { m: MoneyMath; plan: stri
         </p>
       )}
       <p className="m-0 mt-1.5 text-xs text-soft">
-        {est ? `Expected figures are estimates from the contract, ${plan}. ${payer} has not agreed them.` : 'From the 835.'}
+        {variance
+          ? `Expected figures are what ${payer} owes at the tracked benefits, ${plan}. The 835 disagrees, so the line is held.`
+          : est
+            ? `Expected figures are estimates from the contract, ${plan}. ${payer} has not agreed them.`
+            : 'From the 835.'}
       </p>
     </Card>
   )
