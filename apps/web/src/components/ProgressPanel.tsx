@@ -75,7 +75,7 @@ function StepRow({ step, run, last }: { step: RunViewStep; run: RunView; last: b
         )}
         {isDecide && run.model_situation_label && <div className="text-sm text-mid">Agent’s label: “{run.model_situation_label}”</div>}
         {isDecide && typeof rationale === 'string' && rationale && <p className="m-0 text-sm text-mid">{rationale}</p>}
-        {step.output_summary && <small className="block text-sm text-mid">{step.output_summary}</small>}
+        {step.output_summary && step.output_summary !== step.label && <small className="block text-sm text-mid">{step.output_summary}</small>}
         {step.policy_verdict && (
           <Chip tone={VERDICT[step.policy_verdict].tone} className="mt-0.5">
             {VERDICT[step.policy_verdict].label}
@@ -247,12 +247,12 @@ export function ProgressPanel({
     if (pane) headRef.current?.focus()
   }, [pane, launch.id])
   useEffect(() => {
-    if (pane && done) footRef.current?.querySelector('button')?.focus()
+    if (pane && done) footRef.current?.querySelector('button')?.focus({ preventScroll: true })
   }, [pane, done])
 
   const summary = done
     ? failed.length > 0
-      ? `Stopped. ${failed[0]?.result_summary || firstFailedStep?.output_summary || 'A step failed.'}`
+      ? failed[0]?.result_summary || firstFailedStep?.output_summary || 'A step failed.'
       : views.length === 1
         ? views[0]?.result_summary || 'Done.'
         : `All ${views.length} runs finished.`
@@ -296,21 +296,28 @@ export function ProgressPanel({
         ))}
       </RelayTable>
 
-      <div className={cn('mt-4', failed.length > 0 && 'rounded-lg border border-risk-line bg-risk-bg px-3.5 py-3')}>
-        <h2 className={cn('m-0 text-md font-semibold', failed.length > 0 && 'text-risk-ink')}>
-          {done ? (failed.length > 0 ? 'Stopped, and nothing more was done' : 'Finished') : 'Agents are on it'}
-        </h2>
-        <p aria-live="polite" className={cn('m-0 mt-0.5 text-sm', done ? 'text-ink' : 'font-medium text-agents-ink')}>
-          {summary}
-        </p>
-        {done && failed.length > 0 && firstFailedStep?.output_summary && failed[0]?.result_summary && firstFailedStep.output_summary !== failed[0].result_summary && (
-          <p className="m-0 mt-1 text-sm" data-testid="failed-step">
-            {firstFailedStep.label}: {firstFailedStep.output_summary}
-          </p>
-        )}
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 items-start gap-6">
+      <div className={cn('mt-4 grid items-start gap-6', (done ? failed.length === 0 && launch.changes?.length : launch.touches?.length) ? 'grid-cols-[minmax(0,1fr)_minmax(0,340px)]' : 'grid-cols-1')}>
+        <div>
+          <div className={cn(failed.length > 0 && 'rounded-lg border border-risk-line bg-risk-bg px-3.5 py-3')}>
+            <h2 className={cn('m-0 text-md font-semibold', failed.length > 0 && 'text-risk-ink')}>
+              {done ? (failed.length > 0 ? 'Stopped, and nothing more was done' : 'Finished') : 'Agents are on it'}
+            </h2>
+            <p aria-live="polite" className="m-0 mt-0.5 text-sm text-ink">
+              {summary}
+            </p>
+            {done && failed.length > 0 && firstFailedStep?.output_summary && failed[0]?.result_summary && firstFailedStep.output_summary !== failed[0].result_summary && (
+              <p className="m-0 mt-1 text-sm" data-testid="failed-step">
+                {firstFailedStep.label}: {firstFailedStep.output_summary}
+              </p>
+            )}
+          </div>
+          <p className="m-0 mt-2 text-xs text-soft">Runs in the background, so you can leave this screen. Steps resume after a reload.</p>
+          {done && footer && (
+            <div ref={footRef} className="mt-4 flex flex-wrap items-center gap-2.5">
+              {footer({ done, failed })}
+            </div>
+          )}
+        </div>
         {!done && launch.touches && launch.touches.length > 0 && (
           <div>
             <h3 className="m-0 text-sm font-semibold">What this does</h3>
@@ -321,20 +328,8 @@ export function ProgressPanel({
             </ul>
           </div>
         )}
-        {done && failed.length === 0 && launch.changes && launch.changes.length > 0 && (
-          <div className="col-span-2 max-w-[440px]">
-            <Changes changes={launch.changes} />
-          </div>
-        )}
+        {done && failed.length === 0 && launch.changes && launch.changes.length > 0 && <Changes changes={launch.changes} />}
       </div>
-
-      <p className="m-0 mt-3 text-xs text-soft">Runs in the background, so you can leave this screen. Steps resume after a reload.</p>
-
-      {done && footer && (
-        <div ref={footRef} className="mt-4 flex items-center gap-2.5">
-          {footer({ done, failed })}
-        </div>
-      )}
     </section>
   )
 }

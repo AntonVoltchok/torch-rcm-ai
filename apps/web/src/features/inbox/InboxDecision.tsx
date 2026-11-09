@@ -11,7 +11,7 @@ import { useInboxItem } from '@/hooks/useInbox'
 import { useAlwaysAutoRun } from '@/hooks/useInboxActions'
 import { isApiError } from '@/api/client'
 import { time } from '@/lib/format'
-import { AGENT_NAME, PAYER_NAME } from '@/lib/payers'
+import { AGENT_NAME } from '@/lib/payers'
 import { cn } from '@/lib/cn'
 import { session, USERS } from '@/state/session'
 import { Baton } from '@/components/Baton'
@@ -72,7 +72,7 @@ export function InboxDecision(p: Props) {
   const blocked = isBlocked(item)
   const members = group?.members ?? [item]
   const claim = item.claim
-  const payer = claim ? PAYER_NAME[claim.payer.key] : null
+  const payer = claim ? claim.payer.short_name : null
   const draft = detail.data ? draftOf(detail.data.payload, detail.data.evidence) : null
   const hold = detail.data?.hold_window
   const auditNote = detail.data?.audit_note

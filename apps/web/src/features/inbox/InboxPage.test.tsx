@@ -168,7 +168,7 @@ describe('Inbox approve', () => {
     await waitFor(() => expect(pane).toHaveAttribute('data-failed', 'true'), { timeout: 5000 })
     expect(pane.querySelector('[data-step="act:compare_pms"]')).toHaveAttribute('data-status', 'failed')
     expect(pane.querySelector('[data-step="act:queue_for_file"]')).toHaveAttribute('data-status', 'pending')
-    expect(within(pane).getByText(new RegExp(`Stopped\\. ${outage}`))).toBeInTheDocument()
+    expect(within(pane).getByText(outage, { selector: '[aria-live]' })).toBeInTheDocument()
     expect(within(pane).queryByTestId('changes')).toBeNull()
     await user.click(await within(pane).findByRole('button', { name: /^Back to .*#4851/ }))
     const back = await decision('4851')

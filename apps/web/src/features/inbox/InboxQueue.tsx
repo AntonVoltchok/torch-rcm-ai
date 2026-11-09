@@ -40,7 +40,7 @@ function ItemRow({ item, selected, member = false, onSelect }: { item: InboxItem
         <span className="text-mid"> {c ? c.procedures_plain : 'Upcoming visit'}</span>
       </span>
       <span className="col-start-3 row-start-1 font-medium tabular-nums">{money(item.cents)}</span>
-      {!member && <span className="col-span-2 col-start-2 row-start-2 truncate text-sm text-mid">{item.title}</span>}
+      {!member && <span className="col-span-2 col-start-2 row-start-2 truncate text-sm text-mid">{item.signer_note ?? item.title}</span>}
     </button>
   )
 }
@@ -81,7 +81,6 @@ export function InboxQueue(props: {
   const all = props.list ? entries(props.list) : []
   const mine = all.filter((e) => e.type === 'group' || !isBlocked(e.item))
   const blocked = all.flatMap((e) => (e.type === 'item' && isBlocked(e.item) ? [e.item] : []))
-  const signer = blocked[0]?.claim?.move.label
   return (
     <aside aria-label="Your queue" className="panel flex min-h-0 flex-col overflow-y-auto pb-2">
       <div className="sticky top-0 z-[2] flex items-center justify-between gap-3 rounded-t-[10px] bg-paper px-4 pb-2 pt-3">
@@ -138,7 +137,7 @@ export function InboxQueue(props: {
           {blocked.length > 0 && (
             <section aria-label="Not yours to do">
               <h3 className="mx-4 mb-1 mt-2 border-t border-line pt-2.5 text-sm font-normal text-mid">
-                Not yours to do. {signer ? `${signer} ${blocked.length === 1 ? 'this one' : 'these'}.` : 'Someone else signs these.'}
+                Not yours to do
               </h3>
               {blocked.map((it) => (
                 <ItemRow key={it.id} item={it} selected={it.id === props.selectedId} onSelect={() => props.onSelect(it.id)} />
