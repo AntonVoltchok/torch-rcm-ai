@@ -1,8 +1,8 @@
 /**
  * Pure view logic for Settings › Agents. Every number is the server's (GET /rules, /settings/preview,
- * /rules/changes); these functions only label, group and add server values together.
+ * /rules/changes): tier totals, preview totals and the digest come computed; these functions only label and group.
  */
-import type { OutcomeMetric, Preview, ReversesIn, Role, Rule, RuleChange, RuleMode, RuleRow, RulesOut, Tier, TierGroup } from '@/api/schema'
+import type { OutcomeMetric, Preview, ReversesIn, Role, Rule, RuleChange, RuleDigest, RuleMode, RuleRow, RulesOut, Tier, TierGroup } from '@/api/schema'
 import { PAYER_NAME } from '@/lib/payers'
 import { money, shortDate } from '@/lib/format'
 import { USERS } from '@/state/session'
@@ -123,7 +123,7 @@ export interface TierView {
   label: string
   description: string
   rows: RuleRowView[]
-  /** "9 rules · ran 29 · 5 waiting" — sums of the server's per-row counts. */
+  /** "9 rules · ran 29 · 5 waiting": the server's tier totals (`TierGroup.count`, `ran_without_review_7d`, `waiting`). */
   summary: string
 }
 
@@ -133,10 +133,8 @@ export function tierViews(data: RulesOut, viewer: Role): TierView[] {
     const g: TierGroup | undefined = data.tiers.find((t) => t.tier === tier)
     if (!g) return []
     const rows = g.rows.map((r) => rowView(r, viewer))
-    const ran = rows.reduce((a, r) => a + r.ran, 0)
-    const waiting = rows.reduce((a, r) => a + r.waiting, 0)
-    const n = `${rows.length} rule${rows.length === 1 ? '' : 's'}`
-    return [{ tier, label: g.label, description: g.description, rows, summary: tier === 3 ? `${n} · human only · no toggle` : `${n} · ran ${ran} · ${waiting} waiting` }]
+    const n = `${g.count} rule${g.count === 1 ? '' : 's'}`
+    return [{ tier, label: g.label, description: g.description, rows, summary: tier === 3 ? `${n} · human only · no toggle` : `${n} · ran ${g.ran_without_review_7d} · ${g.waiting} waiting` }]
   })
 }
 
@@ -160,13 +158,15 @@ const HELD_LABEL: Record<string, string> = { ours: 'root cause: ours', over_cap:
 
 export interface PreviewView {
   from: number
-  /** Would have run by scope, before holds: would_run + Σ held. */
+  /** Would have run by scope, before holds (`before_holds`). */
   to: number
   net: number
   total: number
   held: { reason: string; label: string; count: number }[]
   headline: string
   holdLine: string | null
+  /** With nothing held: what the change does to this week, from `net_change`. */
+  changeLine: string
 }
 
 /** "41 → 44 of this week's 54 would have run" + "but 3 of the 44 are root cause: ours → held for Dana · net 41". */
@@ -174,8 +174,8 @@ export function previewView(p: Preview): PreviewView {
   const held = Object.entries(p.held_by_root_cause)
     .filter(([, n]) => n > 0)
     .map(([reason, count]) => ({ reason, label: HELD_LABEL[reason] ?? reason.replace(/_/g, ' '), count }))
-  const heldTotal = held.reduce((a, h) => a + h.count, 0)
-  const to = p.would_run + heldTotal
+  const to = p.before_holds
+  const d = p.net_change
   return {
     from: p.baseline_would_run,
     to,
@@ -183,7 +183,8 @@ export function previewView(p: Preview): PreviewView {
     total: p.total,
     held,
     headline: `${p.baseline_would_run} → ${to} of this week’s ${p.total} would have run`,
-    holdLine: heldTotal ? `but ${held.map((h, i) => (i === 0 ? `${h.count} of the ${to} are ${h.label}` : `${h.count} ${h.label}`)).join(', ')} → held for Dana · net ${p.would_run}` : null,
+    holdLine: p.held_total ? `but ${held.map((h, i) => (i === 0 ? `${h.count} of the ${to} are ${h.label}` : `${h.count} ${h.label}`)).join(', ')} → held for Dana · net ${p.would_run}` : null,
+    changeLine: d === 0 ? 'No change this week.' : d > 0 ? `${d} more would have run without review.` : `${-d} fewer would have run without review.`,
   }
 }
 
@@ -199,10 +200,7 @@ export function changeDiff(c: RuleChange): string[] {
   return keys.filter((k) => JSON.stringify(c.before[k]) !== JSON.stringify(c.after[k])).map((k) => `${k.replace(/_/g, ' ')}: ${show(c.before[k])} → ${show(c.after[k])}`)
 }
 
-/** The weekly owner digest: changes in the 7 days before `now`, the items run under them, sign-offs still waiting. */
-export function weeklyDigest(changes: RuleChange[], now: string, awaiting: number): { changes: number; ran: number; awaiting: number; text: string } {
-  const since = Date.parse(now) - 7 * 86_400_000
-  const recent = changes.filter((c) => Date.parse(c.at) >= since)
-  const ran = recent.reduce((a, c) => a + c.items_affected_since, 0)
-  return { changes: recent.length, ran, awaiting, text: `Mon digest to Dr. Morgan: ${recent.length} change${recent.length === 1 ? '' : 's'} · ${ran} ran under them · ${awaiting} await${awaiting === 1 ? 's' : ''} sign-off` }
+/** The owner's Monday digest line, from the server's `RuleChangeList.digest` (this Mon-start week so far). */
+export function digestText(d: RuleDigest): string {
+  return `Mon digest to Dr. Morgan (week of ${shortDate(d.period_start)}, so far): ${d.changes} change${d.changes === 1 ? '' : 's'} · ${d.items_run} ran under them · ${d.awaiting_signoff} await${d.awaiting_signoff === 1 ? 's' : ''} sign-off`
 }

@@ -1,24 +1,16 @@
 /** Changes: every rule change with who, before → after and the items run under it since; the weekly owner digest on top. */
-import type { RuleChange, RulesOut } from '@/api/schema'
-import { useInboxList } from '@/hooks/useInbox'
-import { useNow } from '@/hooks/useClock'
+import type { RuleChange, RuleDigest, RulesOut } from '@/api/schema'
 import { count, dateTime } from '@/lib/format'
 import { SimpleTable } from '@/components/SimpleTable'
 import { EmptyState } from '@/components/EmptyState'
-import { changeDiff, findRow, userName, weeklyDigest } from './selectors'
+import { changeDiff, digestText, findRow, userName } from './selectors'
 
-export function ChangesTab({ changes, rules }: { changes: RuleChange[]; rules: RulesOut | undefined }) {
-  const now = useNow()
-  // Sign-offs still waiting = open owner_signoff items (the server's list, not a client count).
-  const signoffs = useInboxList({ state: 'open', kind: 'owner_signoff' })
-  const digest = now ? weeklyDigest(changes, now, signoffs.data?.total ?? 0) : null
+export function ChangesTab({ changes, digest, rules }: { changes: RuleChange[]; digest: RuleDigest; rules: RulesOut | undefined }) {
   return (
     <div className="flex flex-col gap-3 p-5">
-      {digest && (
-        <p className="m-0 rounded-md border border-line bg-fill px-3 py-1.5 text-sm" data-testid="owner-digest">
-          {digest.text}
-        </p>
-      )}
+      <p className="m-0 rounded-md border border-line bg-fill px-3 py-1.5 text-sm" data-testid="owner-digest" title="Sent Monday morning; counts this week from Monday, the same week as Activity">
+        {digestText(digest)}
+      </p>
       {changes.length === 0 ? (
         <EmptyState title="No rule changes yet" />
       ) : (

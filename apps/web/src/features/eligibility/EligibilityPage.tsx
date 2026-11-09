@@ -6,7 +6,7 @@
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import type { BenefitsPanel, EligibilityRow, EligibilityStatus } from '@/api/schema'
 import { useBenefits, useEligibility } from '@/hooks/useStatic'
-import { count, longDate, money, practiceDay, shortDate, time, weekday } from '@/lib/format'
+import { count, longDate, money, plural, shortDate, time, weekday } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/PageHeader'
 import { Load, Scroll } from '@/components/QueryBoundary'
@@ -15,26 +15,16 @@ import { EmptyState } from '@/components/EmptyState'
 import { FlagPill } from '@/components/FlagPill'
 import { QueryError } from '@/components/QueryError'
 import { SkeletonBlock } from '@/components/ui/Skeleton'
+import { byDay, dayLine } from './selectors'
 
 const route = getRouteApi('/eligibility')
 /** Green is verified; unverified is dashed (not known yet); "checking" is the agents' hue because they hold it. Red
  * stays for money at risk, and amber (the ⚑) for rows that are the practice's move. */
 const STATUS: Record<EligibilityStatus, { label: string; tone: ChipTone; className?: string }> = {
   verified: { label: 'Verified', tone: 'ok' },
-  issue: { label: 'Issue', tone: 'warn' },
-  unverified: { label: 'Unverified', tone: 'dashed' },
+  issue: { label: 'Needs attention', tone: 'warn' },
+  unverified: { label: 'Not verified', tone: 'dashed' },
   checking: { label: 'Agent checking…', tone: 'neutral', className: '!bg-agents-bg !text-agents-ink' },
-}
-
-export function byDay(rows: EligibilityRow[]): { day: string; rows: EligibilityRow[] }[] {
-  const out: { day: string; rows: EligibilityRow[] }[] = []
-  for (const r of [...rows].sort((a, b) => a.start.localeCompare(b.start))) {
-    const day = practiceDay(r.start)
-    const last = out.at(-1)
-    if (last?.day === day) last.rows.push(r)
-    else out.push({ day, rows: [r] })
-  }
-  return out
 }
 
 const planned = (r: { planned: EligibilityRow['planned'] }) => r.planned.map((p) => `${p.cdt}${p.tooth ? ` #${p.tooth}` : ''}`).join(' · ')
@@ -133,12 +123,12 @@ export function EligibilityPage() {
         <Scroll className="border-r border-line">
           <Load q={q} what="eligibility">
             {(d) => {
-              const days = byDay(d.rows)
+              const days = byDay(d)
               return (
                 <div className="flex flex-col">
                   <div className="flex flex-wrap items-center gap-3 border-b border-line bg-fill px-4 py-2 text-sm" data-testid="eligibility-summary">
                     <b className="font-semibold">
-                      {days.length ? days.map((g) => `${weekday(g.day)} ${shortDate(g.day)}`).join(' – ') : shortDate(d.date)} · {count(d.rows.length)} appts
+                      {days.length ? `${weekday(days[0]?.day ?? d.date)} ${shortDate(days[0]?.day ?? d.date)}${days.length > 1 ? ` – ${weekday(days.at(-1)?.day ?? d.date)} ${shortDate(days.at(-1)?.day ?? d.date)}` : ''}` : shortDate(d.date)} · {plural(d.total, 'appt')}
                     </b>
                     <span className="font-semibold text-practice-ink">⚑ {count(d.need_human)} need a human look</span>
                     <span className="text-sm text-mid">(= the eligibility items in the Inbox)</span>
@@ -148,7 +138,7 @@ export function EligibilityPage() {
                       </Link>
                     )}
                   </div>
-                  {days.length === 0 ? (
+                  {d.total === 0 ? (
                     <EmptyState title="No appointments to verify">Agents re-verify nightly and the morning of the visit.</EmptyState>
                   ) : (
                     <table aria-label="Appointments" className="w-full border-collapse text-base">
@@ -162,7 +152,6 @@ export function EligibilityPage() {
                         </tr>
                       </thead>
                       {days.map((g) => {
-                        const tally = (s: EligibilityStatus) => g.rows.filter((r) => r.status === s).length
                         return (
                           <tbody key={g.day} aria-label={`${weekday(g.day)} ${shortDate(g.day)}`}>
                             <tr className="bg-fill">
@@ -170,9 +159,7 @@ export function EligibilityPage() {
                                 <button type="button" className="font-semibold text-ink hover:underline" onClick={() => void navigate({ search: (s) => ({ ...s, date: g.day }) })}>
                                   {weekday(g.day)} {shortDate(g.day)}
                                 </button>{' '}
-                                <span className="font-normal text-mid">
-                                  · {g.rows.length} appts · {tally('verified')} verified · {tally('issue')} issues · {tally('unverified')} unverified · {tally('checking')} checking
-                                </span>
+                                <span className="font-normal text-mid" data-testid="eligibility-day">· {dayLine(g.tally)}</span>
                               </th>
                             </tr>
                             {g.rows.map((r) => (

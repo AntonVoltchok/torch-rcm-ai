@@ -7,7 +7,7 @@ import { MODE_LABEL, previewView } from './selectors'
 
 /**
  * Live preview: this week's decisions replayed under the hovered / selected change (GET /settings/preview).
- * The server computes every number; the panel only adds the held count back for the "by scope" figure.
+ * The server computes every number (`before_holds`, `held_total`, `net_change`); the panel only words them.
  */
 export function PreviewPanel({ target, ruleLabel, currentMode }: { target: PreviewParams | null; ruleLabel: string | undefined; currentMode: RuleMode | undefined }) {
   const q = usePreview(target)
@@ -46,7 +46,7 @@ export function PreviewPanel({ target, ruleLabel, currentMode }: { target: Previ
                   {v.holdLine}
                 </p>
               ) : (
-                <p className="m-0 text-sm text-mid">{v.to === v.from ? 'No change this week.' : `${v.to - v.from} more would have run without review.`}</p>
+                <p className="m-0 text-sm text-mid">{v.changeLine}</p>
               )}
             </div>
           )

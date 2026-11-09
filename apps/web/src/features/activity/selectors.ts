@@ -1,5 +1,5 @@
 /** Activity view logic over GET /activity rows (server-ordered, newest first). */
-import type { ActivityRow } from '@/api/schema'
+import type { ActivityOut, ActivityRow } from '@/api/schema'
 import { nextDay, practiceDay } from '@/lib/format'
 
 export const EVIDENCE_LABEL: Record<string, string> = {
@@ -17,19 +17,14 @@ export const EVIDENCE_LABEL: Record<string, string> = {
 
 export interface DayGroup {
   day: string
+  /** The server's count of the day's rows in this response (`by_day`). */
+  count: number
   rows: ActivityRow[]
 }
 
-/** Rows are newest first; group them by practice-local day, keeping that order. */
-export function groupByDay(rows: ActivityRow[]): DayGroup[] {
-  const out: DayGroup[] = []
-  for (const r of rows) {
-    const day = practiceDay(r.at)
-    const last = out.at(-1)
-    if (last && last.day === day) last.rows.push(r)
-    else out.push({ day, rows: [r] })
-  }
-  return out
+/** The server's days (`by_day`, newest first), each with its rows picked by practice-local day, in server order. */
+export function groupByDay(d: ActivityOut): DayGroup[] {
+  return d.by_day.map((x) => ({ day: x.date, count: x.count, rows: d.rows.filter((r) => practiceDay(r.at) === x.date) }))
 }
 
 /** Monday of the server-clock week through today — the Day filter's options. */

@@ -6,7 +6,7 @@ import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { ActivityOutcome, AgentKind, type ActivityRow } from '@/api/schema'
 import { useActivity } from '@/hooks/useStatic'
 import { useNow } from '@/hooks/useClock'
-import { count, practiceDay, shortDate, time, weekday } from '@/lib/format'
+import { count, plural, practiceDay, shortDate, time, weekday } from '@/lib/format'
 import { AGENT_NAME } from '@/lib/payers'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/PageHeader'
@@ -14,6 +14,7 @@ import { Load, Scroll } from '@/components/QueryBoundary'
 import { EmptyState } from '@/components/EmptyState'
 import { Chip } from '@/components/Chip'
 import { TierBadge } from '@/components/TierBadge'
+import { MoveCell } from '@/components/MoveCell'
 import { EVIDENCE_LABEL, groupByDay, rowStyle, weekDays } from './selectors'
 
 const route = getRouteApi('/activity')
@@ -46,6 +47,9 @@ function Row({ r, observe }: { r: ActivityRow; observe: boolean }) {
         <span>{r.action}</span> {r.tier ? <TierBadge tier={r.tier} compact /> : null}
       </td>
       <td className="whitespace-nowrap px-2">{r.claim_id ? <Link to="/claims/$claimId" params={{ claimId: r.claim_id }}>{r.subject}</Link> : <span className="text-mid">{r.subject}</span>}</td>
+      <td className="w-56 max-w-56 px-2 not-italic" title="Who holds this claim today, not when this happened">
+        {r.move ? <MoveCell move={r.move} /> : <span className="text-soft">—</span>}
+      </td>
       <td className="whitespace-nowrap px-2">
         {style === 'would_have_run' ? (
           <Chip tone="dashed">would have run</Chip>
@@ -133,19 +137,19 @@ export function ActivityPage() {
                 <table aria-label="Activity" className="w-full border-collapse text-base">
                   <thead className="sticky top-0 bg-paper">
                     <tr>
-                      {['Time', 'Agent', 'Action', 'Claim / patient', 'Outcome', 'Evidence'].map((h) => (
+                      {['Time', 'Agent', 'Action', 'Claim / patient', 'Now with', 'Outcome', 'Evidence'].map((h) => (
                         <th key={h} className="h-8 border-b border-line px-2 text-left text-xs font-medium text-soft">
                           {h}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  {groupByDay(d.rows).map((g) => (
+                  {groupByDay(d).map((g) => (
                     <tbody key={g.day} aria-label={`${weekday(g.day)} ${shortDate(g.day)}`}>
                       <tr className="bg-fill">
-                        <th colSpan={6} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left text-sm font-semibold">
+                        <th colSpan={7} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left text-sm font-semibold">
                           {now && g.day === practiceDay(now) ? 'Today · ' : ''}
-                          {weekday(g.day)} {shortDate(g.day)} <span className="font-normal text-mid">· {count(g.rows.length)} shown</span>
+                          {weekday(g.day)} {shortDate(g.day)} <span className="font-normal text-mid">· {plural(g.count, 'entry', 'entries')}</span>
                         </th>
                       </tr>
                       {g.rows.map((r) => (

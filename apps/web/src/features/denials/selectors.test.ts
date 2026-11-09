@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { Ledger } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { THURSDAY_0710 } from '@/mocks/fixtures/static'
-import { ackChips, fileGroups } from '@/features/ledger/selectors'
 import { daysUntil, deadlineLabel, deadlineVerb, ifWeLose, pathTier, payerReasonMatrix, sortedRows, tag, worklistOrder } from './selectors'
 
 function thursday() {
@@ -50,17 +48,6 @@ describe('denials worklist selectors', () => {
     expect(m.excluded).toBe(1)
     expect(m.payers.find((p) => p.key === 'delta_ny')?.cells).toEqual({ Doc: 3, Freq: 1 })
     expect(m.totals.TF).toBe(1)
-  })
-})
-
-describe('today’s claims selectors', () => {
-  it('reads a fixed A7 as “A7:164 → A1” and groups leaving claims by file time', () => {
-    const db = new MockDb({ stepDelayMs: 0, schedule: () => undefined })
-    const l = Ledger.parse(db.ledger())
-    const iqbal = l.sent.find((r) => r.claim.number === 4860)
-    expect(iqbal && ackChips(iqbal.acks, true).vyne.text).toBe('A7:164 9:49 AM → A1 10:19 AM')
-    expect(iqbal && ackChips(iqbal.acks, true).payer).toEqual({ tone: 'pending', text: 'pending' })
-    expect(fileGroups(l.leaving_next_file).map((g) => [g.file_time, g.rows.length])).toEqual([['2026-10-28T10:45:00-04:00', 4]])
   })
 })
 

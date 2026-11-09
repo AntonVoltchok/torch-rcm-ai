@@ -14,7 +14,7 @@ import { Load, Scroll } from '@/components/QueryBoundary'
 import { SimpleTable } from '@/components/SimpleTable'
 import { MoveCell } from '@/components/MoveCell'
 import { StatusChip } from '@/components/StatusChip'
-import { ackChips, fileGroups, HOLD_REASON, ledgerTotals, type AckChip } from './selectors'
+import { ackChips, fileGroups, HOLD_REASON, type AckChip } from './selectors'
 
 const claimLink = (r: { claim: { id: string; number: number } }) => (
   <Link to="/claims/$claimId" params={{ claimId: r.claim.id }} className="font-semibold">
@@ -83,13 +83,13 @@ export function LedgerPage() {
       <Scroll>
         <Load q={q} what="today’s claims">
           {(d) => {
-            const t = ledgerTotals(d)
-            const groups = fileGroups(d.leaving_next_file)
+            const t = d.totals
+            const groups = fileGroups(d)
             return (
               <div className="flex flex-col gap-6 p-5">
                 <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-lg border border-line bg-fill px-4 py-2.5 text-base" data-testid="ledger-summary">
                   <span>
-                    {shortDate(d.date)} · <b>{count(t.total)} on the ledger</b>
+                    {shortDate(d.date)} · <b>{count(t.on_ledger)} on the ledger</b>
                   </span>
                   <span>
                     Sent today <b>{count(t.sent.count)}</b> · {money(t.sent.cents)}
@@ -111,9 +111,9 @@ export function LedgerPage() {
                 ) : (
                   groups.map((g) => (
                     <Section
-                      key={g.file_time ?? 'none'}
+                      key={g.file.file_time ?? 'none'}
                       testId="ledger-leaving"
-                      title={`Leaving in the ${g.file_time ? time(g.file_time) : 'next'} file · ${g.rows.length} · ${money(g.cents)}`}
+                      title={g.file.file_time ? `Leaving in the ${time(g.file.file_time)} file · ${g.file.count} · ${money(g.file.cents)}` : `Not yet filed · ${g.file.count} · ${money(g.file.cents)}`}
                       sub="editable until it leaves · no 277CA until then · then void only (freq. 8)"
                     >
                       <LeavingTable rows={g.rows} date={d.date} />
@@ -188,7 +188,7 @@ export function LedgerPage() {
                   )}
                 </Section>
 
-                <Section title={`Not billable · ${t.notBillable}`} sub="listed, not counted as held · never sent" testId="ledger-not-billable">
+                <Section title={`Not billable · ${t.not_billable.count}`} sub="listed, not counted as held · never sent" testId="ledger-not-billable">
                   {d.not_billable.length === 0 ? (
                     <p className="m-0 text-sm text-soft">None today.</p>
                   ) : (

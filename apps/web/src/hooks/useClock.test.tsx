@@ -24,6 +24,7 @@ const counts = {
   ar_cents: 0,
   flagged_count: 9,
   flagged_cents: 0,
+  all_count: 225,
   as_of: '2026-10-28T10:40:00-04:00',
   paid_month_label: 'Oct',
   nav_badges: { payments: 3, eligibility: 3, activity: 41 },

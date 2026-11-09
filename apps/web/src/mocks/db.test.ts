@@ -132,3 +132,22 @@ describe('mock API', () => {
     expect(() => db.pause('usr_dana')).toThrow(/owner/)
   })
 })
+
+describe('Claims quick-view counts are the lists’ totals (as test_server_totals.py on the API)', () => {
+  it('all_count is the unfiltered list, the Paid tile the paid list, per location and after a mutation', () => {
+    const { db, drain } = setup()
+    const check = () => {
+      for (const loc of [undefined, 'loc_downtown', 'loc_riverside']) {
+        const s = db.strip(loc)
+        expect(s.all_count).toBe(db.claims({ limit: 1, location_id: loc ?? null }).total)
+        expect(s.paid_month_count).toBe(db.claims({ status: ['paid'], limit: 1, location_id: loc ?? null }).total)
+        expect(s.all_count).toBe(s.open_count + s.paid_month_count)
+      }
+    }
+    check()
+    const res = db.approveGroup(GROUP_DELTA_PA, 'usr_dana')
+    expect(res.meta.counts.all_count).toBe(db.claims({ limit: 1 }).total)
+    drain()
+    check()
+  })
+})

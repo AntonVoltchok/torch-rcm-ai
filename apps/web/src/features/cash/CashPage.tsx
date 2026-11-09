@@ -137,7 +137,7 @@ export function CashPage() {
                       </div>
                     </div>
                     <p className="m-0 text-sm text-mid">
-                      Appeals, 12 mo: <b className="text-ink">{ap.won ?? 0} of {ap.total ?? 0} won</b> · reconsiderations {ap.reconsideration_won ?? 0} of {ap.reconsideration_total ?? 0} · formal {ap.formal_won ?? 0} of {ap.formal_total ?? 0}
+                      Appeals, 12 mo: <b className="text-ink">{count(ap.won)} of {count(ap.total)} won</b> · reconsiderations {count(ap.reconsideration_won)} of {count(ap.reconsideration_total)} · formal {count(ap.formal_won)} of {count(ap.formal_total)}
                     </p>
                   </Card>
                 </div>

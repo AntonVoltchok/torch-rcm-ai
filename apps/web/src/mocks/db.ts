@@ -89,6 +89,7 @@ import {
 import type { ClaimsApiParams } from '@/features/claims/search'
 import { at, buildClaims, FROZEN_NOW, OWENS_RUNS, paidTileCents, PROVIDER_ID, STATUS_CHECK_CLAIMS, type MockClaim, type MockTimelineEntry } from './fixtures/claims'
 import { buildInbox, EVIDENCE, GROUP_META, type MockInboxItem } from './fixtures/inbox'
+import { practiceDay } from '@/lib/format'
 import { buildProposals, buildRuleChanges, buildRules, ITEM_RULE, PRACTICE_CAP_CENTS, ROUTINE_RUNS, TIER_TEXT } from './fixtures/settings'
 import {
   benefitsFor,
@@ -150,6 +151,10 @@ const FILE_TIMES = Array.from({ length: 22 }, (_, i) => {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 })
 const daysBetween = (fromDay: string, toDay: string) => Math.round((Date.parse(`${toDay}T12:00:00Z`) - Date.parse(`${fromDay}T12:00:00Z`)) / 86_400_000)
+const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
+const isWeekday = (day: string) => ![0, 6].includes(new Date(`${day}T12:00:00Z`).getUTCDay())
+/** The Monday of `day`'s week: the API's `activity.week_start`. */
+const weekMonday = (day: string) => addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7))
 
 export interface SseRecord {
   id: number
@@ -539,6 +544,8 @@ export class MockDb {
       ar_cents: sum(ar),
       flagged_count: flagged.length,
       flagged_cents: sum(flagged),
+      // What an unfiltered claims() lists: open plus paid this month (every mock paid claim is October's).
+      all_count: this.claims({ limit: 1, location_id: location ?? null }).total,
       as_of: this.s.now,
       paid_month_label: 'Oct',
       nav_badges: {
@@ -731,6 +738,12 @@ export class MockDb {
     }
   }
 
+  /** An Activity row's claim move now, for the viewer (the API's `ActivityRow.move`); null without a claim. */
+  private claimMoveNow(claimId: string | null, user: UserId): ClaimMove | null {
+    const c = claimId ? this.s.claims.find((x) => x.id === claimId) : undefined
+    return c ? this.moveOf(c, user) : null
+  }
+
   /** This week's decisions (API `this_week`): what Settings previews and Activity's header counts. */
   private decisions(): WeekRow[] {
     return this.s.week.filter((r) => r.decision)
@@ -753,6 +766,7 @@ export class MockDb {
       evidence_kinds: r.evidence_kinds,
       audit_line: r.audit_line,
       tier: r.tier,
+      move: this.claimMoveNow(r.claim_id, user),
     })
     let rows = this.s.week
       .filter((r) => (!p.day || r.at.slice(0, 10) === p.day) && (!p.agent || r.agent === p.agent))
@@ -772,7 +786,15 @@ export class MockDb {
       t[bucket] = (t[bucket] ?? 0) + 1
     }
     const week = this.s.week
+    const by_day: { date: string; count: number }[] = []
+    for (const r of rows) {
+      const d = practiceDay(r.at)
+      const last = by_day.at(-1)
+      if (last?.date === d) last.count++
+      else by_day.push({ date: d, count: 1 })
+    }
     return {
+      by_day,
       rows,
       summary: {
         ran_without_you: this.decisions().filter((r) => r.ran).length,
@@ -1248,9 +1270,10 @@ export class MockDb {
           signed_by_name: nameOf(rule.signed_by),
           locked: tier === 3,
         })),
-    }))
+    })).map((g) => ({ ...g, count: g.rows.length, ran_without_review_7d: g.rows.reduce((a, r) => a + r.ran_without_review_7d, 0), waiting: g.rows.reduce((a, r) => a + r.waiting, 0) }))
     return {
       tiers,
+      rules_count: tiers.reduce((a, t) => a + t.count, 0),
       practice_cap_cents: this.s.practiceCapCents,
       this_week: { total: decisions.length, ran: decisions.filter((d) => d.ran).length, to_you: decisions.filter((d) => !d.ran).length },
       changes_count: this.s.ruleChanges.length,
@@ -1258,9 +1281,19 @@ export class MockDb {
     }
   }
 
+  /** GET /rules/changes, with the owner's Monday digest for this week so far (Mon-start, as the API). */
   ruleChanges() {
     const items = [...this.s.ruleChanges].sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
-    return { items, total: items.length }
+    const monday = weekMonday(practiceDay(this.s.now))
+    const week = items.filter((c) => practiceDay(c.at) >= monday)
+    const digest = {
+      period_start: monday,
+      sends_on: addDays(monday, 7),
+      changes: week.length,
+      items_run: week.reduce((a, c) => a + (c.items_affected_since ?? 0), 0),
+      awaiting_signoff: this.openItems().filter((i) => i.kind === 'owner_signoff').length,
+    }
+    return { items, total: items.length, digest }
   }
 
   /** PATCH /rules/{id}: tier 3 is human only; a tier-2 change by anyone but the owner becomes a sign-off request. */
@@ -1374,7 +1407,9 @@ export class MockDb {
       if (ok) count++
       if (reason) held[reason] = (held[reason] ?? 0) + 1
     }
-    return { rule_id: ruleId, mode: m, max_cents: cap, would_run: count, total: decisions.length, baseline_would_run: decisions.filter((d) => d.ran).length, held_by_root_cause: held }
+    const baseline = decisions.filter((d) => d.ran).length
+    const heldTotal = Object.values(held).reduce((a, n) => a + n, 0)
+    return { rule_id: ruleId, mode: m, max_cents: cap, would_run: count, total: decisions.length, baseline_would_run: baseline, held_by_root_cause: held, held_total: heldTotal, before_holds: count + heldTotal, net_change: count - baseline }
   }
 
   setPracticeCap(cents: number, user: UserId) {
@@ -1502,14 +1537,31 @@ export class MockDb {
     const hhmm = this.s.now.slice(11, 16)
     const next = FILE_TIMES.find((t) => t > hhmm)
     const lastSent = sent.map((c) => c.sent_at ?? '').filter(Boolean).sort().at(-1)
+    const sentRows = sent.map(row)
+    const leavingRows = leaving.map(row)
+    const notBillable = today === '2026-10-28' ? [{ patient: { id: 'pat_ortega_j', name: 'Javier Ortega', display_name: 'J. Ortega', dob: '1966-08-08' }, cdt: 'D4341', quadrant: 'UR', fee_cents: 24000, reason: 'no pocket depths charted for this quadrant · not billable (TorchRCM never nudges documentation)' }] : []
+    const total = (cents: number[]) => ({ count: cents.length, cents: cents.reduce((a, n) => a + n, 0) })
+    const byFile = new Map<string | null, LedgerRow[]>()
+    for (const r of leavingRows) byFile.set(r.file_time, [...(byFile.get(r.file_time) ?? []), r])
+    const files = [...byFile.entries()]
+      .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : Date.parse(a) - Date.parse(b)))
+      .map(([file_time, rs]) => ({ file_time, count: rs.length, cents: rs.reduce((a, r) => a + r.claim.billed_cents, 0), claim_ids: rs.map((r) => r.claim.id) }))
     return {
       date: today,
-      sent: sent.map(row),
-      leaving_next_file: leaving.map(row),
+      sent: sentRows,
+      leaving_next_file: leavingRows,
       held: holds,
-      not_billable: today === '2026-10-28' ? [{ patient: { id: 'pat_ortega_j', name: 'Javier Ortega', display_name: 'J. Ortega', dob: '1966-08-08' }, cdt: 'D4341', quadrant: 'UR', fee_cents: 24000, reason: 'no pocket depths charted for this quadrant · not billable (TorchRCM never nudges documentation)' }] : [],
+      not_billable: notBillable,
       next_file_time: next ? at(today, next) : null,
       last_file_time: lastSent ?? null,
+      totals: {
+        on_ledger: sentRows.length + leavingRows.length + holds.length,
+        sent: total(sentRows.map((r) => r.claim.billed_cents)),
+        leaving: total(leavingRows.map((r) => r.claim.billed_cents)),
+        held: total(holds.map((r) => r.claim.billed_cents)),
+        not_billable: total(notBillable.map((r) => r.fee_cents)),
+      },
+      files,
     }
   }
 
@@ -1523,7 +1575,15 @@ export class MockDb {
       const d = daysBetween(start, r.start.slice(0, 10))
       return d >= 0 && d <= span && r.start > this.s.now
     }).map((r) => ({ ...r, inbox_item_id: r.inbox_item_id && open.has(r.inbox_item_id) ? r.inbox_item_id : null }))
-    return { date: start, rows, need_human: rows.filter((r) => r.inbox_item_id).length }
+    const end = addDays(start, span)
+    const days = new Set<string>([start, ...rows.map((r) => practiceDay(r.start))])
+    for (let d = start; d <= end; d = addDays(d, 1)) if (isWeekday(d)) days.add(d)
+    const by_day = [...days].sort().map((d) => {
+      const of = rows.filter((r) => practiceDay(r.start) === d)
+      const n = (st: string) => of.filter((r) => r.status === st).length
+      return { date: d, count: of.length, verified: n('verified'), issue: n('issue'), unverified: n('unverified'), checking: n('checking') }
+    })
+    return { date: start, rows, need_human: rows.filter((r) => r.inbox_item_id).length, total: rows.length, by_day }
   }
 
   benefits(appointmentId: string): BenefitsPanel {

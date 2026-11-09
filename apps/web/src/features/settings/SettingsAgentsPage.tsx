@@ -48,10 +48,11 @@ export function SettingsAgentsPage() {
   const rules = useRules()
   const proposals = useProposals()
   const changes = useRuleChanges()
+  // The tab counts are GET /rules fields; nothing is counted here, and nothing shows until /rules answers.
   const counts: Record<SettingsTab, number | undefined> = {
-    rules: rules.data?.tiers.reduce((a, t) => a + t.rows.length, 0),
-    proposals: rules.data?.proposals_open ?? proposals.data?.items.filter((p) => p.state === 'open').length,
-    changes: rules.data?.changes_count ?? changes.data?.total,
+    rules: rules.data?.rules_count,
+    proposals: rules.data?.proposals_open,
+    changes: rules.data?.changes_count,
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -87,7 +88,7 @@ export function SettingsAgentsPage() {
         )}
         {tab === 'changes' && (
           <Load q={changes} what="rule changes" rows={5}>
-            {(d) => <ChangesTab changes={d.items} rules={rules.data} />}
+            {(d) => <ChangesTab changes={d.items} digest={d.digest} rules={rules.data} />}
           </Load>
         )}
       </Scroll>
