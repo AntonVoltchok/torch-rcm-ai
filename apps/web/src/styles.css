@@ -8,7 +8,7 @@
  * The old names keep their roles with D1 values, so every feature restyles without edits:
  *   ink / mid / soft   text, strongest to quietest (D1 ink, ink2, ink3; all AA on white and on the canvas)
  *   line / light / fill / paper   soft border, neutral chip fill, sunk well, panel surface
- *   acc*   the action colour (= act); bad* (= risk); warn* (amber ink); ok* green for paid and done
+ *   acc*   the action colour (aliases of act, deprecated); bad* (= risk); warn* neutral; ok* green for paid and done
  * New names:
  *   canvas, hover, track, line-strong   the grey page behind panels, row hover, baton track, control borders
  *   practice / agents / payer   whose move. `-ink` is the AA text shade, `-bg` and `-line` a tinted panel.
@@ -64,9 +64,10 @@
   --color-ok: #18703e;
   --color-ok-bg: #e6f4ec;
   --color-ok-line: #b9e0c8;
-  --color-warn: var(--color-practice-ink);
-  --color-warn-bg: var(--color-practice-bg);
-  --color-warn-line: var(--color-practice-line);
+  /* Neutral on purpose: amber means "yours", so a warning is ink on grey and says itself in words. */
+  --color-warn: var(--color-ink);
+  --color-warn-bg: var(--color-hover);
+  --color-warn-line: var(--color-line-strong);
   --color-bad: var(--color-risk);
   --color-bad-bg: var(--color-risk-bg);
   --color-bad-line: var(--color-risk-line);
