@@ -715,7 +715,20 @@ class PinnedBuilder:
         kim_s, _ = self.pc("kim_s")
         b.visit(kim_s, date(2025, 11, 3), PRV_MORGAN, [("D0274", None)], at="10:00", note="4BWX.")
         b.visit(kim_s, date(2026, 5, 2), PRV_MORGAN, [("D1110", None)], at="10:00", note="Prophy.")
-        nak = self.make(4709, "nakamura_r", date(2026, 9, 4), [("D2950", "3"), ("D2740", "3")], S.PENDING, at="13:00")
+        # The signed note is what a records request resends when Cigna's consultant can't read the narrative.
+        nak = self.make(
+            4709,
+            "nakamura_r",
+            date(2026, 9, 4),
+            [("D2950", "3"), ("D2740", "3")],
+            S.PENDING,
+            at="13:00",
+            note=(
+                "#3: MOD amalgam failing, fractured ML cusp, recurrent decay under the restoration. Less than half "
+                "the coronal structure remains, so it cannot retain a crown alone: core buildup placed, then "
+                "full-coverage crown prep. Pre-op PA reviewed."
+            ),
+        )
         self.sent(nak, dt(date(2026, 9, 4), "14:15"), dt(date(2026, 9, 8), "06:44"), "CG2609080381")
         nak.reason_text = "in review with consultant"
         self.payer_claim(
