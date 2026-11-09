@@ -53,8 +53,10 @@ from torch_rcm.agents.types import (
 )
 from torch_rcm.domain.entities import ROOT_CAUSE_RECORDED, AuditEvent, Claim, InboxItem, Run
 from torch_rcm.domain.enums import (
+    ClaimStatus,
     InboxItemKind,
     InboxItemState,
+    MoveWho,
     RootCause,
     RuleAction,
     RunStatus,
@@ -62,6 +64,7 @@ from torch_rcm.domain.enums import (
     StepStatus,
     Tier,
 )
+from torch_rcm.domain.values import ClaimOutcome
 from torch_rcm.domain.values import Confidence as DomainConfidence
 from torch_rcm.domain.values import ProposedAction as DomainProposedAction
 from torch_rcm.domain.values import Usage as DomainUsage
@@ -657,6 +660,9 @@ class Executor:
         state = self._reconcile_checkpoint(run_id, ck, state, planner, case)
         evidence = EvidenceSet(case.evidence)
 
+        if "claim_before" not in state:
+            side = self._claim_side(run, before=True)
+            state["claim_before"] = [side[0].value, side[1].value] if side else None
         if "plan" not in state:
             investigated = await self._investigate(run, case, planner, evidence, state)
             if isinstance(investigated, ExecResult):
@@ -676,6 +682,15 @@ class Executor:
             return acted
         failure, pending_ops = acted
         return await self._report(run_id, case, plan, planner, decisions, state, failure, pending_ops)
+
+    def _claim_side(self, run: Run, *, before: bool) -> tuple[ClaimStatus, MoveWho] | None:
+        """The run's own claim (status, whose move), read with this run excluded: `Run.claim_outcome`."""
+        from torch_rcm.readmodels.moves import run_claim_side
+        from torch_rcm.readmodels.snapshot import Snapshot
+
+        if run.claim_id is None:
+            return None
+        return run_claim_side(Snapshot.from_store(self.rt.store, self.rt.clock.now()), run, before=before)
 
     def _begin(self, run_id: str) -> Run | ExecResult:
         run = self.rt.runs.require(run_id)
@@ -797,7 +812,10 @@ class Executor:
             run_id,
             verdict=verdict,
             action=RuleAction(plan.actions[0].action) if plan.actions else None,
-            action_label=first_spec.label if first_spec else "",
+            # an approval run keeps the words its button showed (`readmodels.wording.action_label`)
+            action_label=run.action_label
+            if run.trigger is RunTrigger.APPROVAL and run.action_label
+            else (first_spec.label if first_spec else ""),
             tier=Tier(first_spec.tier) if first_spec and first_spec.tier else None,
             rule_id=first.rule_id if first else run.rule_id,
             rule_version=first.rule_version if first else None,
@@ -1018,7 +1036,20 @@ class Executor:
         if run.steps[report_idx].status is not StepStatus.OK:
             end = self._start(run_id, report_idx, result.outcome)
             self._finish(run_id, report_idx, "ok", result.recommendation, at=end)
-        run = rt.runs.finish(run_id, status, result.recommendation, " | ".join(lines), outcome_text)
+        cb = state.get("claim_before")
+        from torch_rcm.readmodels.moves import claim_outcome
+
+        outcome_of_claim: ClaimOutcome | None = claim_outcome(
+            (ClaimStatus(cb[0]), MoveWho(cb[1])) if cb else None, self._claim_side(run, before=False)
+        )
+        run = rt.runs.finish(
+            run_id,
+            status,
+            result.recommendation,
+            " | ".join(lines),
+            outcome_text,
+            claim_outcome=outcome_of_claim,
+        )
         self._status_event(run)
         self._counts_event(run)
         from torch_rcm.agents.runtime import done_event

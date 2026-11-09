@@ -137,7 +137,7 @@ def test_resubmit_with_attachment_on_4821_runs_the_recipe(rt: Runtime) -> None:
     assert evs[0].id in nea_step.evidence_ids and evs[0].world_call_id
     nea = evs[0].reference
     assert nea and f"NEA# {nea}" in run.steps[5].output_summary
-    assert run.steps[6].output_summary.startswith("queue for 11:15 Delta file")
+    assert run.steps[6].output_summary.startswith("Queue for the 11:15 AM Delta file")
     # code-built audit line (07 §5.5)
     assert run.audit_line.startswith(
         "Follow-up · Resubmit with attachment · #4821 K. Owens · Delta · $1,240 · PA via NEA# "

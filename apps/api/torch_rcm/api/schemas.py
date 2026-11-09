@@ -218,6 +218,7 @@ class ClaimSummary(Schema):
     payer: PayerRef
     dos: date
     procedures: str
+    procedures_plain: str  # "D2740 Crown, tooth 30 + 1 more": code and plain name, so the web keeps no CDT table
     billed_cents: int
     allowed_cents: int | None
     paid_cents: int | None
@@ -419,7 +420,7 @@ class TimelineEntry(Schema):
     run_id: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     root_cause: RootCause | None = None
-    who: MoveWho | None = None  # who held the claim's move from this entry on (the baton history); None = unchanged
+    who: MoveWho | None = None  # the party that acted: practice, agents or payer (the baton history)
 
 
 class TimelinePage(Schema):

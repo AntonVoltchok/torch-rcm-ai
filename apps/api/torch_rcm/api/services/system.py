@@ -129,8 +129,10 @@ def cancel_run(ctx: Ctx, run_id: str) -> Run:
     if run.status is not RunStatus.QUEUED:
         raise conflict("not_cancellable", f"run is {run.status.value}; only queued runs can be cancelled")
     from torch_rcm.domain.entities import InboxItem
+    from torch_rcm.readmodels.moves import claim_outcome, run_claim_side
 
     with ctx.rt.store.tx():
+        before = run_claim_side(ctx.snapshot(), run, before=True)
         run.status, run.finished_at = RunStatus.CANCELLED, ctx.now
         run.audit_line = f"cancelled by {ctx.user.name} before it started"
         ctx.rt.store.update(run)
@@ -139,6 +141,8 @@ def cancel_run(ctx: Ctx, run_id: str) -> Run:
             if item and item.state in (InboxItemState.APPROVED, InboxItemState.EDITED):
                 item.state, item.resolved_by, item.resolved_at = InboxItemState.OPEN, None, None
                 ctx.rt.store.update(item)
+        run.claim_outcome = claim_outcome(before, run_claim_side(ctx.snapshot(), run, before=False))
+        ctx.rt.store.update(run)
         ctx.audit("run.cancel", "run", run.id, f"{ctx.user.name} cancelled {run.action_label or run.agent.value}")
     publish(ctx.rt.store, run.id, "status", {"status": "cancelled"}, ctx.now)
     return run

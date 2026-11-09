@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+
+import pytest
+
+from torch_rcm.agents.config import AgentConfig
+from torch_rcm.agents.handlers import register
 from torch_rcm.api.services import inbox as inbox_svc
 from torch_rcm.api.services.context import Ctx
-from torch_rcm.domain.entities import Claim
-from torch_rcm.domain.enums import MoveWho
+from torch_rcm.domain.entities import Claim, Run
+from torch_rcm.domain.enums import MoveWho, RunStatus
 from torch_rcm.readmodels.claims import strip, summarize
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.runtime import Runtime
+from torch_rcm.scheduler.registry import Registry
 
 GROUP = "delta_ny:denied:CO-16:N29:pa_missing"
 
@@ -54,3 +61,31 @@ def test_whose_move_on_the_seed(canonical: Snapshot) -> None:
 def test_the_denied_tally_splits_by_holder(canonical: Snapshot) -> None:
     denied = next(t for t in strip(canonical, "usr_dana").tiles if t.status.value == "denied")
     assert [(h.holder_role, h.mine, h.count) for h in denied.by_holder] == [("billing", True, 4), ("owner", False, 1)]
+
+
+CANONICAL_APPROVALS = [
+    ("itm_4821", "usr_dana"),
+    ("itm_4733", "usr_dana"),
+    ("itm_4705", "usr_dana"),
+    ("itm_4851", "usr_dana"),
+    ("itm_4772", "usr_dana"),
+    ("itm_4748", "usr_dana"),
+    ("itm_4611", "usr_morgan"),
+]
+
+
+@pytest.mark.parametrize(("item_id", "user"), CANONICAL_APPROVALS)
+def test_lands_is_where_the_run_leaves_the_claim(
+    rt: Runtime, world_only_registry: Registry, item_id: str, user: str
+) -> None:
+    """The baton the Inbox shows before Approve is the one the run hands over (plan d1-build decision 4)."""
+    register(world_only_registry, AgentConfig(step_delay=False, world_retry_backoff_s=(0.0, 0.0, 0.0)))
+    out = inbox_svc.approve(ctx(rt, user), item_id, None)
+    assert out.run is not None and out.item.lands is not None
+    asyncio.run(rt.scheduler.run_due(rt.clock.now()))
+    run = rt.store.require(Run, out.run.id)
+    assert run.status is RunStatus.SUCCEEDED, run.audit_line
+    assert run.claim_outcome is not None
+    assert run.claim_outcome.move_from is MoveWho.PRACTICE
+    assert run.claim_outcome.move_to is out.item.lands
+    assert run.action_label == out.item.action_label

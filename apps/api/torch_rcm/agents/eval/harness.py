@@ -47,6 +47,7 @@ class RunShape:
     evidence_kinds: tuple[str, ...]
     item_kind: str | None
     status: str
+    claim_outcome: tuple[str, str, str, str] | None  # status_from, status_to, move_from, move_to
     planner: str = field(compare=False)
 
 
@@ -206,6 +207,11 @@ def _shape(rt: Any, art: Any, run: Any) -> RunShape:
         evidence_kinds=tuple(kinds),
         item_kind=item.kind.value if item else None,
         status=run.status.value,
+        claim_outcome=(
+            (o.status_from.value, o.status_to.value, o.move_from.value, o.move_to.value)
+            if (o := run.claim_outcome)
+            else None
+        ),
         planner=run.planner.value,
     )
 

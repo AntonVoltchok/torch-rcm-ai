@@ -1,10 +1,13 @@
-"""Claim timeline: runs, acks, remittances, audit events and the visit, merged newest last."""
+"""Claim timeline: runs, acks, remittances, audit events and the visit, merged newest last.
+
+`who` is the party that acted in each entry (red team d1-api item 9): people at the practice, the agents (runs,
+claims built, file queueing), or the payer side (clearinghouse and payer acks, remittances)."""
 
 from __future__ import annotations
 
 from torch_rcm.api.schemas import TimelineEntry
 from torch_rcm.domain.entities import ROOT_CAUSE_RECORDED, AuditEvent, Claim, Remittance
-from torch_rcm.domain.enums import RootCause, RunStatus
+from torch_rcm.domain.enums import MoveWho, RootCause, RunStatus
 from torch_rcm.readmodels.snapshot import Snapshot
 
 
@@ -21,6 +24,7 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                 kind="visit",
                 title=f"Visit completed · {claim.procedures_summary} · {provider.name if provider else ''}",
                 detail=f"{len(claim.lines)} lines posted to the PMS ledger",
+                who=MoveWho.PRACTICE,
             )
         )
     out.append(
@@ -36,6 +40,7 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                 if a.created_at <= claim.built_at  # what left with the claim, not what was added later
             )
             or None,
+            who=MoveWho.AGENTS,
         )
     )
     for ack in snap.acks_by_claim.get(claim.id, []):
@@ -46,6 +51,7 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                 lane="payer" if ack.source == "payer" else "system",
                 kind=ack.stage.value,
                 title=ack.message,
+                who=MoveWho.PAYER,  # the clearinghouse or the payer answered
             )
         )
     for run in snap.runs_by_claim.get(claim.id, []):
@@ -65,6 +71,7 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                 actor=run.actor,
                 run_id=run.id,
                 evidence_ids=evidence,
+                who=MoveWho.AGENTS,
             )
         )
     for remit in snap.of(Remittance):
@@ -91,6 +98,7 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                 title=title,
                 detail=f"trace {remit.trace}",
                 root_cause=root,
+                who=MoveWho.PAYER,
             )
         )
     for ev in snap.of(AuditEvent):
@@ -106,6 +114,7 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                     title=ev.detail,
                     actor=user.name if user else ev.actor,
                     root_cause=RootCause(ev.data["after"]) if found else None,
+                    who=MoveWho.PRACTICE if user and not found else MoveWho.AGENTS,
                 )
             )
     for entry in snap.file_entries_by_claim.get(claim.id, []):
@@ -120,6 +129,7 @@ def timeline(snap: Snapshot, claim: Claim) -> list[TimelineEntry]:
                     f"{entry.kind.value.capitalize()} {state} the {entry.file_time:%H:%M} "
                     f"{snap.payers[entry.payer_key.value].short_name} file via Vyne"
                 ),
+                who=MoveWho.AGENTS,
             )
         )
     out.sort(key=lambda e: (e.at, e.id))

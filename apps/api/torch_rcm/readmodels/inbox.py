@@ -11,6 +11,7 @@ from torch_rcm.domain.entities import FileEntry, InboxItem, Run
 from torch_rcm.domain.enums import FileEntryState, InboxItemKind, InboxItemState, RootCause, RuleMode, Tier
 from torch_rcm.readmodels.claims import patient_ref, summarize, visible_inbox
 from torch_rcm.readmodels.snapshot import Snapshot
+from torch_rcm.readmodels.wording import action_label, item_touches, lands, signer_note
 
 TIER_WEIGHT = {Tier.ONE: 1.0, Tier.TWO: 1.15, Tier.THREE: 1.3}
 DONE_STATES = (
@@ -102,10 +103,10 @@ def item_out(snap: Snapshot, item: InboxItem, viewer_id: str | None = None) -> I
         stopped_by=stopped_by(snap, item),
         root_cause=RootCause(root) if root else None,
         suspicious_evidence=any(e.suspicious for e in evidence),
-        action_label=None,  # phase-1 stubs
-        touches=[],
-        signer_note=None,
-        lands=None,
+        action_label=action_label(snap, item),
+        touches=item_touches(snap, [item]),
+        signer_note=signer_note(snap, item, viewer_id),
+        lands=lands(snap, item),
     )
 
 
@@ -159,11 +160,11 @@ def list_inbox(
     if agent:
         items = [i for i in items if i.agent is not None and i.agent.value == agent]
     outs = sorted((item_out(snap, i, user_id) for i in items), key=lambda o: (-o.priority, o.created_at, o.id))
-    groups = _groups(outs) if group else None
+    groups = _groups(snap, outs, {i.id: i for i in items}) if group else None
     return InboxList(items=outs, total=len(outs), total_cents=sum(o.cents for o in outs), groups=groups)
 
 
-def _groups(items: list[InboxItemOut]) -> list[InboxGroup]:
+def _groups(snap: Snapshot, items: list[InboxItemOut], raw: dict[str, InboxItem]) -> list[InboxGroup]:
     by_key: dict[str, list[InboxItemOut]] = defaultdict(list)
     for item in items:
         if item.group_key:
@@ -175,8 +176,8 @@ def _groups(items: list[InboxItemOut]) -> list[InboxGroup]:
             count=len(rows),
             cents=sum(r.cents for r in rows),
             item_ids=[r.id for r in rows],
-            action_label=None,  # phase-1 stubs
-            touches=[],
+            action_label=action_label(snap, raw[rows[0].id], n=len(rows)),
+            touches=item_touches(snap, [raw[r.id] for r in rows]),
         )
         for k, rows in by_key.items()
         if len(rows) > 1

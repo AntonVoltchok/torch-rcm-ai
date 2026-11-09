@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from torch_rcm.api.schemas import ClaimMove
-from torch_rcm.domain.entities import Claim, InboxItem, Remittance, Rule, User
+from torch_rcm.domain.entities import Claim, InboxItem, Remittance, Rule, Run, User
 from torch_rcm.domain.enums import (
     ACTIVE_RUN_STATUSES,
     AckStage,
@@ -34,8 +34,10 @@ from torch_rcm.domain.enums import (
     RuleAction,
     RuleMode,
     RunStatus,
+    RunTrigger,
     Tier,
 )
+from torch_rcm.domain.values import ClaimOutcome
 from torch_rcm.readmodels.snapshot import Snapshot
 
 # Tier 3 commits the practice: who may approve each action (owner always). The services' authority check uses this.
@@ -154,6 +156,7 @@ class MoveBasis:
 
     exclude_run: str | None = None
     open_item: str | None = None
+    closed_item: str | None = None  # `lands`: the item being approved, as if already resolved
 
 
 def claim_move(snap: Snapshot, claim: Claim, viewer_id: str | None = None, basis: MoveBasis | None = None) -> ClaimMove:
@@ -173,7 +176,7 @@ def claim_move(snap: Snapshot, claim: Claim, viewer_id: str | None = None, basis
     if active:
         paused = all(r.status is RunStatus.PAUSED for r in active)
         return move(MoveWho.AGENTS, "Agents paused" if paused else "With the agents")
-    items = list(snap.open_items_by_claim.get(claim.id, []))
+    items = [i for i in snap.open_items_by_claim.get(claim.id, []) if i.id != b.closed_item]
     if b.open_item and b.open_item not in {i.id for i in items}:
         extra = next((i for i in snap.of(InboxItem) if i.id == b.open_item and i.claim_id == claim.id), None)
         items += [extra] if extra else []
@@ -248,3 +251,23 @@ def filed_since_remit(snap: Snapshot, claim: Claim) -> bool:
         if r.status is RunStatus.SUCCEEDED and r.action in FILING_ACTIONS and r.finished_at is not None
     ]
     return any(last is None or at > last for at in left)
+
+
+def run_claim_side(snap: Snapshot, run: Run, *, before: bool) -> tuple[ClaimStatus, MoveWho] | None:
+    """A run's own claim, read around the run itself: the run is never counted as holding it, and an approval run's
+    "before" counts its approved item as still open (so an approval reads practice → …). None for a claimless run."""
+    claim = snap.claims.get(run.claim_id or "")
+    if claim is None:
+        return None
+    approval = before and run.trigger is RunTrigger.APPROVAL
+    basis = MoveBasis(exclude_run=run.id, open_item=run.inbox_item_id if approval else None)
+    return claim.status, claim_move(snap, claim, basis=basis).who
+
+
+def claim_outcome(
+    before: tuple[ClaimStatus, MoveWho] | None, after: tuple[ClaimStatus, MoveWho] | None
+) -> ClaimOutcome | None:
+    if after is None:
+        return None
+    b = before or after
+    return ClaimOutcome(status_from=b[0], status_to=after[0], move_from=b[1], move_to=after[1])

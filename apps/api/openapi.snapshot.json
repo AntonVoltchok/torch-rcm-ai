@@ -4869,6 +4869,10 @@
             "type": "string",
             "title": "Procedures"
           },
+          "procedures_plain": {
+            "type": "string",
+            "title": "Procedures Plain"
+          },
           "billed_cents": {
             "type": "integer",
             "title": "Billed Cents"
@@ -5012,6 +5016,7 @@
           "payer",
           "dos",
           "procedures",
+          "procedures_plain",
           "billed_cents",
           "allowed_cents",
           "paid_cents",
@@ -5076,6 +5081,10 @@
           "procedures": {
             "type": "string",
             "title": "Procedures"
+          },
+          "procedures_plain": {
+            "type": "string",
+            "title": "Procedures Plain"
           },
           "billed_cents": {
             "type": "integer",
@@ -5174,6 +5183,7 @@
           "payer",
           "dos",
           "procedures",
+          "procedures_plain",
           "billed_cents",
           "allowed_cents",
           "paid_cents",

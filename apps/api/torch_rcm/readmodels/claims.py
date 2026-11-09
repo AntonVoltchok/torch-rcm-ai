@@ -26,6 +26,7 @@ from torch_rcm.domain.entities import Claim, InboxItem, Patient, Remittance
 from torch_rcm.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, MoveWho, RemitStatus, Role
 from torch_rcm.readmodels.moves import claim_move, sees
 from torch_rcm.readmodels.snapshot import Snapshot
+from torch_rcm.world.fees import plain_procedures
 
 S = ClaimStatus
 TILE_LABELS: dict[ClaimStatus, str] = {
@@ -103,6 +104,7 @@ def summarize(snap: Snapshot, claim: Claim, viewer_id: str | None = None) -> Cla
         payer=payer_ref(snap, claim.payer_key.value),
         dos=claim.dos,
         procedures=claim.procedures_summary,
+        procedures_plain=plain_procedures([(line.cdt, line.tooth) for line in claim.lines]),
         billed_cents=claim.billed_cents,
         allowed_cents=claim.allowed_cents,
         paid_cents=claim.paid_cents,

@@ -27,6 +27,7 @@ from torch_rcm.readmodels.changes import strip_changes
 from torch_rcm.readmodels.claims import strip
 from torch_rcm.readmodels.inbox import item_detail, item_out, list_inbox
 from torch_rcm.readmodels.moves import TIER3_APPROVERS
+from torch_rcm.readmodels.wording import action_label
 from torch_rcm.scheduler import kinds as K
 from torch_rcm.world.sim import HoldWindowClosedError
 
@@ -71,7 +72,7 @@ def _approval_run(ctx: Ctx, item: InboxItem, edits: dict[str, Any] | None) -> Ru
         idempotency_key=key,
         status=RunStatus.QUEUED,
         action=action,
-        action_label=action.value.replace("_", " ") if action else "",
+        action_label=action_label(ctx.snapshot(), item) or "",  # the button's words: what runs
         tier=item.tier,
         plan={
             "proposed_action": item.proposed_action.model_dump(mode="json") if item.proposed_action else None,
