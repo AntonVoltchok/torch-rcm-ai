@@ -48,6 +48,7 @@ class RunShape:
     item_kind: str | None
     status: str
     claim_outcome: tuple[str, str, str, str] | None  # status_from, status_to, move_from, move_to
+    headline: str | None  # the item's headline: from the classifier's situation, so modes must agree
     planner: str = field(compare=False)
 
 
@@ -195,6 +196,8 @@ def _subject(run: Any) -> str:
 
 def _shape(rt: Any, art: Any, run: Any) -> RunShape:
     from torch_rcm.domain.entities import InboxItem
+    from torch_rcm.readmodels.headline import headline
+    from torch_rcm.readmodels.snapshot import Snapshot
 
     made = [i for i in rt.store.all(InboxItem) if i.run_id == run.id and i.id != run.inbox_item_id]
     item = made[0] if made else (rt.store.get(InboxItem, run.inbox_item_id) if run.inbox_item_id else None)
@@ -212,6 +215,7 @@ def _shape(rt: Any, art: Any, run: Any) -> RunShape:
             if (o := run.claim_outcome)
             else None
         ),
+        headline=headline(Snapshot.from_store(rt.store, rt.clock.now()), item) if item else None,
         planner=run.planner.value,
     )
 

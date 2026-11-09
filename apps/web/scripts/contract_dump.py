@@ -127,6 +127,10 @@ def mutations(client: TestClient) -> str:
     refuse(client, "POST", f"/inbox/{singles[0]['id']}:approve", 409, "already_resolved", json={})
     call(client, "POST", f"/inbox/{singles[1]['id']}:snooze", "ItemResponse", json={"until": THURSDAY})
     call(client, "POST", f"/inbox/{singles[1]['id']}:reopen", "ItemResponse")
+    # A run on the item's claim (a manual triage, with its step delays) answers a second Approve with 409 claim_busy.
+    busy = call(client, "POST", f"/claims/{singles[1]['claim']['id']}:triage", "TriageAccepted", json={"agent": "followup"})
+    refuse(client, "POST", f"/inbox/{singles[1]['id']}:approve", 409, "claim_busy", json={})
+    wait_for_run(client, busy["run"]["id"])
     call(client, "POST", "/views", "SavedView", json={"name": "Denied", "search_params": {"status": ["denied"]}})
     triage = call(client, "POST", "/claims/clm_4744:triage", "TriageAccepted", json={"agent": "followup"})
     wait_for_run(client, triage["run"]["id"])

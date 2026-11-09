@@ -540,6 +540,7 @@ class Executor:
         rule_mode = next((r.mode for r in case.rules_snapshot if r.id == decision.rule_id), None)
         found = {
             "situation_key": plan.situation_key,
+            "classifier_situation": case.classifier_situation,  # code's key; the headline reads only this one
             "root_cause": case.root_cause,
             "policy_row": decision.policy_row,
             "policy_reason": decision.reason,

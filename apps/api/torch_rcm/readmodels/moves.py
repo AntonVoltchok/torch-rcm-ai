@@ -149,6 +149,20 @@ def _holder_item(items: Iterable[InboxItem], viewer: User | None) -> InboxItem:
     return next((i for i in ordered if can_act(viewer, i)), ordered[0])
 
 
+AGENTS_PAUSED = "Agents paused"
+AGENTS_WORKING = "With the agents"
+
+
+def active_runs(snap: Snapshot, claim_id: str, exclude: str | None = None) -> list[Run]:
+    """Queued, running or paused runs on a claim: what makes its move `agents`, and what makes an Approve on it a
+    409 `claim_busy` (`services.inbox`). One predicate, so the lock the Inbox draws and the refusal agree."""
+    return [r for r in snap.runs_by_claim.get(claim_id, []) if r.status in ACTIVE_RUN_STATUSES and r.id != exclude]
+
+
+def all_paused(runs: list[Run]) -> bool:
+    return bool(runs) and all(r.status is RunStatus.PAUSED for r in runs)
+
+
 @dataclass(frozen=True, slots=True)
 class MoveBasis:
     """What a move is read from, when it is not the snapshot as it stands: the agents read a claim's move around
@@ -171,11 +185,9 @@ def claim_move(snap: Snapshot, claim: Claim, viewer_id: str | None = None, basis
 
     if claim.closed_reason is not None:
         return move(MoveWho.NOBODY, "Closed")
-    runs = snap.runs_by_claim.get(claim.id, [])
-    active = [r for r in runs if r.status in ACTIVE_RUN_STATUSES and r.id != b.exclude_run]
+    active = active_runs(snap, claim.id, exclude=b.exclude_run)
     if active:
-        paused = all(r.status is RunStatus.PAUSED for r in active)
-        return move(MoveWho.AGENTS, "Agents paused" if paused else "With the agents")
+        return move(MoveWho.AGENTS, AGENTS_PAUSED if all_paused(active) else AGENTS_WORKING)
     items = [i for i in snap.open_items_by_claim.get(claim.id, []) if i.id != b.closed_item]
     if b.open_item and b.open_item not in {i.id for i in items}:
         extra = next((i for i in snap.of(InboxItem) if i.id == b.open_item and i.claim_id == claim.id), None)

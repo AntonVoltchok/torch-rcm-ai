@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from torch_rcm.domain.enums import (
     AdjGroup,
@@ -84,9 +84,57 @@ class ReadinessCheck(Value):
     detail: str
 
 
+MIN_BASE_RATE_N = 5  # below this many past cases there is no percent to show
+
+
+def base_rate_pct(k: int, n: int) -> int | None:
+    """Whole-percent base rate, or None when the sample is too small to show (n < 5)."""
+    return round(100 * k / n) if n >= MIN_BASE_RATE_N else None
+
+
+def track_record_errors(k: int, n: int, pct: int | None) -> list[str]:
+    """A track record is k of n past cases; its percent is derived from them, never stated on its own."""
+    if not 0 <= k <= n:
+        return [f"k={k} must be between 0 and n={n}"]
+    if pct != base_rate_pct(k, n):
+        return [f"pct={pct} is not the base rate of {k} of {n} ({base_rate_pct(k, n)})"]
+    return []
+
+
 class Confidence(Value):
-    pct: int | None  # None = "no base rate" (n < 5)
+    """A track record: `k` of `n` past cases like this one ended `outcome`. `pct` is set only when n ≥ 5, and
+    `basis` is the sentence screens show ("23 of 25 … paid within 30 days", or why there is no record yet)."""
+
+    pct: int | None
+    k: int
+    n: int
+    outcome: str
     basis: str
+
+    @model_validator(mode="after")
+    def _derived(self) -> Confidence:
+        if errors := track_record_errors(self.k, self.n, self.pct):
+            raise ValueError("; ".join(errors))
+        return self
+
+
+METRIC_PHRASE = {"paid_30d": "paid within 30 days", "accepted": "accepted", "balanced": "balanced"}
+
+
+def metric_phrase(metric: str | None) -> str:
+    """What a rule's outcome metric counts, as the end of "23 of 25 …"."""
+    return METRIC_PHRASE.get(metric or "", "succeeded")
+
+
+def track_record(k: int, n: int, outcome: str) -> Confidence:
+    """k of n past cases ended `outcome`. Under five cases there is no percent, and the basis says why in words."""
+    if n == 0:
+        return Confidence(pct=None, k=0, n=0, outcome=outcome, basis="No past cases like this yet.")
+    if n < MIN_BASE_RATE_N:
+        cases = "case" if n == 1 else "cases"
+        basis = f"Only {n} past {cases} like this, too few for a track record yet."
+        return Confidence(pct=None, k=k, n=n, outcome=outcome, basis=basis)
+    return Confidence(pct=base_rate_pct(k, n), k=k, n=n, outcome=outcome, basis=f"{k} of {n} {outcome}")
 
 
 class BaseRate(Value):
@@ -95,9 +143,7 @@ class BaseRate(Value):
 
     def pct(self) -> int | None:
         """Whole-percent base rate, or None when the sample is too small to show (n < 5)."""
-        if self.n < 5:
-            return None
-        return round(100 * self.k / self.n)
+        return base_rate_pct(self.k, self.n)
 
 
 class RuleScope(Value):

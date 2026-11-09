@@ -6,10 +6,12 @@ import math
 from collections import defaultdict
 from datetime import date
 
-from torch_rcm.api.schemas import HoldWindow, InboxGroup, InboxItemDetail, InboxItemOut, InboxList
+from torch_rcm.agents.policy import learnable
+from torch_rcm.api.schemas import HoldWindow, InboxGroup, InboxItemDetail, InboxItemOut, InboxList, Learnable
 from torch_rcm.domain.entities import FileEntry, InboxItem, Run
 from torch_rcm.domain.enums import FileEntryState, InboxItemKind, InboxItemState, RootCause, RuleMode, Tier
 from torch_rcm.readmodels.claims import patient_ref, summarize, visible_inbox
+from torch_rcm.readmodels.headline import group_headline, headline
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.readmodels.wording import action_label, item_touches, lands, signer_note
 
@@ -76,6 +78,7 @@ def item_out(snap: Snapshot, item: InboxItem, viewer_id: str | None = None) -> I
         kind=item.kind,
         state=item.state,
         title=item.title,
+        headline=headline(snap, item),
         summary=item.summary,
         recommendation=item.recommendation,
         agent=item.agent,
@@ -107,7 +110,30 @@ def item_out(snap: Snapshot, item: InboxItem, viewer_id: str | None = None) -> I
         touches=item_touches(snap, [item]),
         signer_note=signer_note(snap, item, viewer_id),
         lands=lands(snap, item),
+        learnable=item_learnable(snap, item),
     )
+
+
+def item_learnable(snap: Snapshot, item: InboxItem) -> Learnable:
+    """Policy's answer to "could this rule learn to run without review?", over every root cause on record: the
+    item's, the claim's denial, and the one the agents would compute now (when the snapshot can ask)."""
+    rule = snap.rules.get(item.rule_id or "")
+    claim = snap.claims.get(item.claim_id or "")
+    now = snap.root_cause_now(claim.id) if claim and snap.root_cause_now else None
+    stated = item.payload.get("root_cause")
+    answer = learnable(
+        tier=item.tier.value if item.tier is not None else None,
+        rule_label=rule.label if rule else None,
+        outcome_metric=rule.outcome_metric.value if rule else None,
+        n=rule.base_rate.n if rule else 0,
+        drafted=item.kind is InboxItemKind.REVIEW_DRAFT,
+        causes=(
+            stated if isinstance(stated, str) else None,
+            claim.denial.root_cause.value if claim and claim.denial else None,
+            now,
+        ),
+    )
+    return Learnable(ok=answer.ok, code=answer.code, reason=answer.reason)
 
 
 def hold_window(snap: Snapshot, item: InboxItem) -> HoldWindow | None:
@@ -173,6 +199,7 @@ def _groups(snap: Snapshot, items: list[InboxItemOut], raw: dict[str, InboxItem]
         InboxGroup(
             group_key=k,
             title=f"{rows[0].group_title or k} ({len(rows)})",
+            headline=group_headline(snap, [raw[r.id] for r in rows], f"{rows[0].group_title or k} ({len(rows)})"),
             count=len(rows),
             cents=sum(r.cents for r in rows),
             item_ids=[r.id for r in rows],

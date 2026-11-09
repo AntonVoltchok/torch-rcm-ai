@@ -51,7 +51,7 @@ from torch_rcm.domain.enums import (
     VerifiedVia,
     tier_of,
 )
-from torch_rcm.domain.values import BaseRate, Confidence, ProposalEvidence, ProposedAction, RuleScope
+from torch_rcm.domain.values import BaseRate, Confidence, ProposalEvidence, ProposedAction, RuleScope, track_record
 from torch_rcm.seed import targets as T
 from torch_rcm.seed.builder import Builder, dt
 from torch_rcm.seed.canonical.people import PRV_LEE, PRV_MORGAN, USR_DANA, USR_LEE, USR_MORGAN, USR_TASHA
@@ -61,6 +61,12 @@ A = RuleAction
 AG = AgentKind
 TODAY = T.TODAY
 DELTA_PA_SLICE = "denied:CO-16:N29:pa_missing"
+# What each eligibility flag found, as structured facts the headline reads (never parsed from the title).
+ELIG_ISSUES: dict[str, dict[str, Any]] = {
+    "chen": {"issue": "over_max"},
+    "kim": {"issue": "frequency", "cdt": "D0274"},
+    "park": {"issue": "unverified"},
+}
 
 ACTION_LABEL: dict[RuleAction, str] = {
     A.STATUS_CHECK: "Status check",
@@ -911,9 +917,8 @@ class AgentSeed:
                     "Send in the next Delta file via Vyne",
                     "Keep the day-30 status check",
                 ],
-                confidence=Confidence(
-                    pct=92,
-                    basis="23 of 25 Delta CO-16 · N29 denials paid within 30 d after a PA resubmit (12 mo)",
+                confidence=track_record(
+                    23, 25, "Delta CO-16 · N29 denials paid within 30 days after a PA resubmit (12 mo)"
                 ),
                 evidence=ev,
                 proposed_action=ProposedAction(
@@ -996,7 +1001,7 @@ class AgentSeed:
             cents=webb.billed_cents,
             created=dt(TODAY, "06:40"),
             summary="Frequency denial (CO-119): payer tooth-number error. Real prior #30 crown seated 2019-08-14, replaced for fracture.",
-            confidence=Confidence(pct=82, basis="9 of 11 tooth-history reconsiderations paid (12 mo)"),
+            confidence=track_record(9, 11, "tooth-history reconsiderations paid (12 mo)"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.REPROCESSING_REQUEST,
@@ -1084,7 +1089,7 @@ class AgentSeed:
             tier=Tier.ONE,
             cents=brooks.billed_cents,
             created=dt(TODAY, "06:30"),
-            confidence=Confidence(pct=88, basis="22 of 25 prompt-pay requests paid within 30 d"),
+            confidence=track_record(22, 25, "prompt-pay requests paid within 30 days"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.REPROCESSING_REQUEST,
@@ -1161,7 +1166,7 @@ class AgentSeed:
             tier=Tier.ONE,
             cents=moreau.billed_cents,
             created=dt(TODAY, "07:03"),
-            confidence=Confidence(pct=84, basis="16 of 19 demographic resends accepted"),
+            confidence=track_record(16, 19, "demographic resends accepted"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.FIX_DEMOGRAPHICS_RESEND,
@@ -1235,7 +1240,7 @@ class AgentSeed:
             cents=foster.billed_cents,
             created=dt(TODAY, "06:20"),
             remittance_id="rem_cigna_1028",
-            confidence=Confidence(pct=None, basis="no base rate (n = 3)"),
+            confidence=track_record(3, 3, "deductible corrections balanced"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.POST_ERA_LINE,
@@ -1291,7 +1296,7 @@ class AgentSeed:
             tier=Tier.TWO,
             cents=osei.billed_cents,
             created=dt(date(2026, 10, 27), "08:10"),
-            confidence=Confidence(pct=None, basis="no base rate (n = 4)"),
+            confidence=track_record(4, 4, "alternate-benefit transfers balanced"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.PATIENT_TRANSFER, params={"claim_id": osei.id, "cents": 3_800}, cents=3_800
@@ -1346,7 +1351,13 @@ class AgentSeed:
             tier=Tier.THREE,
             cents=diaz.billed_cents,
             created=dt(date(2026, 10, 27), "09:12"),
-            confidence=Confidence(pct=None, basis="tier 3 · human decision · max confirmed on portal 10/27"),
+            confidence=Confidence(
+                pct=None,
+                k=0,
+                n=0,
+                outcome="",
+                basis="A person decides this one. Annual max confirmed on the Delta portal 10/27.",
+            ),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.WRITE_OFF,
@@ -1570,13 +1581,17 @@ class AgentSeed:
                     recommendation=rec,
                     confidence=Confidence(
                         pct=None,
-                        basis="as of 10/28 06:12 · portal" if flag != "park" else "unverified · portal down",
+                        k=0,
+                        n=0,
+                        outcome="",
+                        basis="As of 10/28 6:12 AM · portal" if flag != "park" else "Unverified · portal down",
                     ),
                     evidence=ev,
                     tier=None,
                     cents=cents,
                     created_at=dt(TODAY, "06:12"),
                     run_id=run.id,
+                    payload=dict(ELIG_ISSUES[flag]),
                 )
             )
         return out

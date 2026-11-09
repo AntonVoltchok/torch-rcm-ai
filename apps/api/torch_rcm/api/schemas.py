@@ -233,11 +233,24 @@ class ClaimSummary(Schema):
 # ── inbox ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 
+LearnCode = Literal["tier_not_learnable", "root_cause_guard", "not_enough_evidence"]
+
+
+class Learnable(Schema):
+    """Whether this item's rule could learn to run without review (`agents.policy.learnable`). `code` is the 422
+    `POST /inbox/{id}:always-auto-run` answers with; null when `ok`."""
+
+    ok: bool
+    code: LearnCode | None
+    reason: str
+
+
 class InboxItemOut(Schema):
     id: str
     kind: InboxItemKind
     state: InboxItemState
     title: str
+    headline: str  # one plain sentence from code facts (`readmodels/headline.py`), never model text
     summary: str
     recommendation: str
     agent: AgentKind | None
@@ -269,6 +282,7 @@ class InboxItemOut(Schema):
     touches: list[str]  # recipe step labels (+ hold window) of that action: "What this does"
     signer_note: str | None  # why someone else signs, when `required_role` isn't the viewer's
     lands: MoveWho | None  # where the claim's move goes if this is approved; None for claimless items
+    learnable: Learnable
 
 
 class InboxItemDetail(InboxItemOut):
@@ -289,6 +303,7 @@ class HoldWindow(Schema):
 class InboxGroup(Schema):
     group_key: str
     title: str
+    headline: str  # the members' one sentence, counted (`readmodels/headline.group_headline`), else `title`
     count: int
     cents: int
     item_ids: list[str]

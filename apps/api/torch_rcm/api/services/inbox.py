@@ -25,8 +25,8 @@ from torch_rcm.domain.enums import (
 from torch_rcm.domain.values import ProposalEvidence
 from torch_rcm.readmodels.changes import strip_changes
 from torch_rcm.readmodels.claims import strip
-from torch_rcm.readmodels.inbox import item_detail, item_out, list_inbox
-from torch_rcm.readmodels.moves import TIER3_APPROVERS
+from torch_rcm.readmodels.inbox import item_detail, item_learnable, item_out, list_inbox
+from torch_rcm.readmodels.moves import AGENTS_PAUSED, AGENTS_WORKING, TIER3_APPROVERS, active_runs, all_paused
 from torch_rcm.readmodels.wording import action_label
 from torch_rcm.scheduler import kinds as K
 from torch_rcm.world.sim import HoldWindowClosedError
@@ -94,6 +94,7 @@ def _check_can_approve(ctx: Ctx, item: InboxItem) -> None:
         return  # idempotent replay handled by the caller
     if item.state is not InboxItemState.OPEN:
         raise conflict("already_resolved", f"{item.title} is {item.state.value}", state=item.state.value)
+    _check_not_busy(ctx, [item])
     if item.proposed_action and item.proposed_action.requires_hold_window and item.claim_id:
         try:
             ctx.rt.world.vyne.assert_editable(item.claim_id)
@@ -104,6 +105,38 @@ def _check_can_approve(ctx: Ctx, item: InboxItem) -> None:
                 alternatives=["corrected_claim"],
                 left_at=exc.left_at.isoformat() if exc.left_at else None,
             ) from exc
+
+
+def _check_not_busy(ctx: Ctx, items: list[InboxItem]) -> None:
+    """409 `claim_busy` when a run is queued, running or paused on an item's claim: a second run would race the
+    first. Checked after the replay return, so re-approving your own approval stays a 202. All or nothing for a
+    group. Raised inside the idempotent block, so nothing is stored under the key, and a retry once the run has
+    ended goes through."""
+    snap = ctx.snapshot()
+    busy: list[dict[str, Any]] = []
+    for item in items:
+        claim = snap.claims.get(item.claim_id or "")
+        runs = active_runs(snap, claim.id) if claim else []
+        if claim and runs:
+            paused = all_paused(runs)
+            busy.append(
+                {
+                    "item_id": item.id,
+                    "claim_id": claim.id,
+                    "claim_number": claim.number,
+                    "run_id": runs[0].id,
+                    "move_label": AGENTS_PAUSED if paused else AGENTS_WORKING,
+                    "paused": paused,
+                }
+            )
+    if not busy:
+        return
+    numbers = " and ".join(f"#{b['claim_number']}" for b in busy)
+    if all(b["paused"] for b in busy):
+        message = f"Agents are paused with a run open on {numbers}. Resume the agents or cancel that run first."
+    else:
+        message = f"Agents are working on {numbers}. Approve again when they finish."
+    raise conflict("claim_busy", message, busy=busy)
 
 
 def _check_authority(ctx: Ctx, item: InboxItem) -> None:
@@ -234,6 +267,9 @@ def _approve_group(ctx: Ctx, group_key: str) -> GroupApproveOut:
         if not items:
             raise not_found("open group", group_key)
         for item in items:
+            _check_authority(ctx, item)
+        _check_not_busy(ctx, items)  # all or nothing: one busy member refuses the whole group, naming every one
+        for item in items:
             _check_can_approve(ctx, item)
         runs = []
         for item in items:
@@ -302,17 +338,11 @@ def reopen(ctx: Ctx, item_id: str) -> ItemOut:
 def always_auto_run(ctx: Ctx, item_id: str) -> ProposalOut:
     """Create a RuleProposal from this item's slice now (tier 1 only; `ours` never learns)."""
     item = _require_item(ctx, item_id)
-    if item.tier is not Tier.ONE or item.rule_id is None:
-        raise unprocessable(
-            "tier_not_learnable",
-            "Only tier-1 actions under a rule with an outcome metric can learn to run without review.",
-        )
-    guard_learning(ctx, item.claim_id, item.payload.get("root_cause"), rule_id=item.rule_id)
+    answer = item_learnable(ctx.snapshot(), item)  # the same answer the Inbox shows up front
+    if not answer.ok or item.rule_id is None:
+        raise unprocessable(answer.code or "tier_not_learnable", answer.reason, rule_id=item.rule_id)
+    guard_learning(ctx, item.claim_id, item.payload.get("root_cause"), rule_id=item.rule_id)  # defence in depth
     rule = ctx.rt.store.require(Rule, item.rule_id)
-    if rule.outcome_metric.value == "none":
-        raise unprocessable(
-            "tier_not_learnable", f"{rule.label} has no outcome metric, so it is authored, never learned."
-        )
     pid = f"prop_{item.id.removeprefix('itm_')}_{ctx.now:%m%d%H%M}"
     existing = ctx.rt.store.get(RuleProposal, pid)
     proposal = existing or RuleProposal(

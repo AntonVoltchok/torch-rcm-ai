@@ -15,7 +15,7 @@ Also here, because they are policy and must be impossible to bypass:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -39,9 +39,9 @@ from torch_rcm.agents.types import (
     RuleView,
     Verdict,
 )
+from torch_rcm.domain.values import MIN_BASE_RATE_N, metric_phrase, track_record
 
 PRACTICE_CAP_CENTS = 100_000  # tier-2 practice cap ($1,000); tier 1 is exempt
-MIN_BASE_RATE_N = 5
 RunKind = Literal["triage", "approval", "manual"]
 
 
@@ -106,19 +106,13 @@ def match_rule(
     return max(candidates, key=_specificity, default=None)
 
 
-_METRIC_PHRASE = {"paid_30d": "paid within 30 d", "accepted": "accepted", "balanced": "balanced"}
-
-
 def confidence(rule: RuleView | None) -> Confidence | None:
-    """The rule's base rate, never a model number. Shown as 'no base rate' when n < 5."""
+    """The rule's base rate, never a model number (`domain.values.track_record`: no percent under five cases)."""
     if rule is None:
         return None
     rate = rule.base_rate
-    if rate is None or rate.n < MIN_BASE_RATE_N:
-        n = rate.n if rate else 0
-        return Confidence(pct=None, basis=f"no base rate (n={n})")
-    phrase = _METRIC_PHRASE.get(rule.outcome_metric or "", "succeeded")
-    return Confidence(pct=round(100 * rate.k / rate.n), basis=f"{rate.k} of {rate.n} {phrase}")
+    record = track_record(rate.k if rate else 0, rate.n if rate else 0, metric_phrase(rule.outcome_metric))
+    return Confidence(**record.model_dump())
 
 
 # ---------------------------------------------------------------- row 1: validation backstop
@@ -466,6 +460,67 @@ def guard_root_cause_ours(root_cause_class: str) -> None:
     """Root cause `ours` can never be learned into auto-run; accepting such a proposal is a 422."""
     if root_cause_class == "ours":
         raise RootCauseGuardError("root cause is ours: fix the upstream rule; this slice cannot auto-run")
+
+
+def guard_causes(causes: Iterable[str | None]) -> None:
+    """Every cause on record for a slice, and the one code computes now, through the one guard."""
+    for cause in causes:
+        if cause:
+            guard_root_cause_ours(cause)
+
+
+LearnCode = Literal["tier_not_learnable", "root_cause_guard", "not_enough_evidence"]
+ROOT_CAUSE_OURS_REASON = (
+    "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+)
+
+
+class Learnable(Frozen):
+    """Whether this item's rule could learn to run without review, and why not. `code` is the 422 code
+    `POST /inbox/{id}:always-auto-run` answers with, so the line shown up front and the refusal agree."""
+
+    ok: bool
+    code: LearnCode | None
+    reason: str
+
+
+def learnable(
+    *,
+    tier: int | None,
+    rule_label: str | None,
+    outcome_metric: str | None,
+    n: int,
+    causes: Iterable[str | None],
+    drafted: bool = False,
+) -> Learnable:
+    """First match wins: tier 3, agent-written text, tier 2, no rule, root cause ours, no outcome metric, too few
+    cases. `drafted` is a `review_draft` item: the agent wrote what would go out (CLAUDE.md: always tier 2)."""
+
+    def no(code: LearnCode, reason: str) -> Learnable:
+        return Learnable(ok=False, code=code, reason=reason)
+
+    if tier == 3:
+        return no("tier_not_learnable", "A person always does this one. It never runs on its own.")
+    if drafted:
+        return no("tier_not_learnable", "The agents wrote this text, so a person reads it before it goes out.")
+    if tier == 2:
+        return no("tier_not_learnable", "The owner sets this rule. It isn't learned from approvals.")
+    if tier is None or rule_label is None:
+        return no("tier_not_learnable", "No rule covers this, so a person decides each time.")
+    try:
+        guard_causes(causes)
+    except RootCauseGuardError:
+        return no("root_cause_guard", ROOT_CAUSE_OURS_REASON)
+    if outcome_metric in (None, "none"):
+        return no("tier_not_learnable", f"“{rule_label}” has no outcome to measure, so it is never learned.")
+    if n < MIN_BASE_RATE_N:
+        cases = "case" if n == 1 else "cases"
+        return no("not_enough_evidence", f"Only {n} past {cases} like this, too few to learn from yet.")
+    return Learnable(
+        ok=True,
+        code=None,
+        reason="You can propose running this without review. Nothing changes until the proposal is accepted.",
+    )
 
 
 # ---------------------------------------------------------------- owner sign-off routing (07 §5.2)

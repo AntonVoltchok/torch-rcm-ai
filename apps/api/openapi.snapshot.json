@@ -5239,6 +5239,18 @@
             ],
             "title": "Pct"
           },
+          "k": {
+            "type": "integer",
+            "title": "K"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
           "basis": {
             "type": "string",
             "title": "Basis"
@@ -5248,9 +5260,13 @@
         "type": "object",
         "required": [
           "pct",
+          "k",
+          "n",
+          "outcome",
           "basis"
         ],
-        "title": "Confidence"
+        "title": "Confidence",
+        "description": "A track record: `k` of `n` past cases like this one ended `outcome`. `pct` is set only when n \u2265 5, and\n`basis` is the sentence screens show (\"23 of 25 \u2026 paid within 30 days\", or why there is no record yet)."
       },
       "CorrectedIn": {
         "properties": {
@@ -6369,6 +6385,10 @@
             "type": "string",
             "title": "Title"
           },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
           "count": {
             "type": "integer",
             "title": "Count"
@@ -6408,6 +6428,7 @@
         "required": [
           "group_key",
           "title",
+          "headline",
           "count",
           "cents",
           "item_ids",
@@ -6431,6 +6452,10 @@
           "title": {
             "type": "string",
             "title": "Title"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
           },
           "summary": {
             "type": "string",
@@ -6711,6 +6736,9 @@
                 "type": "null"
               }
             ]
+          },
+          "learnable": {
+            "$ref": "#/components/schemas/Learnable"
           },
           "plan_steps": {
             "items": {
@@ -6760,6 +6788,7 @@
           "kind",
           "state",
           "title",
+          "headline",
           "summary",
           "recommendation",
           "agent",
@@ -6790,6 +6819,7 @@
           "touches",
           "signer_note",
           "lands",
+          "learnable",
           "plan_steps",
           "audit_note",
           "evidence",
@@ -6826,6 +6856,10 @@
           "title": {
             "type": "string",
             "title": "Title"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
           },
           "summary": {
             "type": "string",
@@ -7106,6 +7140,9 @@
                 "type": "null"
               }
             ]
+          },
+          "learnable": {
+            "$ref": "#/components/schemas/Learnable"
           }
         },
         "additionalProperties": false,
@@ -7115,6 +7152,7 @@
           "kind",
           "state",
           "title",
+          "headline",
           "summary",
           "recommendation",
           "agent",
@@ -7144,7 +7182,8 @@
           "action_label",
           "touches",
           "signer_note",
-          "lands"
+          "lands",
+          "learnable"
         ],
         "title": "InboxItemOut"
       },
@@ -7349,6 +7388,43 @@
           "basis"
         ],
         "title": "Kpi"
+      },
+      "Learnable": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "tier_not_learnable",
+                  "root_cause_guard",
+                  "not_enough_evidence"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ok",
+          "code",
+          "reason"
+        ],
+        "title": "Learnable",
+        "description": "Whether this item's rule could learn to run without review (`agents.policy.learnable`). `code` is the 422\n`POST /inbox/{id}:always-auto-run` answers with; null when `ok`."
       },
       "LedgerRow": {
         "properties": {

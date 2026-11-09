@@ -7,7 +7,7 @@ from datetime import datetime
 
 from torch_rcm.api.errors import ApiError
 from torch_rcm.api.schemas import Meta
-from torch_rcm.domain.entities import AuditEvent, User
+from torch_rcm.domain.entities import AuditEvent, Claim, User
 from torch_rcm.domain.enums import Role
 from torch_rcm.readmodels.claims import strip
 from torch_rcm.readmodels.snapshot import Snapshot
@@ -33,7 +33,19 @@ class Ctx:
         return self.rt.clock.now()
 
     def snapshot(self) -> Snapshot:
-        return Snapshot.from_store(self.rt.store, self.now)
+        snap = Snapshot.from_store(self.rt.store, self.now)
+        snap.root_cause_now = self.root_cause_now
+        return snap
+
+    def root_cause_now(self, claim_id: str) -> str | None:
+        """The cause a run would compute now for this claim; the learning guard reads it with the stored ones.
+        Imported here for the same reason as `rules.guard_learning`."""
+        from torch_rcm.agents.case import claim_root_cause
+        from torch_rcm.agents.tools.adapters import SimWorld, StoreDomain
+
+        if self.rt.store.get(Claim, claim_id) is None:
+            return None
+        return claim_root_cause(StoreDomain(self.rt.store, SimWorld(self.rt.world)), claim_id)
 
     def meta(self) -> Meta:
         return Meta(counts=strip(self.snapshot(), self.user.id))

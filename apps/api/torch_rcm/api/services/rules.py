@@ -34,7 +34,7 @@ from torch_rcm.domain.enums import (
     Tier,
 )
 from torch_rcm.domain.invariants import check_rule
-from torch_rcm.domain.values import Confidence, RuleScope
+from torch_rcm.domain.values import Confidence, RuleScope, metric_phrase, track_record
 from torch_rcm.readmodels.activity import ran_without_review, this_week, week_decisions, week_start
 from torch_rcm.readmodels.snapshot import Snapshot
 
@@ -53,6 +53,13 @@ TIER_TEXT = {
 }
 
 
+def rule_track_record(rule: Rule) -> Confidence | None:
+    """The rule's own base rate; None for a rule with no history at all."""
+    if not rule.base_rate.n:
+        return None
+    return track_record(rule.base_rate.k, rule.base_rate.n, metric_phrase(rule.outcome_metric.value))
+
+
 def list_rules(ctx: Ctx) -> RulesOut:
     snap = ctx.snapshot()
     runs = this_week(snap)
@@ -66,15 +73,7 @@ def list_rules(ctx: Ctx) -> RulesOut:
         for rule in sorted((r for r in snap.of(Rule) if r.tier is tier), key=lambda r: (r.sort, r.id)):
             ran = sum(1 for r in runs if r.rule_id == rule.id and ran_without_review(r))
             waiting = sum(1 for i in open_items if i.rule_id == rule.id)
-            pct = rule.base_rate.pct()
-            conf = (
-                Confidence(
-                    pct=pct,
-                    basis=f"{rule.base_rate.k} of {rule.base_rate.n}" if pct is not None else "no base rate",
-                )
-                if rule.base_rate.n
-                else None
-            )
+            conf = rule_track_record(rule)
             signer = snap.users.get(rule.signed_by or "")
             rows.append(
                 RuleRow(
@@ -407,17 +406,13 @@ def guard_learning(ctx: Ctx, claim_id: str | None, *stated: str | None, **detail
     """`ours` never learns: every recorded cause, and the one code computes now, through the agents' one guard.
     Imported here because the API boots without agents only when TORCH_ALLOW_WORLD_ONLY asks it to."""
     from torch_rcm.agents.learning import assert_learnable
-    from torch_rcm.agents.policy import RootCauseGuardError
+    from torch_rcm.agents.policy import ROOT_CAUSE_OURS_REASON, RootCauseGuardError
     from torch_rcm.agents.tools.adapters import SimWorld, StoreDomain
 
     try:
         assert_learnable(StoreDomain(ctx.rt.store, SimWorld(ctx.rt.world)), claim_id, *stated)
     except RootCauseGuardError as exc:
-        raise unprocessable(
-            "root_cause_guard",
-            "Root cause is ours: fix the upstream rule. This slice can never run without review.",
-            **details,
-        ) from exc
+        raise unprocessable("root_cause_guard", ROOT_CAUSE_OURS_REASON, **details) from exc
 
 
 def accept_proposal(ctx: Ctx, proposal_id: str) -> ProposalOut:

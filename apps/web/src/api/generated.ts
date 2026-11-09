@@ -13,7 +13,15 @@ const InboxItemKind = z.enum([
 const InboxItemState = z.enum(['open', 'approved', 'edited', 'rejected', 'snoozed', 'expired', 'done'])
 const AgentKind = z.enum(['eligibility', 'claims', 'followup', 'appeals', 'posting'])
 const Tier = z.union([z.literal(1), z.literal(2), z.literal(3)])
-const Confidence = z.object({ pct: z.union([z.number(), z.null()]), basis: z.string() }).strict()
+const Confidence = z
+  .object({
+    pct: z.union([z.number(), z.null()]),
+    k: z.number().int(),
+    n: z.number().int(),
+    outcome: z.string(),
+    basis: z.string(),
+  })
+  .strict()
 const ClaimStatus = z.enum([
   'ready',
   'sent',
@@ -102,12 +110,20 @@ const ProposedAction = z
   })
   .strict()
 const RootCause = z.enum(['ours', 'payer', 'patient', 'unknown'])
+const Learnable = z
+  .object({
+    ok: z.boolean(),
+    code: z.union([z.enum(['tier_not_learnable', 'root_cause_guard', 'not_enough_evidence']), z.null()]),
+    reason: z.string(),
+  })
+  .strict()
 const InboxItemOut = z
   .object({
     id: z.string(),
     kind: InboxItemKind,
     state: InboxItemState,
     title: z.string(),
+    headline: z.string(),
     summary: z.string(),
     recommendation: z.string(),
     agent: z.union([AgentKind, z.null()]),
@@ -139,12 +155,14 @@ const InboxItemOut = z
     touches: z.array(z.string()),
     signer_note: z.union([z.string(), z.null()]),
     lands: z.union([MoveWho, z.null()]),
+    learnable: Learnable,
   })
   .strict()
 const InboxGroup = z
   .object({
     group_key: z.string(),
     title: z.string(),
+    headline: z.string(),
     count: z.number().int(),
     cents: z.number().int(),
     item_ids: z.array(z.string()),
@@ -221,6 +239,7 @@ const InboxItemDetail = z
     kind: InboxItemKind,
     state: InboxItemState,
     title: z.string(),
+    headline: z.string(),
     summary: z.string(),
     recommendation: z.string(),
     agent: z.union([AgentKind, z.null()]),
@@ -252,6 +271,7 @@ const InboxItemDetail = z
     touches: z.array(z.string()),
     signer_note: z.union([z.string(), z.null()]),
     lands: z.union([MoveWho, z.null()]),
+    learnable: Learnable,
     plan_steps: z.array(z.string()),
     audit_note: z.union([z.string(), z.null()]),
     evidence: z.array(Evidence),
@@ -1152,6 +1172,7 @@ export const schemas = {
   RuleAction,
   ProposedAction,
   RootCause,
+  Learnable,
   InboxItemOut,
   InboxGroup,
   InboxList,

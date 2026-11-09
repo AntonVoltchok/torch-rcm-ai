@@ -255,7 +255,8 @@ def test_row12_no_base_rate_with_floor() -> None:
     thin = rule("resubmit_with_attachment", 1, "auto", confidence_floor=0.5, base_rate=BaseRate(n=4, k=4))
     d = decide(ctx(thin), RESUBMIT)
     assert (d.verdict, d.policy_row) == ("propose", 12)
-    assert d.confidence and d.confidence.pct is None and "no base rate" in d.confidence.basis
+    assert d.confidence and d.confidence.pct is None and (d.confidence.k, d.confidence.n) == (4, 4)
+    assert d.confidence.basis == "Only 4 past cases like this, too few for a track record yet."
     no_floor = rule("resubmit_with_attachment", 1, "auto", base_rate=BaseRate(n=4, k=4))
     assert verdict(ctx(no_floor)) == ("execute", 15)
 

@@ -60,6 +60,7 @@ export const {
   InboxItemState,
   InboxList,
   Kpi,
+  Learnable,
   LedgerRow,
   MoneyMath,
   MoveCount,
@@ -149,6 +150,7 @@ export type ClaimRow = z.infer<typeof ClaimRow>
 export type ClaimStatus = z.infer<typeof ClaimStatus>
 export type ClaimSummary = z.infer<typeof ClaimSummary>
 export type Clock = z.infer<typeof Clock>
+export type Confidence = z.infer<typeof Confidence>
 export type CoverageOut = z.infer<typeof CoverageOut>
 export type Deadline = z.infer<typeof Deadline>
 export type Denial = z.infer<typeof Denial>
@@ -175,6 +177,7 @@ export type InboxItemKind = z.infer<typeof InboxItemKind>
 export type InboxItemState = z.infer<typeof InboxItemState>
 export type InboxList = z.infer<typeof InboxList>
 export type Kpi = z.infer<typeof Kpi>
+export type Learnable = z.infer<typeof Learnable>
 export type Ledger = z.infer<typeof Ledger>
 export type LedgerRow = z.infer<typeof LedgerRow>
 export type MoneyMath = z.infer<typeof MoneyMath>

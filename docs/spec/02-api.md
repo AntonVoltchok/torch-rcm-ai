@@ -13,12 +13,12 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 
 ## Inbox
 
-- `GET /inbox?state=open|snoozed|done&kind&agent&group=true` → items; with `group=true` returns `groups[] {group_key, title, count, cents, item_ids}` plus ungrouped items.
+- `GET /inbox?state=open|snoozed|done&kind&agent&group=true` → items; with `group=true` returns `groups[] {group_key, title, headline, count, cents, item_ids}` plus ungrouped items. Each item carries `headline` (one plain sentence from code facts: the classifier's situation, payer, procedure, params, the frozen clock; never model text; else by kind, else `title`), `learnable {ok, code, reason}` (Policy's answer to "could this rule learn to run without review", the same function `:always-auto-run` refuses with), and `confidence {pct, k, n, outcome, basis}` (k of n past cases; `pct` only when n ≥ 5).
 - `GET /inbox/{id}` → item with evidence hydrated and the referenced claim summary.
-- `POST /inbox/{id}:approve {edits?}` → `{item, run}`; starts a Run (202). Errors: `409 file_departed` (hold window closed → response includes `alternatives: ["corrected_claim"]`), `409 already_resolved`, `403 tier_requires_owner`.
-- `POST /inbox:approve-group {group_key}` → `{items[], runs[]}`.
+- `POST /inbox/{id}:approve {edits?}` → `{item, run}`; starts a Run (202). Errors: `409 file_departed` (hold window closed → response includes `alternatives: ["corrected_claim"]`), `409 already_resolved`, `409 claim_busy` (a queued, running or paused run is on the item's claim, the same test that makes its `move` `agents`; `details.busy[] {item_id, claim_id, claim_number, run_id, move_label, paused}`; a replay of your own approval stays 202, and a 409 is never stored under its Idempotency-Key), `403 tier_requires_owner`.
+- `POST /inbox:approve-group {group_key}` → `{items[], runs[]}`. All or nothing: one busy member is `409 claim_busy` naming every busy claim, and nothing is approved.
 - `POST /inbox/{id}:reject {reason}` · `POST /inbox/{id}:snooze {until}` · `POST /inbox/{id}:reopen`
-- `POST /inbox/{id}:always-auto-run` → creates a `RuleProposal` (tier 1 only; `root_cause=ours` → `422 root_cause_guard`).
+- `POST /inbox/{id}:always-auto-run` → creates a `RuleProposal`. Refused with the item's `learnable.code` and `reason`: `422 tier_not_learnable` (tier 2 or 3, agent-written text, no rule, or no outcome metric), `422 root_cause_guard` (root cause `ours`, stated or computed now), `422 not_enough_evidence` (fewer than 5 past cases).
 
 ## Claims
 

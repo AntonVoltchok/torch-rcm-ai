@@ -151,6 +151,8 @@ def test_accepting_a_proposal_reads_the_computed_cause(rt: Any) -> None:
 
 def test_the_api_guards_go_through_the_one_guard(rt: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     seen: list[str] = []
-    monkeypatch.setattr("torch_rcm.agents.learning.guard_root_cause_ours", seen.append)
+    monkeypatch.setattr("torch_rcm.agents.policy.guard_root_cause_ours", seen.append)
     inbox_svc.always_auto_run(ctx(rt), "itm_4705")
-    assert seen == ["unknown"]  # computed for this claim, which has no denial and no finding yet
+    # computed for this claim, which has no denial and no finding yet: once by `policy.learnable` (the answer the
+    # Inbox shows up front), once by `guard_learning`'s defence in depth
+    assert seen == ["unknown", "unknown"]
