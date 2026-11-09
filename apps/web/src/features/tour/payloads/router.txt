@@ -1,0 +1,62 @@
+# CARC·RARC → next action → agent: one function, shared by the Denials worklist and the agents
+# source: apps/api/torch_rcm/domain/routing.py route_denial (inspect.getsource)
+# source: called the way api/services/screens.py (the Denials worklist) calls it, with clm_4821's stored denial
+# ran against: scenario canonical (world/scenarios.py build_scenario, seed 20261028) in a throwaway SQLite DB; clock Wed 2026-10-28 10:40 -0400 (as seeded, not advanced); TORCH_AGENT_MODE=deterministic
+# regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
+# generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
+
+def route_denial(carc: str, rarc: str | None, *, root_cause: RootCause, payer: PayerKey, self_funded: bool) -> Route:
+    key = f"{carc}:{rarc}" if rarc else carc
+    if key in ("CO-16:N29", "CO-16:M127") or carc == "CO-16":
+        return Route(NextAction.RECONSIDERATION, AgentKind.FOLLOWUP, "missing documentation: send it, no appeal needed")
+    if carc == "CO-119":
+        return Route(
+            NextAction.RECONSIDERATION,
+            AgentKind.FOLLOWUP,
+            "frequency: claim inquiry with the payer's own history",
+        )
+    if carc == "CO-22":
+        return Route(
+            NextAction.CORRECTED,
+            AgentKind.FOLLOWUP,
+            "coordination of benefits: fix coverage order, resubmit to the primary",
+        )
+    if carc in ("CO-50", "CO-29", "CO-197"):
+        checklist = ["rendering dentist signs the attestation"]
+        if self_funded:
+            checklist.append("patient authorization required (ERISA)")
+        if carc == "CO-29":
+            checklist = ["proof of timely receipt (payer 277CA)", *checklist]
+        return Route(
+            NextAction.FORMAL_APPEAL,
+            AgentKind.APPEALS,
+            "formal appeal: attests clinical facts, burns a level",
+            "rendering_dentist",
+            tuple(checklist),
+        )
+    if carc in ("PR-119", "PR-204", "CO-204") and payer is not PayerKey.NY_MEDICAID and carc.startswith("PR"):
+        return Route(
+            NextAction.BILL_PATIENT_LINK,
+            AgentKind.POSTING,
+            "patient responsibility: closes in Payments",
+            "owner",
+            ("write off the contractual difference (tier 3)",),
+        )
+    if carc == "CO-204" or payer is PayerKey.NY_MEDICAID:
+        return Route(
+            NextAction.WRITE_OFF,
+            AgentKind.POSTING,
+            "not billable to the patient without dated consent",
+            "owner",
+        )
+    return Route(NextAction.RECONSIDERATION, AgentKind.FOLLOWUP, "review the denial with the payer")
+
+# --- route_denial on clm_4821 ---
+route_denial('CO-16', 'N29', root_cause='ours', payer='delta_ny', self_funded=False)
+-> {
+  "next_action": "reconsideration",
+  "agent": "followup",
+  "why": "missing documentation: send it, no appeal needed",
+  "signer_role": null,
+  "checklist": []
+}

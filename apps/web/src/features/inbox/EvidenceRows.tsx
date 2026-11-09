@@ -9,7 +9,7 @@ import { EVIDENCE_KIND_LABEL, isInternalId } from '@/components/EvidenceCard'
 export function EvidenceRows({ evidence }: { evidence: Evidence[] }) {
   if (evidence.length === 0) return null
   return (
-    <section aria-label="Evidence" className="mt-4">
+    <section aria-label="Evidence" data-tour="evidence" className="mt-4">
       <h3 className="m-0 text-sm font-semibold">What the agent read</h3>
       <div className="mt-1.5 rounded-lg border border-line bg-fill">
         {evidence.map((e) => (

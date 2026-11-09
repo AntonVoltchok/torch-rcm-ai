@@ -14,7 +14,7 @@ export function MockOnlyBanner({ title, anchor, note }: { title: string; anchor:
   const src = designUrl(anchor)
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div role="note" className="flex items-center gap-3 border-b border-line bg-fill px-4 py-2.5 text-sm text-mid">
+      <div role="note" data-tour="mock-banner" className="flex items-center gap-3 border-b border-line bg-fill px-4 py-2.5 text-sm text-mid">
         <b className="text-ink">Designed, not built in this demo.</b>
         <span>{note ?? `Below is the reviewed design for ${title}. ${listed(MOCK_SCREENS)} are designs; every other screen in the sidebar reads the live API.`}</span>
         <a href={src} target="_blank" rel="noreferrer" className="ml-auto whitespace-nowrap font-medium text-act underline underline-offset-2">

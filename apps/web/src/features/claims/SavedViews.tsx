@@ -51,7 +51,7 @@ export function SavedViews({ search, strip }: { search: ClaimsSearch; strip: Str
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
   return (
-    <nav aria-label="Views" className="flex flex-wrap items-center gap-1 border-b border-line px-4 py-2 text-sm">
+    <nav aria-label="Views" data-tour="claims-views" className="flex flex-wrap items-center gap-1 border-b border-line px-4 py-2 text-sm">
       {QUICK.map((q) => {
         const on = !search.view && same(search, q.search)
         const n = strip && q.n ? q.n(strip) : undefined

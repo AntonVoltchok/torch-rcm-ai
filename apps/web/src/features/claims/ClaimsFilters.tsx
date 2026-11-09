@@ -35,7 +35,7 @@ export function ClaimsFilters() {
   const select = 'h-7 rounded-md border border-line-strong bg-paper px-2 text-sm text-mid'
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm" data-tour="claims-filters">
       <input aria-label="Filter claims" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Claim #, patient, ICN" className="h-7 w-44 rounded-md border border-line-strong px-2" />
       <select aria-label="Payer" className={select} value={search.payer ?? ''} onChange={(e) => set({ payer: PayerKey.safeParse(e.target.value).data })}>
         <option value="">Payer: All</option>

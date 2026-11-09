@@ -80,7 +80,7 @@ function Header({ d, today }: { d: ClaimDetail; today: string | undefined }) {
   const days = due && today ? daysUntil(due, today) : null
   const pr = d.denial && isPatientResp(d.denial.carc)
   return (
-    <header className="panel mx-4 mb-3 flex-none px-5 pb-4 pt-2.5">
+    <header className="panel mx-4 mb-3 flex-none px-5 pb-4 pt-2.5" data-tour="claim-header">
       <nav aria-label="Breadcrumb" className="flex items-center gap-3 text-sm">
         {from?.kind === 'inbox' ? (
           <Link to="/inbox" search={{ item: from.itemId }} className={crumb}>
@@ -146,7 +146,7 @@ function Header({ d, today }: { d: ClaimDetail; today: string | undefined }) {
             {due ? `${longDate(due)}${days !== null ? `, ${days} days` : ''}` : <span className="font-normal text-mid">None on file</span>}
           </Fact>
         </dl>
-        <div className="ml-auto self-center">
+        <div className="ml-auto self-center" data-tour="triage">
           <TriageButton claim={d} onLaunched={(l) => void navigate({ search: (s) => ({ ...s, launch: l.id }), replace: true })} />
         </div>
       </div>

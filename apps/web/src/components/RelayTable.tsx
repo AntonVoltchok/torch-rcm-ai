@@ -14,7 +14,7 @@ export const RELAY_COLS = 'grid grid-cols-[minmax(0,1fr)_64px_96px_170px] items-
 
 export function RelayTable({ count, payer, children }: { count: number; payer?: string | undefined; children: ReactNode }) {
   return (
-    <div className="mt-4 rounded-lg border border-line">
+    <div className="mt-4 rounded-lg border border-line" data-tour="relay">
       <div className={cn(RELAY_COLS, 'h-8 rounded-t-lg border-b border-line bg-fill text-xs font-medium text-soft')}>
         <span>{count > 1 ? `${count} claims` : 'Claim'}</span>
         <span className="text-right">

@@ -27,7 +27,7 @@ export function ModeControl({
   }
   return (
     <div className="flex flex-col gap-0.5">
-      <div role="radiogroup" aria-label={`Mode for ${row.label}`} className="inline-flex overflow-hidden rounded-md border border-line-strong" onMouseLeave={() => onPreview(null)}>
+      <div role="radiogroup" aria-label={`Mode for ${row.label}`} data-rule={row.id} className="inline-flex overflow-hidden rounded-md border border-line-strong" onMouseLeave={() => onPreview(null)}>
         {row.options.map((m) => {
           const on = m === row.mode
           return (
@@ -36,6 +36,7 @@ export function ModeControl({
               type="button"
               role="radio"
               aria-checked={on}
+              data-mode={m}
               disabled={busy}
               title={row.needsOwner && !on ? `${MODE_LABEL[m]} · needs Dr. Morgan’s sign-off` : MODE_LABEL[m]}
               onMouseEnter={() => onPreview(m)}

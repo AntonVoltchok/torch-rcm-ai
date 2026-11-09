@@ -1,0 +1,93 @@
+# What approving itm_4821 runs: the catalog recipe for resubmit_with_attachment, its ActionSpec, and the item's sentences
+# source: apps/api/torch_rcm/agents/catalog/recipes.py RECIPES['resubmit_with_attachment'] (ast lookup by key) and _queue (inspect.getsource)
+# source: apps/api/torch_rcm/agents/catalog/actions.py ACTIONS: the _spec('resubmit_with_attachment', …) call (ast), ResubmitWithAttachmentParams
+# source: apps/api/torch_rcm/readmodels/wording.py action_label, item_touches, lands, signer_note on the seeded item
+# source: apps/api/torch_rcm/agents/executor/executor.py ApprovedPlanPlanner docstring
+# ran against: scenario canonical (world/scenarios.py build_scenario, seed 20261028) in a throwaway SQLite DB; clock Wed 2026-10-28 10:40 -0400 (as seeded, not advanced); TORCH_AGENT_MODE=deterministic
+# regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
+# generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
+
+# Approval runs replay the approved plan (ApprovedPlanPlanner): no model call in deterministic or live mode.
+#   An approval run's plan is what the person approved (plus their edits); it makes no reads and no model
+#   calls (07 §12.7). Policy still re-checks it (rows 0, 1, 3, 7, 14).
+
+"resubmit_with_attachment": (
+    RecipeStep(
+        "fetch_image",
+        "pms.get_image",
+        lambda c: f"Fetch the {ATTACHMENT_WORD[str(c.p('attachment_kind'))][0]} from imaging",
+        lambda c: {"image_id": c.p("image_id"), "claim_id": c.claim_id},
+        output_key="image_ref",
+    ),
+    RecipeStep(
+        "nea_upload",
+        "nea.upload",
+        lambda c: "Upload to NEA",
+        lambda c: {"claim_id": c.claim_id, "image_id": c.p("image_id"), "kind": c.p("attachment_kind")},
+        output_key="nea_number",
+        effect=lambda c: (_counted(ATTACHMENT_WORD[str(c.p("attachment_kind"))][1], "uploaded to NEA"),),
+    ),
+    RecipeStep(
+        "write_remarks",
+        "pms.write_claim_remarks",
+        lambda c: "Write the NEA# and original ICN in the claim remarks",
+        lambda c: {
+            "claim_id": c.claim_id,
+            "text": (
+                f"NEA# {c.outputs.get('nea_number')} · "
+                f"original claim ICN {c.case.claim.icn if c.case.claim else ''}"
+            ),
+        },
+        output_key="remarks",
+    ),
+    _queue("resubmit", cites_new_attachment=True),
+),
+
+# --- _queue, the recipe's last step ---
+def _queue(kind: str, *, cites_new_attachment: bool = False) -> RecipeStep:
+    lead = queue_lead(cites_new_attachment)
+
+    def label(c: RecipeCtx) -> str:
+        return f"Queue for {file_label(c.case.payer, c.case.now, lead)}"
+
+    def effect(c: EffectCtx) -> tuple[Touch, ...]:
+        where = file_label(c.payer, c.now, lead)
+        return (Touch(f"claim in {where}", f"claims in {where}"),)
+
+    return RecipeStep(
+        "queue_for_file",
+        "vyne.queue",
+        label,
+        lambda c: {
+            "claim_id": c.claim_id,
+            "kind": kind,
+            "cites_new_attachment": cites_new_attachment,
+            "remarks": str(c.outputs.get("remarks") or "") or None,
+        },
+        output_key="file_time",
+        effect=effect,
+    )
+
+# --- ActionSpec ---
+_spec(
+    "resubmit_with_attachment",
+    1,
+    "Resubmit with attachment",
+    ResubmitWithAttachmentParams,
+    reverses_in="until_file_leaves",
+    contacts_payer=True,
+),
+
+class ResubmitWithAttachmentParams(ClaimParams):
+    image_id: str
+    attachment_kind: Literal["pa", "bwx", "fmx", "perio_chart", "narrative"]
+# ACTIONS['resubmit_with_attachment'] = ActionSpec(name='resubmit_with_attachment', tier=1, label='Resubmit with attachment', params=ResubmitWithAttachmentParams, reverses_in='until_file_leaves', carries_text=None, needs_hold_window=False, contacts_payer=True, role_required=None, amount_param=None)
+
+# --- apps/api/torch_rcm/readmodels/wording.py on itm_4821 (snapshot at 2026-10-28 10:40) ---
+action_label(snap, itm_4821)  -> "Send x-ray and resubmit"
+item_touches(snap, [itm_4821]) -> ["1 x-ray uploaded to NEA", "1 claim in the 11:15 AM Delta file", "Can be pulled from the file until 11:15 AM"]
+lands(snap, itm_4821)         -> agents
+signer_note(snap, itm_4821, 'usr_dana') -> null
+signer_note(snap, itm_4821, 'usr_lee') -> null
+signer_note(snap, itm_4821, 'usr_morgan') -> null
+signer_note(snap, itm_4821, 'usr_tasha') -> null

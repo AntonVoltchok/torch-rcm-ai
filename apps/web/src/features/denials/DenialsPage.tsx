@@ -40,7 +40,7 @@ function Summary({ d }: { d: DenialsOut }) {
   const tile = strip.data?.tiles.find((t) => t.status === 'denied')
   const first = worklistOrder(d).find((r) => r.claim.move.mine)
   return (
-    <section aria-label="Denials summary" data-testid="denials-summary" className="panel mx-4 mb-3 flex flex-none flex-wrap items-center gap-x-8 gap-y-3 px-5 py-3">
+    <section aria-label="Denials summary" data-testid="denials-summary" data-tour="denials-summary" className="panel mx-4 mb-3 flex flex-none flex-wrap items-center gap-x-8 gap-y-3 px-5 py-3">
       <div className="flex items-baseline gap-3">
         <span className="text-kpi font-semibold text-risk-ink nums-proportional">{count(d.total)}</span>
         <span className="text-sm text-mid">
@@ -212,7 +212,7 @@ function Worklist({ d, today }: { d: DenialsOut; today: string | undefined }) {
 
   if (d.groups.length === 0) return <EmptyState title="No open denials">New denials land here when an 835 says so.</EmptyState>
   return (
-    <table aria-label="Denials worklist" className="w-full table-fixed border-collapse text-base">
+    <table aria-label="Denials worklist" data-tour="denials-worklist" className="w-full table-fixed border-collapse text-base">
       <colgroup>
         <col className="w-[172px]" />
         <col className="w-[148px]" />
@@ -260,7 +260,7 @@ function PayerReason({ d }: { d: DenialsOut }) {
   const appeals = cash.data?.appeals_12mo
   const m = d.matrix
   return (
-    <aside aria-label="Payer × reason" className="panel self-start px-4 py-3.5 text-sm">
+    <aside aria-label="Payer × reason" data-tour="denials-matrix" className="panel self-start px-4 py-3.5 text-sm">
       <h2 className="m-0 text-base font-semibold">Payer × reason</h2>
       <p className="m-0 mb-2 text-xs text-mid">The claims on this worklist, so a pattern shows before it repeats.</p>
       <table aria-label="Payer by reason" className="w-full border-collapse text-xs tabular-nums">

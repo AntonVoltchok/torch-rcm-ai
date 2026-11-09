@@ -26,14 +26,14 @@ export function ClockControl() {
   const events = advanceEvents(progress.data)
 
   return (
-    <div className="flex flex-col gap-1.5" data-testid="clock-control">
+    <div className="flex flex-col gap-1.5" data-testid="clock-control" data-tour="clock">
       <span className="flex flex-col" title="The demo clock is frozen; only the button moves it">
         <span className="text-xs text-soft">Demo clock</span>
         <span className="text-sm font-medium text-ink">{clockLabel(now)}</span>
       </span>
       {canSee.clock(user.role) ? (
         <>
-          <Button size="sm" className="self-start" disabled={advancing || reset.isPending} onClick={() => advance.mutate(target)} title="Runs the scheduler: files leave, acks and 835s arrive, status checks fire">
+          <Button size="sm" className="self-start" data-tour="clock-advance" disabled={advancing || reset.isPending} onClick={() => advance.mutate(target)} title="Runs the scheduler: files leave, acks and 835s arrive, status checks fire">
             ⏭ Skip to {weekday(target)} 7:10 AM
           </Button>
           {advancing && (

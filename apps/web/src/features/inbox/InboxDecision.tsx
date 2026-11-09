@@ -55,7 +55,7 @@ const H3 = 'm-0 text-sm font-semibold leading-[18px]'
 function Touches({ title, touches, className }: { title: string; touches: string[]; className?: string }) {
   if (touches.length === 0) return null
   return (
-    <div className={className} data-testid="touches">
+    <div className={className} data-testid="touches" data-tour="touches">
       <h3 className={H3}>{title}</h3>
       <ul className="m-0 mt-0.5 list-none p-0 text-sm text-mid">
         {touches.map((t) => (
@@ -92,7 +92,7 @@ export function InboxDecision(p: Props) {
   const off = p.busy || locked
 
   return (
-    <article aria-label={`Inbox item ${item.title}`} className="px-6 pb-[22px] pt-5" data-testid="decision">
+    <article aria-label={`Inbox item ${item.title}`} className="px-6 pb-[22px] pt-5" data-testid="decision" data-tour="decision">
       <p className="m-0 mb-1 text-xs text-soft" data-testid="decision-title">
         {group ? group.group.title : item.title}
       </p>
@@ -158,7 +158,7 @@ export function InboxDecision(p: Props) {
         </>
       ) : (
         <div className="mt-3.5 grid grid-cols-[auto_1fr] items-start gap-6">
-          <div>
+          <div data-tour="approve">
             {p.departed ? (
               <Button variant="primary" size="lg" onClick={p.onCorrected} disabled={p.busy}>
                 Build a corrected claim
@@ -172,7 +172,7 @@ export function InboxDecision(p: Props) {
                 {actionLabel}
               </Button>
             )}
-            <div className="mt-1.5 flex gap-1 text-sm">
+            <div className="mt-1.5 flex gap-1 text-sm" data-tour="inbox-actions">
               {group && claim && (
                 <Button variant="ghost" size="sm" kbd="A" onClick={() => p.onApprove()} disabled={off || Boolean(p.departed)}>
                   Only #{claim.number}
@@ -217,16 +217,16 @@ export function InboxDecision(p: Props) {
       {p.panel === 'reject' && <RejectForm busy={p.busy} onCancel={() => p.setPanel('none')} onSubmit={p.onReject} />}
       {p.panel === 'snooze' && p.now && <SnoozeMenu now={p.now} onCancel={() => p.setPanel('none')} onPick={p.onSnooze} />}
 
-      <div className="mt-4 grid grid-cols-[1fr_1.35fr_1fr] gap-5 border-t border-line pt-3.5">
+      <div className="mt-4 grid grid-cols-[1fr_1.35fr_1fr] gap-5 border-t border-line pt-3.5" data-tour="why">
         <div data-testid="stopped-by">
           <h3 className={H3}>Why it stopped at {blocked ? 'a person' : 'you'}</h3>
           <p className="m-0 mt-0.5 text-sm leading-[1.45] text-mid">{item.stopped_by}</p>
         </div>
-        <div>
+        <div data-tour="recommends">
           <h3 className={H3}>{item.agent ? `${AGENT_NAME[item.agent]} agent recommends` : 'Recommended'}</h3>
           <p className="m-0 mt-0.5 text-sm leading-[1.45] text-mid">{item.recommendation}</p>
         </div>
-        <div data-testid="track-record">
+        <div data-testid="track-record" data-tour="track-record">
           <h3 className={H3}>Track record</h3>
           <p className="m-0 mt-0.5 text-sm leading-[1.45] text-mid">
             {record?.pct != null ? (

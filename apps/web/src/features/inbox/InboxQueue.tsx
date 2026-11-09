@@ -84,7 +84,7 @@ export function InboxQueue(props: {
   const waitingIds = new Set(sections.flatMap((s) => s.items.map((i) => i.id)))
   const mine = all.filter((e) => e.type === 'group' || !waitingIds.has(e.item.id))
   return (
-    <aside aria-label="Your queue" className="panel flex min-h-0 flex-col overflow-y-auto pb-2">
+    <aside aria-label="Your queue" data-tour="inbox-queue" className="panel flex min-h-0 flex-col overflow-y-auto pb-2">
       <div className="sticky top-0 z-[2] flex items-center justify-between gap-3 rounded-t-[10px] bg-paper px-4 pb-2 pt-3">
         <h2 className="m-0 text-md font-semibold">Yours</h2>
         <div role="tablist" aria-label="Filter" className="flex gap-0.5 text-sm text-mid">

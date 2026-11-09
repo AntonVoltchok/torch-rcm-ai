@@ -51,6 +51,7 @@ export function HistoryLanes({ claim }: { claim: Pick<ClaimDetail, 'claim' | 'ti
     <div
       role="group"
       aria-label="History by party"
+      data-tour="history"
       className="grid gap-x-0"
       style={{ gridTemplateColumns: `76px ${cols.join(' ')}`, gridTemplateRows: 'auto 14px auto 14px auto 14px' }}
     >

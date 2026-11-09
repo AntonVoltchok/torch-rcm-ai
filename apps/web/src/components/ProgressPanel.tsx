@@ -443,6 +443,7 @@ export function ProgressPanel({
       role="region"
       aria-label="Agent progress"
       data-testid="run-pane"
+      data-tour="run-pane"
       data-starting={starting ? true : undefined}
       data-done={done || undefined}
       data-failed={failed.length > 0 || undefined}

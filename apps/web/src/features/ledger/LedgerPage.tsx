@@ -35,7 +35,7 @@ function Ack({ chip }: { chip: AckChip }) {
 
 function Section({ title, sub, children, testId }: { title: string; sub?: string; children: ReactNode; testId: string }) {
   return (
-    <section aria-label={title} data-testid={testId} className="flex flex-col gap-2">
+    <section aria-label={title} data-testid={testId} data-tour={testId} className="flex flex-col gap-2">
       <h2 className="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-md font-semibold">
         {title}
         {sub && <span className="text-sm font-normal text-mid">{sub}</span>}
@@ -87,7 +87,7 @@ export function LedgerPage() {
             const groups = fileGroups(d)
             return (
               <div className="flex flex-col gap-6 p-5">
-                <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-lg border border-line bg-fill px-4 py-2.5 text-base" data-testid="ledger-summary">
+                <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-lg border border-line bg-fill px-4 py-2.5 text-base" data-testid="ledger-summary" data-tour="ledger-summary">
                   <span>
                     {shortDate(d.date)} · <b>{count(t.on_ledger)} on the ledger</b>
                   </span>

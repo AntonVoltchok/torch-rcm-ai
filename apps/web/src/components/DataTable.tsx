@@ -32,9 +32,11 @@ interface Props<T> {
   onNearEnd?: () => void
   dimmed?: boolean
   label: string
+  /** The onboarding tour's anchor name, if a tour step points at this table. */
+  tour?: string
 }
 
-export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId, onRowClick, rowClassName, hasNextPage, onNearEnd, dimmed, label }: Props<T>) {
+export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId, onRowClick, rowClassName, hasNextPage, onNearEnd, dimmed, label, tour }: Props<T>) {
   const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel(), getRowId: (r) => getRowId(r), manualSorting: true })
   const scrollRef = useRef<HTMLDivElement>(null)
   const rows = table.getRowModel().rows
@@ -53,7 +55,7 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
   }, [selectedIndex, virtualizer])
 
   return (
-    <div ref={scrollRef} role="table" aria-label={label} aria-rowcount={rows.length} className={cn('relative min-h-0 flex-1 overflow-auto', dimmed && 'opacity-60 transition-opacity')}>
+    <div ref={scrollRef} role="table" aria-label={label} data-tour={tour} aria-rowcount={rows.length} className={cn('relative min-h-0 flex-1 overflow-auto', dimmed && 'opacity-60 transition-opacity')}>
       <div role="rowgroup" className="sticky top-0 z-10 border-b border-line bg-paper">
         {table.getHeaderGroups().map((hg) => (
           <div role="row" key={hg.id} className="grid h-8 items-center" style={{ gridTemplateColumns: grid }}>

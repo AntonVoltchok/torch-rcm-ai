@@ -15,7 +15,7 @@ export function WhoseMoveCards({ strip }: { strip: StripSummary }) {
   const agents = move('agents')
   const payer = move('payer')
   return (
-    <div className="grid min-w-0 grid-cols-3 gap-3">
+    <div className="grid min-w-0 grid-cols-3 gap-3" data-tour="whose-move">
       <Card
         who="practice"
         label="Yours"

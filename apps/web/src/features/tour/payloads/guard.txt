@@ -1,0 +1,48 @@
+# Root cause `ours` can never be learned into auto-run: one guard, and the learning code that calls it
+# source: apps/api/torch_rcm/agents/policy.py guard_root_cause_ours, guard_causes (inspect.getsource)
+# source: apps/api/torch_rcm/agents/learning.py acceptable, assert_learnable (inspect.getsource)
+# source: apps/api/tests/**/test_*.py: test functions whose body uses one of guard_root_cause_ours, guard_causes, assert_learnable, RootCauseGuardError, root_cause_guard, acceptable(, root_cause="ours"
+# regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
+# generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
+
+def guard_root_cause_ours(root_cause_class: str) -> None:
+    """Root cause `ours` can never be learned into auto-run; accepting such a proposal is a 422."""
+    if root_cause_class == "ours":
+        raise RootCauseGuardError("root cause is ours: fix the upstream rule; this slice cannot auto-run")
+
+def guard_causes(causes: Iterable[str | None]) -> None:
+    """Every cause on record for a slice, and the one code computes now, through the one guard."""
+    for cause in causes:
+        if cause:
+            guard_root_cause_ours(cause)
+
+# --- apps/api/torch_rcm/agents/learning.py ---
+def acceptable(s: SliceStats) -> bool:
+    """Eligible and not guarded: the only proposals `POST /rule-proposals/{id}:accept` may accept."""
+    e = proposal_eligible(s)
+    if not e.eligible:
+        return False
+    try:
+        guard_root_cause_ours(s.root_cause_class)
+    except ValueError:
+        return False
+    return True
+
+def assert_learnable(dom: StoreDomain, claim_id: str | None, *stated: str | None) -> None:
+    """Every cause on record for a slice, and the one code computes now, through the one guard."""
+    guard_causes(causes_on_record(dom, claim_id, *stated))
+
+# --- tests that pin it (what each one uses) ---
+# tests/agents/test_learning.py::test_seeded_delta_slice_is_eligible   (acceptable)
+# tests/agents/test_learning.py::test_ours_is_eligible_but_guarded_and_never_acceptable   (acceptable)
+# tests/agents/test_policy_table.py::test_row10_root_cause_ours_blocks_auto   (root_cause="ours")
+# tests/agents/test_policy_table.py::test_root_cause_ours_guard   (guard_root_cause_ours, RootCauseGuardError)
+# tests/agents/test_root_cause.py::test_always_auto_run_reads_the_computed_cause   (root_cause_guard)
+# tests/agents/test_root_cause.py::test_accepting_a_proposal_reads_the_computed_cause   (root_cause_guard)
+# tests/agents/test_root_cause.py::test_the_api_guards_go_through_the_one_guard   (guard_root_cause_ours)
+# tests/test_api_contract.py::test_error_envelope   (root_cause_guard)
+# tests/test_d1_api3.py::test_the_line_shown_up_front_is_what_the_endpoint_answers   (root_cause_guard)
+# tests/test_d1_api3.py::test_a_cause_that_is_ours_only_when_computed_now_is_caught_up_front   (root_cause_guard)
+# tests/test_services.py::test_always_auto_run_guards_root_cause_ours   (root_cause_guard)
+# tests/test_services.py::test_proposals_accept_and_guard   (root_cause_guard)
+# tests/test_signer.py::test_castillo_shows_its_own_situation_not_the_records_request_rule   (root_cause_guard)

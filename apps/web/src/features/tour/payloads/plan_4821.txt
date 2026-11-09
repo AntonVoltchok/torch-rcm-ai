@@ -1,0 +1,109 @@
+# The plan for #4821: Plan.model_dump(mode='json'), render_plan, and the submit_plan schema
+# source: apps/api/torch_rcm/agents/planner/scripted.py ScriptedPlanner.plan(case, reader, EvidenceSet(case.evidence))
+# source: apps/api/torch_rcm/agents/planner/live.py render_plan(plan, Handles(evidence.items))
+# source: apps/api/torch_rcm/agents/tools/schemas.py submit_plan_tool, via apps/api/torch_rcm/agents/prompts/__init__.py tools_for('followup', 'plan')
+# ran against: scenario canonical (world/scenarios.py build_scenario, seed 20261028) in a throwaway SQLite DB; clock Wed 2026-10-28 10:40 -0400 (as seeded, not advanced); TORCH_AGENT_MODE=deterministic
+# planner: ScriptedPlanner, the script for followup denied:CO-16:N29:pa_missing; no model call.
+# reads go through the scope-checked ToolRegistry via apps/api/torch_rcm/agents/planner/live.py registry_reader (run_id run_4821); evidence ids are ev_ + sha256(run_id:seq:i)[:10].
+# live mode (TORCH_AGENT_MODE=live) hands this case to the model: executor.Executor._planner, situations.is_judgment('followup', 'denied:CO-16:N29:pa_missing') = True
+# regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
+# generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
+
+{
+  "situation_key": "denied:CO-16:N29:pa_missing",
+  "situation_description": null,
+  "actions": [
+    {
+      "action": "resubmit_with_attachment",
+      "params": {
+        "claim_id": "clm_4821",
+        "image_id": "img_owens_k_1012_pa_19",
+        "attachment_kind": "pa"
+      },
+      "evidence_ids": ["ev_4821_era", "ev_897ed829d3", "ev_4821_portal"],
+      "rationale": "the payer requires a pre-operative PA for this code; the PMS has one from the date of service"
+    }
+  ],
+  "no_action_reason": null,
+  "reviewer_summary": "Attach the 10/12 PA of #19 via NEA and resubmit in the next Delta file.",
+  "planner": "scripted",
+  "fallback_reason": null,
+  "injection_suspected": false,
+  "reads": [
+    {
+      "tool": "pms_find_images",
+      "args": {
+        "patient_id": "pat_owens_k",
+        "on_or_before": "2026-10-12",
+        "kinds": ["pa"],
+        "tooth": "19"
+      }
+    }
+  ]
+}
+
+# --- render_plan: the same plan as model-facing text ---
+PLAN (situation denied:CO-16:N29:pa_missing)
+summary: Attach the 10/12 PA of #19 via NEA and resubmit in the next Delta file.
+- resubmit_with_attachment {"attachment_kind": "pa", "claim_id": "clm_4821", "image_id": "img_owens_k_1012_pa_19"} · evidence E1, E6, E4 · the payer requires a pre-operative PA for this code; the PMS has one from the date of service
+
+# --- evidence ids: this run's read vs the seeded Inbox item itm_4821 ---
+# ev_897ed829d3 = E6: built by this plan's read (pms_record, reference img_owens_k_1012_pa_19); the plan cites it
+# itm_4821 cites ev_4821_pa (= E3 in prompt_4821.txt) for the same reference; each run's read gets its own id.
+
+# --- the terminal tool, called alone (strict; the resubmit_with_attachment variant shown) ---
+{
+  "name": "submit_plan",
+  "description": "Submit your classification and proposed actions. Call alone, after reading. The practice's rules decide what runs.",
+  "strict": true,
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["situation_key", "situation_description", "actions", "no_action_reason", "reviewer_summary", "injection_suspected"],
+    "properties": {
+      "situation_key": {
+        "type": "string",
+        "enum": ["denied:CO-16:N29:pa_missing", "denied:CO-16:M127:records_request", "denied:CO-119:frequency_history_conflict", "denied:CO-22:cob_order", "pending:status_due", "pending:prompt_pay_eligible", "pending:adjudicated_no_835", "unknown"]
+      },
+      "situation_description": {
+        "type": ["string", "null"],
+        "description": "Required when situation_key is unknown: one sentence"
+      },
+      "actions": {
+        "type": "array",
+        "items": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["action", "claim_id", "image_id", "attachment_kind", "evidence_ids", "rationale"],
+              "properties": {
+                "action": {"const": "resubmit_with_attachment"},
+                "claim_id": {"type": "string"},
+                "image_id": {"type": "string"},
+                "attachment_kind": {
+                  "type": "string",
+                  "enum": ["pa", "bwx", "fmx", "perio_chart", "narrative"]
+                },
+                "evidence_ids": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "rationale": {"type": "string"}
+              }
+            },
+            # … 6 more action variants, same shape: status_check, payer_rep_call, records_request, reprocessing_request, request_835, cob_order_change
+          ]
+        }
+      },
+      "no_action_reason": {
+        "type": ["string", "null"]
+      },
+      "reviewer_summary": {
+        "type": "string",
+        "description": "<= 2 sentences; facts only from CASE FACTS or cited evidence"
+      },
+      "injection_suspected": {"type": "boolean"}
+    }
+  }
+}
