@@ -54,3 +54,46 @@ Not given: the applicant's reasoning beyond the leans, the tour HTML itself, or 
 3. **Ids that disagree across panes.** The harness-built 4821 plan cites `ev_run_4821_1`, but the captured inbox item cites `ev_4821_pa`, and CASE FACTS shows E1–E5. Rebuild the plan from the seeded evidence, or annotate the handle → id mapping. Every id and number in a code pane must match the UI next to it.
 4. **The code pane hides what it explains.** If the pane is open by default, it must sit beside the anchored element and never cover it. It collapses at narrow widths and the anchor stays visible. A tour whose highlight sits under its own JSON looks unreviewed.
 5. **Hand-typed numbers in step copy.** Generate every count and amount in the copy from the captured JSON (`strip.json`, `inbox*.json`, `cash*.json`). Have the build script assert that DOM numbers equal the JSON. One stale "11" after the tour's own approve step undoes the "server computes every number" pitch.
+
+---
+
+# Red team: the tours in the app (2026-11-09)
+
+Three independent Opus 5.5 reviews of `apps/web/src/features/tour/` once it was green, read-only, given the code and not the author's conclusions:
+- **Decisions D13–D19** (persona: senior full-stack engineer on the hiring panel). Full report: `docs/design/red-team/challenge-onboarding-tours-impl-2026-11-09.md`. Verdicts and adopted changes are in DECISIONS.md.
+- **Evaluator** (staff engineer who has shipped agents on the Anthropic API; greps every claim): overclaims, numbers, the demo script, keyboard and URL rules.
+- **Front-end** (React 19 / TanStack / accessibility): focus, aria, motion, overlay cost, 1280 px, missing anchors, failing mutations, StrictMode.
+
+| Finding | Pass | Severity | Fix |
+|---|---|---|---|
+| The claim tour, auto-opened on #4744 in demo step 3b, navigated the presenter to #4821 | evaluator | blocker | A screen-tour step without its own route stays on any screen of its tour; the claim panes read the claim on screen |
+| Esc did not stop a running Try-it: the advance kept polling, then switched user and navigated; a stale `go()` could move a restarted tour | all three | major | Each Try-it gets an AbortSignal that exit/start abort; every ctx call checks it; the overnight Try-it switches back in `finally` unless aborted |
+| A refused approve or triage locked the card for 15 s / 90 s with a generic message | front-end | major | Mutations started by the press are watched in the mutation cache; an error ends the wait with the server's message (test: 409 on approve-group) |
+| Focus never reached a new step (the card mounted with `visibility: hidden`) | front-end | major | The card starts at `opacity: 0`; a test asserts Next has focus on each step |
+| Focus was lost on exit when the opener had unmounted (menu item, header `?` after a route change, finish modal) | front-end | major | The first opener is kept; menus pass their toggle; fallback to `#main` |
+| `aria-modal` hid the toaster's live region during a tour | front-end | major | `aria-modal` removed; the shell's `inert` already scopes focus and the tree |
+| The "All tours" menu was clipped by the sidebar's scroll box | front-end | major | The menu fits the sidebar's width; roving focus, Tab closes, Home/End, `aria-controls` |
+| The main tour never set its persona: as Dr. Lee or Tasha, three steps were wrong and the overnight Try-it always ended as Dana | decisions | major | Past the welcome the main tour signs in as Dana; exit restores the viewer's persona |
+| Step navigation added history entries; Back left a card on a step the screen no longer showed | decisions | major | Steps navigate with `replace`; any navigation the tour did not make ends it |
+| The main tour's Try-its leave the practice in a different state from the demo script's start | evaluator | major | The finish says so and offers the owner's own reset, pressed as Dr. Morgan |
+| Copy narrated seeded data as pipeline output ("Code did three things…", "the plan became this item", "history from the practice's records") | evaluator | major | Says the seed writes the item and the panes re-run the code on it; the track record is "a seeded record on the rule" |
+| The run pane said "recorded agent plan" beside the tour's own "hand-written" box | evaluator | major | Label is "hand-written plan, replayed" in the UI, the MSW audit line, specs 05/06/07 and `scripted.py` |
+| The Settings hover preview stayed on after the tour left | decisions | minor | `unhover()` on exit and step change |
+| `clockNow() !== before` could pass while the clock query was reset and empty | decisions | minor | Requires a loaded clock that differs |
+| "Deterministic (default)" shown before `/agents/status` answered | decisions, evaluator | minor | Reads "…" until it answers |
+| `json()` trimmed the strip's nine tiles to three | evaluator | minor | Arrays near the top keep twelve entries; the run pane is labelled "GET + SSE, in cache" |
+| The number test allowed bare 1–3 and ignored spelled-out numbers | evaluator | minor | Tier names stripped by pattern; number words other than one/two/three/nine fail |
+| "The browser never counts rows" (the relay header counts members); "those are the eligibility items in the Inbox" (different windows) | evaluator | minor | Both claims removed |
+| "In live mode this is where the model decides" implied only #4744 goes to the model | evaluator | minor | "One of the cases live mode leaves to the model" |
+| Clicks on the shade did nothing; the wheel was dead | decisions | minor | A hint names Try it and Exit; the wheel scrolls the anchor's scroller |
+| The card was not re-placed when its content or the window changed; a re-anchor flashed it to the centre; a user switch flashed "Not on screen" | front-end | minor | ResizeObserver on the card text and window resize; the last box is kept while re-looking; a found anchor gets 800 ms before "missing" |
+| Try it was enabled before the step's element was found | front-end | minor | Disabled until the anchor is measured |
+| Code pane tabs had no tabpanel or arrow keys; "Show code, pressed" | front-end | minor | WAI-ARIA tabs; the toggle's label carries the state, no `aria-pressed` |
+| MutationObserver on all of `body` re-measured on every SSE patch in the tour's own run pane; the hole animated top/left | front-end | minor | Observes the app shell only; highlighted lines memoised; the hole moves by `transform` |
+| `['run','none']` cache entry; the pane's 30 s staleTime refetched `/clock` | front-end | minor | `skipToken`; panes use `staleTime: Infinity` (the screen owns freshness) |
+| `role="listitem"` on buttons in the finish modal | front-end | minor | `<ul>`/`<li>` around plain buttons |
+
+**Not changed, and why**
+- *The main tour opens on every load with no in-app off switch* (evaluator, major). The owner decided this and asked that it not be reopened. Esc dismisses it in one key, and the demo specs turn it off with the D16 flag. Listed under "needs the owner" in the PR.
+- *The relay table's "3 claims" header is counted in the browser* (`RelayTable count={members.length}`). That is existing D1 code outside this change; the tour no longer claims otherwise. Follow-up.
+- *`recorded_from` and `reviewed_by` in `clm_4744.plan.json`*: the plan file is left as is (it is an agents artifact); the tour and the payload header say what it is.

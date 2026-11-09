@@ -1,5 +1,7 @@
 # Onboarding tour mock
 
+> **Built:** the tours now run in the app (`apps/web/src/features/tour/`, ADR-0009). This folder is the design they were built from; implementation decisions D13–D19 are at the end of [DECISIONS.md](DECISIONS.md), and the implementation red team is at the end of [red-team.md](red-team.md).
+
 An interactive mock of TorchRCM's in-app onboarding: one main tour that follows K. Owens #4821 through the whole loop, and a tour for every screen in `nav.ts`. Every step has a code pane, open by default, with the payload behind what the step shows.
 
 - **Artifact:** https://claude.ai/artifact/3ErpLqW7EYjSrruLu4HMKi (private to the owner until shared). The first mock, built against the pre-D1 shell, was https://claude.ai/artifact/HGxQ54p4RSmwsYRHdc6fh8.

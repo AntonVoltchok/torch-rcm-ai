@@ -34,3 +34,23 @@ The red team (Q7.1) found wording an evaluator will grep:
 - Spec 06 step 3b, spec 07 §2.1, `agents/planner/recorded/clm_4744.plan.json` and the UI label "recorded agent plan" all say the #4744 plan was recorded from a live triage. All five canonical cassettes are hand-authored (`synthetic: true`).
 - The plan JSON's `recorded_from` path `cassettes/canonical/followup/unknown/clm_4744.jsonl` does not exist. The file is `cassettes/canonical/clm_4744.jsonl`.
 - The plan JSON's `reviewed_by: usr_dana` names a fictional persona as the reviewer of a dev artifact.
+
+## Implementation decisions (2026-11-09, in the app)
+
+Taken while building `apps/web/src/features/tour/` (ADR-0009), without the owner. D13–D19 went to one red team (persona: a senior full-stack engineer on the hiring panel), report at `docs/design/red-team/challenge-onboarding-tours-impl-2026-11-09.md`. It agreed with five and changed two; the changes are adopted.
+
+| # | Decision | Alternatives | Why this one | Source |
+|---|---|---|---|---|
+| D13 | **"Try it" presses the real control** (`button.click()`, or a synthetic hover for the Settings preview, ended on exit). The tour imports no mutation hook. | Call `useApproveGroup` etc. from tour code | One code path: Idempotency-Key, the run pane, toasts and every guard run unchanged, and "the tour has no approve of its own" stays true. A refused mutation (it is watched in the mutation cache from the press on) ends the wait at once with the server's message. | Red team: agree |
+| D14 | **Tour memory is per browser**, not per demo persona (seen tours, Hide code). The main tour signs in as Dana past the welcome and gives the viewer's persona back on exit. | Key by demo user | The main tour switches to Dr. Morgan and back; the pane must not flip mid-tour. The persona restore was the red team's addition. | Red team: agree, with the restore |
+| D15 | **Tour state is not in the URL**; steps navigate with `replace`, and Back (any navigation the tour did not make) ends the tour. | `?tour=main&step=3` | A tour is transient chrome, like an open menu. What a step shows (the item, a filter, the route) goes through the router. `replace` + exit-on-Back was the red team's change: before it, Back left a card on a step the screen no longer showed. | Red team: change, adopted |
+| D16 | **`torchrcm.tour.autoopen=false` in localStorage** turns both auto-opens off; the existing Vitest and Playwright suites set it, the tour's own specs clear it. | `navigator.webdriver`, an env var, a URL param | Webdriver detection would hide the tour from its own spec and from evaluators who drive the app with Playwright or Claude. | Red team: agree |
+| D17 | **The shell is `inert` while a tour is up**; a click on the shade says why ("The app is paused while the tour is open. Try it presses this control for you, or exit the tour"), and the wheel scrolls the anchor's scroller. | Let clicks through to the spotlighted element | Clicks through would let a person approve mid-step with the copy describing the old state. The hint and wheel pass-through were the red team's change. | Red team: change, adopted |
+| D18 | **The menu and finish list only the role's screens** (from `navFor`), plus claim detail. | All tours for everyone | A tour of a screen the role cannot open would redirect. | Red team: agree |
+| D19 | **Screen tours auto-open on the first navigation to a screen**, not on the load (the main tour owns it). A screen tour without its own route stays on the screen it opened on, so the claim tour explains the claim on screen. | Open on load too; route claim detail to #4821 | Two tours back to back on one screen is noise. Staying on the claim was the evaluator red team's blocker: the claim tour used to pull the presenter from #4744 to #4821 in demo step 3b. | Red team: agree; evaluator pass |
+
+### Corrections to D2 and D8 found while generating the payloads
+
+- **D2:** live mode sends #4821's situation to the model too (`is_judgment` is true for `denied:CO-16:N29:pa_missing`, M127, CO-119 and CO-22), not only #4744. In this demo no model sees #4821: its item is seeded and the approval run replays the plan. The copy now says exactly that.
+- **D8:** `ev_run_4821_1` was the test helper's id. The production reader names the image evidence `ev_<hash>` (E6 in the prompt); itm_4821 cites `ev_4821_pa` (E3) for the same image. `plan_4821.txt` maps both.
+- **The "recorded agent plan" label** (UI, specs 05/06/07, `scripted.py`) now reads "hand-written plan, replayed", so the run pane agrees with the tour's honesty box.
