@@ -3493,6 +3493,26 @@
         ],
         "title": "AckStage"
       },
+      "ActivityDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "date",
+          "count"
+        ],
+        "title": "ActivityDay"
+      },
       "ActivityOut": {
         "properties": {
           "rows": {
@@ -3524,6 +3544,13 @@
             },
             "type": "object",
             "title": "By Tier"
+          },
+          "by_day": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityDay"
+            },
+            "type": "array",
+            "title": "By Day"
           }
         },
         "additionalProperties": false,
@@ -3532,7 +3559,8 @@
           "rows",
           "summary",
           "by_agent",
-          "by_tier"
+          "by_tier",
+          "by_day"
         ],
         "title": "ActivityOut"
       },
@@ -3619,6 +3647,16 @@
                 "type": "null"
               }
             ]
+          },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClaimMove"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -3636,7 +3674,8 @@
           "awaiting_you",
           "evidence_kinds",
           "audit_line",
-          "tier"
+          "tier",
+          "move"
         ],
         "title": "ActivityRow"
       },
@@ -5641,6 +5680,47 @@
         ],
         "title": "DepositStatus"
       },
+      "EligibilityDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "verified": {
+            "type": "integer",
+            "title": "Verified"
+          },
+          "issue": {
+            "type": "integer",
+            "title": "Issue"
+          },
+          "unverified": {
+            "type": "integer",
+            "title": "Unverified"
+          },
+          "checking": {
+            "type": "integer",
+            "title": "Checking"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "date",
+          "count",
+          "verified",
+          "issue",
+          "unverified",
+          "checking"
+        ],
+        "title": "EligibilityDay",
+        "description": "One practice day in the window, zeros included; the four statuses sum to `count`."
+      },
       "EligibilityOut": {
         "properties": {
           "date": {
@@ -5658,6 +5738,17 @@
           "need_human": {
             "type": "integer",
             "title": "Need Human"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "by_day": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityDay"
+            },
+            "type": "array",
+            "title": "By Day"
           }
         },
         "additionalProperties": false,
@@ -5665,7 +5756,9 @@
         "required": [
           "date",
           "rows",
-          "need_human"
+          "need_human",
+          "total",
+          "by_day"
         ],
         "title": "EligibilityOut"
       },
@@ -7426,6 +7519,47 @@
         "title": "Learnable",
         "description": "Whether this item's rule could learn to run without review (`agents.policy.learnable`). `code` is the 422\n`POST /inbox/{id}:always-auto-run` answers with; null when `ok`."
       },
+      "LedgerFile": {
+        "properties": {
+          "file_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Time"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "cents": {
+            "type": "integer",
+            "title": "Cents"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Claim Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "file_time",
+          "count",
+          "cents",
+          "claim_ids"
+        ],
+        "title": "LedgerFile",
+        "description": "One payer-file departure in `leaving_next_file`, earliest first; `file_time` None (\"not yet filed\") last.\nThe groups partition `leaving_next_file`: every row's claim id is in exactly one group."
+      },
       "LedgerRow": {
         "properties": {
           "claim": {
@@ -7569,6 +7703,16 @@
               }
             ],
             "title": "Last File Time"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/LedgerTotals"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerFile"
+            },
+            "type": "array",
+            "title": "Files"
           }
         },
         "additionalProperties": false,
@@ -7580,9 +7724,61 @@
           "held",
           "not_billable",
           "next_file_time",
-          "last_file_time"
+          "last_file_time",
+          "totals",
+          "files"
         ],
         "title": "LedgerToday"
+      },
+      "LedgerTotal": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "cents": {
+            "type": "integer",
+            "title": "Cents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "count",
+          "cents"
+        ],
+        "title": "LedgerTotal"
+      },
+      "LedgerTotals": {
+        "properties": {
+          "on_ledger": {
+            "type": "integer",
+            "title": "On Ledger"
+          },
+          "sent": {
+            "$ref": "#/components/schemas/LedgerTotal"
+          },
+          "leaving": {
+            "$ref": "#/components/schemas/LedgerTotal"
+          },
+          "held": {
+            "$ref": "#/components/schemas/LedgerTotal"
+          },
+          "not_billable": {
+            "$ref": "#/components/schemas/LedgerTotal"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "on_ledger",
+          "sent",
+          "leaving",
+          "held",
+          "not_billable"
+        ],
+        "title": "LedgerTotals",
+        "description": "Every number the Today's claims header and section titles show; each equals its rows (tested)."
       },
       "LineMatch": {
         "type": "string",
@@ -8122,6 +8318,18 @@
             },
             "type": "object",
             "title": "Held By Root Cause"
+          },
+          "held_total": {
+            "type": "integer",
+            "title": "Held Total"
+          },
+          "before_holds": {
+            "type": "integer",
+            "title": "Before Holds"
+          },
+          "net_change": {
+            "type": "integer",
+            "title": "Net Change"
           }
         },
         "additionalProperties": false,
@@ -8133,7 +8341,10 @@
           "would_run",
           "total",
           "baseline_would_run",
-          "held_by_root_cause"
+          "held_by_root_cause",
+          "held_total",
+          "before_holds",
+          "net_change"
         ],
         "title": "PreviewOut"
       },
@@ -8810,15 +9021,56 @@
           "total": {
             "type": "integer",
             "title": "Total"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/RuleDigest"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "items",
-          "total"
+          "total",
+          "digest"
         ],
         "title": "RuleChangeList"
+      },
+      "RuleDigest": {
+        "properties": {
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Start"
+          },
+          "sends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Sends On"
+          },
+          "changes": {
+            "type": "integer",
+            "title": "Changes"
+          },
+          "items_run": {
+            "type": "integer",
+            "title": "Items Run"
+          },
+          "awaiting_signoff": {
+            "type": "integer",
+            "title": "Awaiting Signoff"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "period_start",
+          "sends_on",
+          "changes",
+          "items_run",
+          "awaiting_signoff"
+        ],
+        "title": "RuleDigest",
+        "description": "The owner's Monday digest for this week so far (Mon-start, the Activity week)."
       },
       "RuleMode": {
         "type": "string",
@@ -9071,6 +9323,10 @@
           "this_week": {
             "$ref": "#/components/schemas/WeekDecisions"
           },
+          "rules_count": {
+            "type": "integer",
+            "title": "Rules Count"
+          },
           "changes_count": {
             "type": "integer",
             "title": "Changes Count"
@@ -9086,10 +9342,12 @@
           "tiers",
           "practice_cap_cents",
           "this_week",
+          "rules_count",
           "changes_count",
           "proposals_open"
         ],
-        "title": "RulesOut"
+        "title": "RulesOut",
+        "description": "The `_7d` counts are this week's (Mon-start, `activity.week_start`), the same week as Activity."
       },
       "Run": {
         "properties": {
@@ -9669,6 +9927,10 @@
             "type": "integer",
             "title": "Flagged Cents"
           },
+          "all_count": {
+            "type": "integer",
+            "title": "All Count"
+          },
           "as_of": {
             "type": "string",
             "format": "date-time",
@@ -9699,6 +9961,7 @@
           "ar_cents",
           "flagged_count",
           "flagged_cents",
+          "all_count",
           "as_of",
           "paid_month_label",
           "nav_badges"
@@ -9843,6 +10106,18 @@
             },
             "type": "array",
             "title": "Rows"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "ran_without_review_7d": {
+            "type": "integer",
+            "title": "Ran Without Review 7D"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
           }
         },
         "additionalProperties": false,
@@ -9851,7 +10126,10 @@
           "tier",
           "label",
           "description",
-          "rows"
+          "rows",
+          "count",
+          "ran_without_review_7d",
+          "waiting"
         ],
         "title": "TierGroup"
       },

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from collections.abc import Iterable
+from datetime import UTC, date, datetime, timedelta
 
 from torch_rcm.api.errors import not_found
 from torch_rcm.api.schemas import (
@@ -12,12 +13,16 @@ from torch_rcm.api.schemas import (
     DenialGroup,
     DenialRow,
     DenialsOut,
+    EligibilityDay,
     EligibilityOut,
     EligibilityRow,
     FrequencyRow,
     HeldRow,
+    LedgerFile,
     LedgerRow,
     LedgerToday,
+    LedgerTotal,
+    LedgerTotals,
     NotBillableRow,
     PatientBalanceRow,
     PatientBalances,
@@ -26,6 +31,7 @@ from torch_rcm.api.schemas import (
 )
 from torch_rcm.api.services.claims import coverage_out
 from torch_rcm.api.services.context import Ctx
+from torch_rcm.clock import to_practice_tz
 from torch_rcm.domain.entities import (
     Appointment,
     Claim,
@@ -37,13 +43,20 @@ from torch_rcm.domain.entities import (
     Remittance,
     Visit,
 )
-from torch_rcm.domain.enums import AttachmentSource, ClaimStatus, CoverageOrder, FileEntryState, NextAction
+from torch_rcm.domain.enums import (
+    AttachmentSource,
+    ClaimStatus,
+    CoverageOrder,
+    EligibilityStatus,
+    FileEntryState,
+    NextAction,
+)
 from torch_rcm.domain.routing import patient_billable_if_lost, route_denial
 from torch_rcm.readmodels import activity as A
 from torch_rcm.readmodels import cash as C
 from torch_rcm.readmodels.claims import AGE_BUCKETS, age_bucket, patient_ref, payer_ref, strip, summarize
 from torch_rcm.readmodels.snapshot import Snapshot
-from torch_rcm.world.calendar import FILE_TIMES, next_file_time
+from torch_rcm.world.calendar import FILE_TIMES, is_business_day, next_file_time
 from torch_rcm.world.sim import EDIT_LOCK
 
 S = ClaimStatus
@@ -117,15 +130,46 @@ def ledger_today(ctx: Ctx) -> LedgerToday:
     ]
     # Today's seeded sends carry their file time on the claim, with no file entry.
     departed += [r.file_time for r in sent if r.file_time and r.file_time <= snap.now and r.file_time.date() == today]
+    held = sorted(held, key=lambda h: h.timely_days_left if h.timely_days_left is not None else 10**6)
     return LedgerToday(
         date=today,
         sent=sent,
         leaving_next_file=leaving,
-        held=sorted(held, key=lambda h: h.timely_days_left if h.timely_days_left is not None else 10**6),
+        held=held,
         not_billable=not_billable,
         next_file_time=next_file_time(snap.now, FILE_TIMES),
         last_file_time=max(departed) if departed else None,
+        totals=LedgerTotals(
+            on_ledger=len(sent) + len(leaving) + len(held),
+            sent=_total(r.claim.billed_cents for r in sent),
+            leaving=_total(r.claim.billed_cents for r in leaving),
+            held=_total(r.claim.billed_cents for r in held),
+            not_billable=_total(r.fee_cents for r in not_billable),
+        ),
+        files=_files(leaving),
     )
+
+
+def _total(cents: Iterable[int]) -> LedgerTotal:
+    values = list(cents)
+    return LedgerTotal(count=len(values), cents=sum(values))
+
+
+def _files(leaving: list[LedgerRow]) -> list[LedgerFile]:
+    """ "Leaving in the 10:45 file · 4 · $2,985": one group per file time, earliest first, "not yet filed" last."""
+    by: dict[datetime | None, list[LedgerRow]] = {}
+    for r in leaving:
+        by.setdefault(r.file_time, []).append(r)
+    order = sorted(by, key=lambda t: (t is None, t or datetime.min.replace(tzinfo=UTC)))
+    return [
+        LedgerFile(
+            file_time=t,
+            count=len(by[t]),
+            cents=sum(r.claim.billed_cents for r in by[t]),
+            claim_ids=[r.claim.id for r in by[t]],
+        )
+        for t in order
+    ]
 
 
 def _entries(snap: Snapshot) -> list:  # type: ignore[type-arg]
@@ -165,7 +209,7 @@ def _held(snap: Snapshot, claim: Claim, hold, viewer_id: str | None) -> HeldRow:
 
 
 def activity(ctx: Ctx, day: date | None, agent: str | None, outcome: str | None) -> ActivityOut:
-    return A.activity(ctx.snapshot(), day, agent, outcome)
+    return A.activity(ctx.snapshot(), day, agent, outcome, ctx.user.id)
 
 
 def cash(ctx: Ctx, location_id: str | None) -> CashOut:
@@ -214,7 +258,38 @@ def eligibility(ctx: Ctx, day: date | None) -> EligibilityOut:
                 inbox_item_id=items.get(appt.id),
             )
         )
-    return EligibilityOut(date=start, rows=rows, need_human=sum(1 for r in rows if r.inbox_item_id))
+    return EligibilityOut(
+        date=start,
+        rows=rows,
+        need_human=sum(1 for r in rows if r.inbox_item_id),
+        total=len(rows),
+        by_day=_eligibility_days(rows, start, end),
+    )
+
+
+def _day(at: datetime) -> date:
+    return to_practice_tz(at).date()
+
+
+def _eligibility_days(rows: list[EligibilityRow], start: date, end: date) -> list[EligibilityDay]:
+    """Every business day in [start, end] (an empty one reads "No appointments booked"), plus any day with rows."""
+    days = {start + timedelta(days=n) for n in range((end - start).days + 1)}
+    days = {d for d in days if is_business_day(d)} | {_day(r.start) for r in rows} | {start}
+    out = []
+    for d in sorted(days):
+        of_day = [r for r in rows if _day(r.start) == d]
+        n = {s: sum(1 for r in of_day if r.status is s) for s in EligibilityStatus}
+        out.append(
+            EligibilityDay(
+                date=d,
+                count=len(of_day),
+                verified=n[EligibilityStatus.VERIFIED],
+                issue=n[EligibilityStatus.ISSUE],
+                unverified=n[EligibilityStatus.UNVERIFIED],
+                checking=n[EligibilityStatus.CHECKING],
+            )
+        )
+    return out
 
 
 def _next_business(d: date) -> date:

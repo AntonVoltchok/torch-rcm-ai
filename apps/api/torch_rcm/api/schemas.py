@@ -121,6 +121,9 @@ class Strip(Schema):
     ar_cents: int
     flagged_count: int
     flagged_cents: int
+    # What an unfiltered GET /claims lists (same predicate, same location): open claims plus claims paid this
+    # month. The Claims "Open + Paid · Oct" quick view shows it; it equals open_count + paid_month_count.
+    all_count: int
     as_of: datetime
     paid_month_label: str  # "Oct": the month the Paid tile counts
     nav_badges: NavBadges
@@ -552,6 +555,31 @@ class NotBillableRow(Schema):
     reason: str
 
 
+class LedgerTotal(Schema):
+    count: int
+    cents: int  # billed; for `not_billable`, the procedures' fees
+
+
+class LedgerTotals(Schema):
+    """Every number the Today's claims header and section titles show; each equals its rows (tested)."""
+
+    on_ledger: int  # sent + leaving + held claims; not-billable procedures are listed, never counted here
+    sent: LedgerTotal
+    leaving: LedgerTotal
+    held: LedgerTotal
+    not_billable: LedgerTotal
+
+
+class LedgerFile(Schema):
+    """One payer-file departure in `leaving_next_file`, earliest first; `file_time` None ("not yet filed") last.
+    The groups partition `leaving_next_file`: every row's claim id is in exactly one group."""
+
+    file_time: datetime | None
+    count: int
+    cents: int
+    claim_ids: list[str]
+
+
 class LedgerToday(Schema):
     date: date
     sent: list[LedgerRow]
@@ -560,6 +588,8 @@ class LedgerToday(Schema):
     not_billable: list[NotBillableRow]
     next_file_time: datetime | None
     last_file_time: datetime | None
+    totals: LedgerTotals
+    files: list[LedgerFile]
 
 
 # ── runs ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -607,12 +637,18 @@ class TierGroup(Schema):
     label: str
     description: str
     rows: list[RuleRow]
+    count: int  # len(rows)
+    ran_without_review_7d: int  # Σ rows; 0 for tier 3 (human only)
+    waiting: int  # Σ rows
 
 
 class RulesOut(Schema):
+    """The `_7d` counts are this week's (Mon-start, `activity.week_start`), the same week as Activity."""
+
     tiers: list[TierGroup]
     practice_cap_cents: int
     this_week: WeekDecisions
+    rules_count: int  # Σ tier counts
     changes_count: int
     proposals_open: int
 
@@ -644,19 +680,33 @@ class RulePatchOut(Schema):
     meta: Meta
 
 
+class RuleDigest(Schema):
+    """The owner's Monday digest for this week so far (Mon-start, the Activity week)."""
+
+    period_start: date  # this week's Monday
+    sends_on: date  # next Monday
+    changes: int  # rule changes made this week
+    items_run: int  # distinct runs this week that ran without review under a rule after its change this week
+    awaiting_signoff: int  # open owner_signoff items
+
+
 class RuleChangeList(Schema):
     items: list[RuleChange]
     total: int
+    digest: RuleDigest
 
 
 class PreviewOut(Schema):
     rule_id: str
     mode: RuleMode
     max_cents: int | None
-    would_run: int
+    would_run: int  # net: would have run without review after holds
     total: int
     baseline_would_run: int
     held_by_root_cause: dict[str, int]
+    held_total: int  # Σ held_by_root_cause
+    before_holds: int  # would_run + held_total: in the rule's scope before the guards hold some back
+    net_change: int  # would_run - baseline_would_run (negative when the change runs fewer)
 
 
 class ProposalList(Schema):
@@ -681,6 +731,13 @@ class ActivityRow(Schema):
     evidence_kinds: list[str]
     audit_line: str
     tier: Tier | None
+    # The claim's move now, for the viewer (not at the time of the row); None for rows without a claim.
+    move: ClaimMove | None
+
+
+class ActivityDay(Schema):
+    date: date  # practice-local
+    count: int  # rows of that day in this response (after the filters)
 
 
 class ActivitySummary(Schema):
@@ -698,6 +755,7 @@ class ActivityOut(Schema):
     summary: ActivitySummary
     by_agent: dict[str, dict[str, int]]
     by_tier: dict[str, dict[str, int]]
+    by_day: list[ActivityDay]  # newest first, one per day that has rows
 
 
 class EligibilityRow(Schema):
@@ -714,10 +772,23 @@ class EligibilityRow(Schema):
     inbox_item_id: str | None
 
 
+class EligibilityDay(Schema):
+    """One practice day in the window, zeros included; the four statuses sum to `count`."""
+
+    date: date
+    count: int
+    verified: int
+    issue: int
+    unverified: int
+    checking: int
+
+
 class EligibilityOut(Schema):
     date: date
     rows: list[EligibilityRow]
     need_human: int
+    total: int  # len(rows)
+    by_day: list[EligibilityDay]  # every business day in the window, plus any other day that has rows
 
 
 class FrequencyRow(Schema):

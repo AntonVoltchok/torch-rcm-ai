@@ -161,7 +161,8 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
     flagged_total = flagged_cents = 0
     for status in TILE_ORDER:
         if status is S.PAID:
-            rows = [c for c in claims if paid_this_month(c, snap.today)]
+            # The same predicate as GET /claims?status=paid, so the tile and the Paid quick view agree.
+            rows = [c for c in claims if _matches(snap, c, PAID_MONTH)]
             cents = sum(c.paid_cents or 0 for c in rows)
             basis: Literal["billed", "paid"] = "paid"
         else:
@@ -202,6 +203,7 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
         ar_cents=sum(c.billed_cents for c in ar_rows),
         flagged_count=flagged_total,
         flagged_cents=flagged_cents,
+        all_count=sum(1 for c in claims if _matches(snap, c, ALL_CLAIMS)),
         as_of=snap.now,
         paid_month_label=f"{snap.today:%b}",
         nav_badges=nav_badges(snap, inbox),
@@ -255,6 +257,8 @@ class ClaimQuery:
     include_paid_all: bool = False
 
 
+ALL_CLAIMS = ClaimQuery()
+PAID_MONTH = ClaimQuery(status=(S.PAID,))
 SORT_KEYS = {"number", "patient", "payer", "dos", "billed", "status", "age", "last_activity"}
 
 
@@ -278,19 +282,18 @@ def _sort_key(snap: Snapshot, key: str, claim: Claim) -> tuple[object, ...]:
 
 
 def _matches(snap: Snapshot, c: Claim, q: ClaimQuery) -> bool:
+    """The one list predicate. Paid claims are month-to-date ("Paid · Oct", as the strip) unless the query asks
+    for every paid claim; a search always does, so a patient's August EOB can still be found by name."""
     if c.closed_reason is not None:
         return False
     if q.status and c.status not in q.status:
         return False
-    if (
-        not q.status
-        and c.status is S.PAID
-        and not (q.include_paid_all or paid_this_month(c, snap.today) or q.needs_action)
-    ):
+    all_paid = q.include_paid_all or bool(q.q and q.q.strip())
+    if not q.status and c.status is S.PAID and not (all_paid or paid_this_month(c, snap.today) or q.needs_action):
         return False
     if q.needs_action is not None and snap.needs_action(c.id) != q.needs_action:
         return False
-    if q.status == (S.PAID,) and not q.include_paid_all and not paid_this_month(c, snap.today):
+    if q.status == (S.PAID,) and not all_paid and not paid_this_month(c, snap.today):
         return False
     checks = (
         q.payer is None or c.payer_key.value == q.payer,

@@ -459,6 +459,7 @@ const Strip = z
     ar_cents: z.number().int(),
     flagged_count: z.number().int(),
     flagged_cents: z.number().int(),
+    all_count: z.number().int(),
     as_of: z.string().datetime({ offset: true }),
     paid_month_label: z.string(),
     nav_badges: NavBadges,
@@ -794,6 +795,24 @@ const NotBillableRow = z
     reason: z.string(),
   })
   .strict()
+const LedgerTotal = z.object({ count: z.number().int(), cents: z.number().int() }).strict()
+const LedgerTotals = z
+  .object({
+    on_ledger: z.number().int(),
+    sent: LedgerTotal,
+    leaving: LedgerTotal,
+    held: LedgerTotal,
+    not_billable: LedgerTotal,
+  })
+  .strict()
+const LedgerFile = z
+  .object({
+    file_time: z.union([z.string(), z.null()]),
+    count: z.number().int(),
+    cents: z.number().int(),
+    claim_ids: z.array(z.string()),
+  })
+  .strict()
 const LedgerToday = z
   .object({
     date: z.string(),
@@ -803,6 +822,8 @@ const LedgerToday = z
     not_billable: z.array(NotBillableRow),
     next_file_time: z.union([z.string(), z.null()]),
     last_file_time: z.union([z.string(), z.null()]),
+    totals: LedgerTotals,
+    files: z.array(LedgerFile),
   })
   .strict()
 const RuleRow = z
@@ -816,13 +837,24 @@ const RuleRow = z
     locked: z.boolean(),
   })
   .strict()
-const TierGroup = z.object({ tier: Tier, label: z.string(), description: z.string(), rows: z.array(RuleRow) }).strict()
+const TierGroup = z
+  .object({
+    tier: Tier,
+    label: z.string(),
+    description: z.string(),
+    rows: z.array(RuleRow),
+    count: z.number().int(),
+    ran_without_review_7d: z.number().int(),
+    waiting: z.number().int(),
+  })
+  .strict()
 const WeekDecisions = z.object({ total: z.number().int(), ran: z.number().int(), to_you: z.number().int() }).strict()
 const RulesOut = z
   .object({
     tiers: z.array(TierGroup),
     practice_cap_cents: z.number().int(),
     this_week: WeekDecisions,
+    rules_count: z.number().int(),
     changes_count: z.number().int(),
     proposals_open: z.number().int(),
   })
@@ -839,7 +871,16 @@ const RuleChange = z
     summary: z.string().optional().default(''),
   })
   .strict()
-const RuleChangeList = z.object({ items: z.array(RuleChange), total: z.number().int() }).strict()
+const RuleDigest = z
+  .object({
+    period_start: z.string(),
+    sends_on: z.string(),
+    changes: z.number().int(),
+    items_run: z.number().int(),
+    awaiting_signoff: z.number().int(),
+  })
+  .strict()
+const RuleChangeList = z.object({ items: z.array(RuleChange), total: z.number().int(), digest: RuleDigest }).strict()
 const RulePatchIn = z
   .object({
     mode: z.union([RuleMode, z.null()]),
@@ -860,6 +901,9 @@ const PreviewOut = z
     total: z.number().int(),
     baseline_would_run: z.number().int(),
     held_by_root_cause: z.record(z.number().int()),
+    held_total: z.number().int(),
+    before_holds: z.number().int(),
+    net_change: z.number().int(),
   })
   .strict()
 const PracticeSettingsIn = z.object({ practice_cap_cents: z.number().int() }).strict()
@@ -880,6 +924,7 @@ const ActivityRow = z
     evidence_kinds: z.array(z.string()),
     audit_line: z.string(),
     tier: z.union([Tier, z.null()]),
+    move: z.union([ClaimMove, z.null()]),
   })
   .strict()
 const ActivitySummary = z
@@ -893,12 +938,14 @@ const ActivitySummary = z
     remittances_posted: z.number().int(),
   })
   .strict()
+const ActivityDay = z.object({ date: z.string(), count: z.number().int() }).strict()
 const ActivityOut = z
   .object({
     rows: z.array(ActivityRow),
     summary: ActivitySummary,
     by_agent: z.record(z.record(z.number().int())),
     by_tier: z.record(z.record(z.number().int())),
+    by_day: z.array(ActivityDay),
   })
   .strict()
 const PlannedProcedure = z
@@ -920,8 +967,24 @@ const EligibilityRow = z
     inbox_item_id: z.union([z.string(), z.null()]),
   })
   .strict()
+const EligibilityDay = z
+  .object({
+    date: z.string(),
+    count: z.number().int(),
+    verified: z.number().int(),
+    issue: z.number().int(),
+    unverified: z.number().int(),
+    checking: z.number().int(),
+  })
+  .strict()
 const EligibilityOut = z
-  .object({ date: z.string(), rows: z.array(EligibilityRow), need_human: z.number().int() })
+  .object({
+    date: z.string(),
+    rows: z.array(EligibilityRow),
+    need_human: z.number().int(),
+    total: z.number().int(),
+    by_day: z.array(EligibilityDay),
+  })
   .strict()
 const FrequencyRow = z
   .object({
@@ -1261,12 +1324,16 @@ export const schemas = {
   LedgerRow,
   HeldRow,
   NotBillableRow,
+  LedgerTotal,
+  LedgerTotals,
+  LedgerFile,
   LedgerToday,
   RuleRow,
   TierGroup,
   WeekDecisions,
   RulesOut,
   RuleChange,
+  RuleDigest,
   RuleChangeList,
   RulePatchIn,
   RulePatchOut,
@@ -1278,10 +1345,12 @@ export const schemas = {
   ProposalList,
   ActivityRow,
   ActivitySummary,
+  ActivityDay,
   ActivityOut,
   PlannedProcedure,
   EligibilityStatus,
   EligibilityRow,
+  EligibilityDay,
   EligibilityOut,
   FrequencyRow,
   BenefitsPanel,

@@ -83,6 +83,11 @@ export const {
   Rule,
   RuleChange,
   RuleChangeList,
+  RuleDigest,
+  LedgerFile,
+  LedgerTotals,
+  EligibilityDay,
+  ActivityDay,
   RuleMode,
   RuleProposal,
   RuleRow,
@@ -200,6 +205,11 @@ export type Role = z.infer<typeof Role>
 export type RootCause = z.infer<typeof RootCause>
 export type Rule = z.infer<typeof Rule>
 export type RuleChange = z.infer<typeof RuleChange>
+export type RuleDigest = z.infer<typeof RuleDigest>
+export type LedgerFile = z.infer<typeof LedgerFile>
+export type LedgerTotals = z.infer<typeof LedgerTotals>
+export type EligibilityDay = z.infer<typeof EligibilityDay>
+export type ActivityDay = z.infer<typeof ActivityDay>
 export type RuleMode = z.infer<typeof RuleMode>
 export type RulePatch = z.infer<typeof schemas.RulePatchIn>
 export type RuleProposal = z.infer<typeof RuleProposal>

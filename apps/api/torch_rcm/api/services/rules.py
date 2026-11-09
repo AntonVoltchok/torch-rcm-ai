@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from torch_rcm.api.errors import conflict, forbidden, not_found, unprocessable
@@ -12,6 +13,7 @@ from torch_rcm.api.schemas import (
     ProposalList,
     ProposalOut,
     RuleChangeList,
+    RuleDigest,
     RulePatchIn,
     RulePatchOut,
     RuleRow,
@@ -21,6 +23,7 @@ from torch_rcm.api.schemas import (
 )
 from torch_rcm.api.services.context import Ctx
 from torch_rcm.api.services.idempotency import check_key, idempotent, stored_record, write_record
+from torch_rcm.clock import to_practice_tz
 from torch_rcm.domain.entities import InboxItem, Practice, Rule, RuleChange, RuleProposal, Run
 from torch_rcm.domain.enums import (
     ROUTINE_ACTIONS,
@@ -87,20 +90,48 @@ def list_rules(ctx: Ctx) -> RulesOut:
                 )
             )
         label, text = TIER_TEXT[tier]
-        groups.append(TierGroup(tier=tier, label=label, description=text, rows=rows))
+        groups.append(
+            TierGroup(
+                tier=tier,
+                label=label,
+                description=text,
+                rows=rows,
+                count=len(rows),
+                ran_without_review_7d=sum(r.ran_without_review_7d for r in rows),
+                waiting=sum(r.waiting for r in rows),
+            )
+        )
     week = week_decisions(snap)
     return RulesOut(
         tiers=groups,
         practice_cap_cents=snap.practice.practice_cap_cents,
         this_week=WeekDecisions(total=week["total"], ran=week["ran"], to_you=week["to_dana"]),
+        rules_count=sum(g.count for g in groups),
         changes_count=len(snap.of(RuleChange)),
         proposals_open=sum(1 for p in snap.of(RuleProposal) if p.state is ProposalState.OPEN),
     )
 
 
 def list_changes(ctx: Ctx) -> RuleChangeList:
-    rows = sorted(ctx.rt.store.all(RuleChange), key=lambda c: c.at, reverse=True)
-    return RuleChangeList(items=rows, total=len(rows))
+    snap = ctx.snapshot()
+    rows = sorted(snap.of(RuleChange), key=lambda c: c.at, reverse=True)
+    return RuleChangeList(items=rows, total=len(rows), digest=digest(snap))
+
+
+def digest(snap: Snapshot) -> RuleDigest:
+    """Monday's owner digest for this week so far: the Activity week (Mon-start), not a rolling 7 days.
+    `items_run` adds the "Items run since" column of this week's changes, so the digest agrees with the table under
+    it. (That column is stored on the change; deriving it needs run history older than the seed has. See
+    docs/adr/worker-notes/d1-api-4.md.)"""
+    start = week_start(snap.today)
+    week = [c for c in snap.of(RuleChange) if to_practice_tz(c.at).date() >= start]
+    return RuleDigest(
+        period_start=start,
+        sends_on=start + timedelta(days=7),
+        changes=len(week),
+        items_run=sum(c.items_affected_since for c in week),
+        awaiting_signoff=sum(1 for i in snap.open_items if i.kind is InboxItemKind.OWNER_SIGNOFF),
+    )
 
 
 def _change_dict(patch: RulePatchIn) -> dict[str, Any]:
@@ -378,6 +409,9 @@ def preview_counts(snap: Snapshot, rule_id: str, mode: RuleMode, max_cents: int 
         total=total,
         baseline_would_run=baseline,
         held_by_root_cause=held,
+        held_total=sum(held.values()),
+        before_holds=count + sum(held.values()),
+        net_change=count - baseline,
     )
 
 
