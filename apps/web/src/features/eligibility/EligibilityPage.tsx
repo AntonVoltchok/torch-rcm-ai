@@ -12,15 +12,18 @@ import { PageHeader } from '@/components/PageHeader'
 import { Load, Scroll } from '@/components/QueryBoundary'
 import { Chip, type ChipTone } from '@/components/Chip'
 import { EmptyState } from '@/components/EmptyState'
+import { FlagPill } from '@/components/FlagPill'
 import { QueryError } from '@/components/QueryError'
 import { SkeletonBlock } from '@/components/ui/Skeleton'
 
 const route = getRouteApi('/eligibility')
-const STATUS: Record<EligibilityStatus, { label: string; tone: ChipTone }> = {
+/** Green is verified; unverified is dashed (not known yet); "checking" is the agents' hue because they hold it. Red
+ * stays for money at risk, and amber (the ⚑) for rows that are the practice's move. */
+const STATUS: Record<EligibilityStatus, { label: string; tone: ChipTone; className?: string }> = {
   verified: { label: 'Verified', tone: 'ok' },
   issue: { label: 'Issue', tone: 'warn' },
-  unverified: { label: 'Unverified', tone: 'bad' },
-  checking: { label: 'Agent checking…', tone: 'acc' },
+  unverified: { label: 'Unverified', tone: 'dashed' },
+  checking: { label: 'Agent checking…', tone: 'neutral', className: '!bg-agents-bg !text-agents-ink' },
 }
 
 export function byDay(rows: EligibilityRow[]): { day: string; rows: EligibilityRow[] }[] {
@@ -45,17 +48,17 @@ function Benefits({ appt }: { appt: string }) {
   return (
     <aside aria-label={`Benefits · ${b.patient.display_name}`} className="flex flex-col gap-2.5 p-4 text-sm">
       <header>
-        <h2 className="m-0 text-[17px] font-bold">{b.patient.display_name}</h2>
-        <div className="text-xs text-mid">
+        <h2 className="m-0 text-md font-semibold">{b.patient.display_name}</h2>
+        <div className="text-sm text-mid">
           {c.plan_name} · Group {c.group_no} · ID ••••{c.subscriber_id.slice(-4)} · {c.order}
           {c.self_funded ? ' · self-funded (ERISA)' : ''}
         </div>
         <div className="text-xs text-soft">{b.basis}</div>
       </header>
       <section aria-label="Annual max" className="rounded-lg border border-line px-3 py-2">
-        <div className="text-xs text-mid">Annual max</div>
+        <div className="text-sm text-mid">Annual max</div>
         <div>
-          <b className="text-[20px] font-extrabold" data-testid="max-left">
+          <b className="text-title font-semibold nums-proportional" data-testid="max-left">
             {money(c.remaining_max_cents)}
           </b>{' '}
           <span className="text-mid">
@@ -67,10 +70,10 @@ function Benefits({ appt }: { appt: string }) {
         </div>
       </section>
       <section aria-label="Frequency limits">
-        <h3 className="m-0 mb-1 text-xs font-bold uppercase tracking-[.05em] text-soft">Frequency limits</h3>
+        <h3 className="m-0 mb-1 text-sm font-semibold">Frequency limits</h3>
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="text-left text-2xs uppercase text-soft">
+            <tr className="text-left text-xs font-medium text-soft">
               <th className="py-0.5">Code</th>
               <th>Rule</th>
               <th>Last done</th>
@@ -79,11 +82,11 @@ function Benefits({ appt }: { appt: string }) {
           </thead>
           <tbody>
             {b.frequencies.map((f) => (
-              <tr key={f.cdt} className="border-t border-light">
-                <td className="py-0.5 font-semibold">{f.cdt}</td>
+              <tr key={f.cdt} className="border-t border-line">
+                <td className="py-1 font-medium">{f.cdt}</td>
                 <td>{f.rule}</td>
                 <td>{f.last_done ? longDate(f.last_done) : '—'}</td>
-                <td className={f.ok_from ? 'font-semibold text-warn' : 'text-ok'}>{f.ok_from ? shortDate(f.ok_from) : 'now'}</td>
+                <td className={f.ok_from ? 'font-semibold text-ink' : 'text-ok'}>{f.ok_from ? shortDate(f.ok_from) : 'now'}</td>
               </tr>
             ))}
           </tbody>
@@ -91,10 +94,10 @@ function Benefits({ appt }: { appt: string }) {
       </section>
       <section aria-label="Planned work" className="rounded-lg border border-line px-3 py-2">
         <div className="flex justify-between">
-          <b>Planned work</b>
-          <b>{money(b.planned_fee_cents)}</b>
+          <span className="font-semibold">Planned work</span>
+          <span className="font-semibold tabular-nums">{money(b.planned_fee_cents)}</span>
         </div>
-        <div className="text-xs text-mid">{planned(b)}</div>
+        <div className="text-sm text-mid">{planned(b)}</div>
         <div className="mt-1 flex justify-between">
           <span>Insurance est.{c.remaining_max_cents < b.planned_fee_cents ? ' (capped by max)' : ''}</span>
           <b data-testid="insurance-est">{money(b.insurance_est_cents ?? null)}</b>
@@ -105,12 +108,12 @@ function Benefits({ appt }: { appt: string }) {
         </div>
       </section>
       {b.agent_note && (
-        <section aria-label="Agent note" className="rounded-lg border border-acc-line bg-acc-bg px-3 py-2">
-          <div className="text-2xs font-extrabold uppercase tracking-[.06em] text-acc">✦ Agent note</div>
+        <section aria-label="Agent note" className="rounded-lg border border-agents-line bg-agents-bg px-3 py-2">
+          <div className="text-sm font-semibold text-agents-ink">✦ Agent note</div>
           <p className="m-0">{b.agent_note}</p>
           {b.inbox_item_id && (
             <Link to="/inbox" search={{ item: b.inbox_item_id }} className="mt-1 inline-block text-sm font-semibold">
-              Open in Inbox → (flag to front desk)
+              Open in Inbox (flag to front desk)
             </Link>
           )}
         </section>
@@ -134,13 +137,13 @@ export function EligibilityPage() {
               return (
                 <div className="flex flex-col">
                   <div className="flex flex-wrap items-center gap-3 border-b border-line bg-fill px-4 py-2 text-sm" data-testid="eligibility-summary">
-                    <b>
+                    <b className="font-semibold">
                       {days.length ? days.map((g) => `${weekday(g.day)} ${shortDate(g.day)}`).join(' – ') : shortDate(d.date)} · {count(d.rows.length)} appts
                     </b>
-                    <span className="font-semibold text-bad">⚑ {count(d.need_human)} need a human look</span>
-                    <span className="text-xs text-mid">(= the eligibility items in the Inbox)</span>
+                    <span className="font-semibold text-practice-ink">⚑ {count(d.need_human)} need a human look</span>
+                    <span className="text-sm text-mid">(= the eligibility items in the Inbox)</span>
                     {search.date && (
-                      <Link to="/eligibility" search={{ appt: search.appt }} className="ml-auto text-xs">
+                      <Link to="/eligibility" search={{ appt: search.appt }} className="ml-auto text-sm">
                         Show the next days
                       </Link>
                     )}
@@ -149,10 +152,10 @@ export function EligibilityPage() {
                     <EmptyState title="No appointments to verify">Agents re-verify nightly and the morning of the visit.</EmptyState>
                   ) : (
                     <table aria-label="Appointments" className="w-full border-collapse text-base">
-                      <thead className="sticky top-0 bg-fill">
+                      <thead className="sticky top-0 bg-paper">
                         <tr>
                           {['Time', 'Patient', 'Provider', 'Payer', 'Planned · est. fee', 'Max left', 'Status'].map((h) => (
-                            <th key={h} className="h-8 border-b border-line px-2 text-left text-2xs font-extrabold uppercase tracking-[.05em] text-soft">
+                            <th key={h} className={cn('h-8 whitespace-nowrap border-b border-line px-2 text-left text-xs font-medium text-soft', h === 'Max left' && 'text-right')}>
                               {h}
                             </th>
                           ))}
@@ -163,8 +166,8 @@ export function EligibilityPage() {
                         return (
                           <tbody key={g.day} aria-label={`${weekday(g.day)} ${shortDate(g.day)}`}>
                             <tr className="bg-fill">
-                              <th colSpan={7} scope="rowgroup" className="border-b border-line px-2 py-1 text-left text-xs">
-                                <button type="button" className="font-bold text-ink hover:underline" onClick={() => void navigate({ search: (s) => ({ ...s, date: g.day }) })}>
+                              <th colSpan={7} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left text-sm">
+                                <button type="button" className="font-semibold text-ink hover:underline" onClick={() => void navigate({ search: (s) => ({ ...s, date: g.day }) })}>
                                   {weekday(g.day)} {shortDate(g.day)}
                                 </button>{' '}
                                 <span className="font-normal text-mid">
@@ -178,24 +181,25 @@ export function EligibilityPage() {
                                 data-appt={r.appointment_id}
                                 aria-selected={r.appointment_id === search.appt}
                                 onClick={() => void navigate({ search: (s) => ({ ...s, appt: r.appointment_id }) })}
-                                className={cn('h-10 cursor-pointer border-b border-light hover:bg-fill', r.appointment_id === search.appt && 'bg-acc-bg')}
+                                className={cn('h-10 cursor-pointer border-b border-line [&>td]:py-1.5', r.appointment_id === search.appt ? 'bg-act-bg' : 'hover:bg-hover')}
                               >
-                                <td className="px-2">{time(r.start)}</td>
-                                <td className="px-2">
-                                  <b>{r.patient.display_name}</b>
-                                </td>
-                                <td className="px-2 text-mid">{r.provider_name}</td>
+                                <td className="whitespace-nowrap px-2">{time(r.start)}</td>
+                                <td className="whitespace-nowrap px-2 font-medium">{r.patient.display_name}</td>
+                                <td className="whitespace-nowrap px-2 text-mid">{r.provider_name}</td>
                                 <td className="px-2">{r.payer?.short_name ?? '—'}</td>
-                                <td className="px-2">
-                                  <span>{planned(r)}</span> <span className="text-xs text-mid">est. fee {money(r.planned_fee_cents)}</span>
+                                <td className="min-w-48 px-2">
+                                  <span className="block">{planned(r)}</span>
+                                  <span className="block text-sm text-mid">est. fee {money(r.planned_fee_cents)}</span>
                                 </td>
-                                <td className="px-2 text-right">{money(r.remaining_max_cents)}</td>
+                                <td className="px-2 text-right tabular-nums">{money(r.remaining_max_cents)}</td>
                                 <td className="px-2">
-                                  <Chip tone={STATUS[r.status].tone}>
-                                    {STATUS[r.status].label}
-                                    {r.note ? ` · ${r.note}` : ''}
-                                    {r.inbox_item_id ? ' ⚑' : ''}
-                                  </Chip>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <Chip tone={STATUS[r.status].tone} className={STATUS[r.status].className}>
+                                      {STATUS[r.status].label}
+                                    </Chip>
+                                    {r.inbox_item_id && <FlagPill />}
+                                  </span>
+                                  {r.note && <span className="block text-sm text-mid">{r.note}</span>}
                                 </td>
                               </tr>
                             ))}
@@ -209,7 +213,7 @@ export function EligibilityPage() {
             }}
           </Load>
         </Scroll>
-        <div className="w-[380px] flex-none overflow-auto bg-white">
+        <div className="w-[380px] flex-none overflow-auto bg-paper">
           {search.appt ? (
             <Benefits appt={search.appt} />
           ) : (
