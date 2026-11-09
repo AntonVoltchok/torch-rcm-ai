@@ -98,9 +98,28 @@ describe('mock API', () => {
     expect(() => InboxItem.parse({ ...pa, claim_id: 'clm_4821' })).toThrow()
   })
 
+  it('answers 409 claim_busy while a run holds the claim, for an item or its whole group, then lets it through', () => {
+    const { db } = setup()
+    const claim = (id: string) => db.inbox({}).items.find((i) => i.id === id)?.claim?.id ?? ''
+    db.holdRun(claim('itm_4705'))
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4705')?.claim?.move.who).toBe('agents') // the lock the Inbox draws
+    try {
+      db.approve('itm_4705', 'usr_dana')
+      expect.unreachable()
+    } catch (e) {
+      expect((e as MockError).status).toBe(409)
+      expect((e as MockError).code).toBe('claim_busy')
+      expect((e as MockError).message).toMatch(/^Agents are working on #4705\. Approve again when they finish\.$/)
+    }
+    db.holdRun(claim('itm_4836'), 'paused')
+    expect(() => db.approveGroup(GROUP_DELTA_PA, 'usr_dana')).toThrow(/Agents are paused with a run open on #4836/)
+    expect(db.inbox({}).items.filter((i) => i.group_key === GROUP_DELTA_PA && i.state === 'open')).toHaveLength(3) // nothing approved
+  })
+
   it('refuses what the server refuses', () => {
     const { db } = setup()
-    expect(() => db.alwaysAutoRun('itm_4821')).toThrow(/Root cause is ours/)
+    expect(() => db.alwaysAutoRun('itm_4821')).toThrow(/Root cause: ours/)
+    expect(() => db.alwaysAutoRun('itm_4772')).toThrow(/The owner sets this rule/) // tier 2: the same words the Inbox shows up front
     db.approve('itm_4705', 'usr_dana')
     expect(() => db.approve('itm_4705', 'usr_dana')).toThrow(/Already/)
     db.departFile('itm_4851', '10:45')

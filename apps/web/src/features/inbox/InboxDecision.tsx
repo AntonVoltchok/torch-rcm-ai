@@ -1,7 +1,8 @@
 /**
  * D1's decision pane for the selected item, or for its batch when the group is open. Every word that says what will
- * happen is the server's: the button is `action_label`, "What this does" is `touches`, "Why it stopped at you" is
- * `stopped_by`, the signer's reason is `signer_note`. The list row carries enough to draw the head at once; the plan,
+ * happen is the server's: the heading is `headline`, the button is `action_label`, "What this does" is `touches`, "Why
+ * it stopped at you" is `stopped_by`, the signer's reason is `signer_note`, the track record is `confidence` (k of n,
+ * bolded from the numbers, never parsed from `basis`), and whether the rule could learn is `learnable`. The list row carries enough to draw the head at once; the plan,
  * draft, audit note, evidence and hold window come from GET /inbox/{id}. Edit/Reject/Snooze forms are ephemeral UI
  * state owned by InboxPage.
  */
@@ -79,14 +80,21 @@ export function InboxDecision(p: Props) {
   const actionLabel = (group ? group.group.action_label : item.action_label) ?? (item.kind === 'owner_signoff' ? 'Sign and apply' : 'Approve and run')
   const touches = group ? group.group.touches : item.touches
   const signers = USERS.filter((u) => u.role === item.required_role)
-  const refusal = isApiError(autoRun.error, 'root_cause_guard') || isApiError(autoRun.error, 'tier_not_learnable') ? autoRun.error.message : null
-  const canPropose = item.rule_id !== null && item.tier !== null && item.tier !== 3
+  // The server's answer up front; a refusal from the endpoint (the rule changed since this list loaded) replaces it.
+  const refused = isApiError(autoRun.error) && autoRun.error.status === 422 ? autoRun.error.message : null
+  const learn = item.learnable
+  const offTable = refused ?? (learn.ok ? null : learn.reason)
+  const showPolicy = item.kind !== 'eligibility_flag' && item.kind !== 'owner_signoff'
+  const record = item.confidence
   const locked = p.lock !== null
   const off = p.busy || locked
 
   return (
     <article aria-label={`Inbox item ${item.title}`} className="px-6 pb-[22px] pt-5" data-testid="decision">
-      <h1 className="m-0 text-title font-semibold tracking-[-.014em] [text-wrap:balance]">{group ? group.group.title : item.title}</h1>
+      <p className="m-0 mb-1 text-xs text-soft" data-testid="decision-title">
+        {group ? group.group.title : item.title}
+      </p>
+      <h1 className="m-0 text-title font-semibold tracking-[-.014em] [text-wrap:balance]">{group ? group.group.headline : item.headline}</h1>
       {item.summary && <p className="m-0 mt-1.5 leading-normal text-mid">{item.summary}</p>}
       {item.root_cause === 'ours' && auditNote && (
         <p className="m-0 mt-3 rounded-md border border-risk-line bg-risk-bg px-3 py-2 text-risk-ink" data-testid="audit-note">
@@ -214,21 +222,29 @@ export function InboxDecision(p: Props) {
         <div data-testid="track-record">
           <h3 className={H3}>Track record</h3>
           <p className="m-0 mt-0.5 text-sm leading-[1.45] text-mid">
-            {item.confidence?.pct != null && <strong className="mr-1 font-semibold text-ink">{Math.round(item.confidence.pct)}%</strong>}
-            {item.confidence?.basis ?? 'No track record for this situation yet.'}
+            {record?.pct != null ? (
+              <>
+                <strong className="font-semibold text-ink">
+                  {record.k} of {record.n}
+                </strong>{' '}
+                {record.outcome} <span className="text-soft">({record.pct}%)</span>
+              </>
+            ) : (
+              (record?.basis ?? 'No past cases like this yet.')
+            )}
           </p>
         </div>
       </div>
 
-      {canPropose && (
-        <div className={cn('mt-3 rounded-md bg-fill px-3 py-2 text-sm text-mid', refusal && 'border border-line-strong')} data-testid="policy">
-          {refusal ? (
-            <p role="alert" className="m-0" data-testid="guard-reason">
-              <strong className="font-semibold text-ink">Always auto-run is off the table here.</strong> {refusal}
+      {showPolicy && (
+        <div className={cn('mt-3 rounded-md bg-fill px-3 py-2 text-sm text-mid', offTable && 'border border-line-strong')} data-testid="policy">
+          {offTable ? (
+            <p role={refused ? 'alert' : undefined} className="m-0" data-testid="guard-reason">
+              <strong className="font-semibold text-ink">Running alone is off the table here.</strong> {offTable}
             </p>
           ) : (
             <p className="m-0">
-              Want items like this to run without you?{' '}
+              {learn.reason}{' '}
               <button type="button" className="font-medium text-act hover:underline disabled:text-soft" disabled={autoRun.isPending} onClick={() => autoRun.mutate(item)}>
                 Propose always auto-run
               </button>

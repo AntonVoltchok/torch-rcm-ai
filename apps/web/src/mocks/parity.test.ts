@@ -16,6 +16,18 @@ function setup() {
   return new MockDb({ stepDelayMs: 0, schedule: () => undefined })
 }
 
+/** A mock whose runs can be driven to their end: scheduled steps queue up and `drain()` runs them all. */
+function runnable() {
+  const queue: (() => void)[] = []
+  const db = new MockDb({ stepDelayMs: 0, schedule: (fn) => void queue.push(fn) })
+  const drain = () => {
+    for (let n = 0; queue.length && n < 10_000; n++) queue.shift()?.()
+  }
+  return { db, drain }
+}
+
+const LATER_APPROVALS = [['itm_4705', 'usr_dana'], ['itm_4851', 'usr_dana'], ['itm_4772', 'usr_dana'], ['itm_4748', 'usr_dana'], ['itm_4611', 'usr_morgan']] as const
+
 /** The mock's generated background population has the API's size and mix but its own claim numbers, so claims are
  * compared where both sides have the number (every pinned demo claim), and the population through the KPI rows. */
 function shared(db: MockDb, api: Record<string, unknown>) {
@@ -55,15 +67,20 @@ describe('mock ↔ API parity on the canonical seed', () => {
     expect(db.strip().moves).toEqual(withStandIn(db, parity.seed.moves))
   })
 
-  it('each item’s action_label, touches, lands and signer_note; each group’s words', () => {
+  it('each item’s words, headline, learnable and track record; each group’s words and headline', () => {
     const db = setup()
     const inbox = db.inbox({})
-    const words = Object.fromEntries(inbox.items.map((i) => [i.id, { action_label: i.action_label, touches: i.touches, lands: i.lands, signer_note: i.signer_note }]))
+    const words = Object.fromEntries(
+      inbox.items.map((i) => [
+        i.id,
+        { action_label: i.action_label, touches: i.touches, lands: i.lands, signer_note: i.signer_note, headline: i.headline, learnable: i.learnable, confidence: i.confidence },
+      ]),
+    )
     expect(words).toEqual(parity.seed.items)
     const morgan = Object.fromEntries(db.inbox({}, 'usr_morgan').items.map((i) => [i.id, i.signer_note]))
     expect(morgan).toEqual(parity.seed.signer_note_morgan)
     // the mock keys its group by action, the API by denial reason; the words are what must agree
-    expect((inbox.groups ?? []).map((g) => ({ action_label: g.action_label, touches: g.touches }))).toEqual(Object.values(parity.seed.groups))
+    expect((inbox.groups ?? []).map((g) => ({ action_label: g.action_label, touches: g.touches, headline: g.headline }))).toEqual(Object.values(parity.seed.groups))
   })
 
   it('Approve 3: changes, moves and the three claims; then #4733', () => {
@@ -75,5 +92,23 @@ describe('mock ↔ API parity on the canonical seed', () => {
     expect(Object.keys(mock)).toHaveLength(3)
     expect(mock).toEqual(api)
     expect(db.approve('itm_4733', 'usr_dana').changes).toEqual(parity.approve_4733.changes)
+  })
+
+  it('every canonical approval, run to its end: where each run left its claim', () => {
+    const { db, drain } = runnable()
+    const runs: Record<string, string> = {}
+    for (const r of db.approveGroup(GROUP_DELTA_PA, 'usr_dana').items) runs[r.id] = r.run_id ?? ''
+    runs.itm_4733 = db.approve('itm_4733', 'usr_dana').item.run_id ?? ''
+    for (const [id, user] of LATER_APPROVALS) runs[id] = db.approve(id, user).item.run_id ?? ''
+    drain()
+    const claims = db.claims({ limit: 10_000 }).items
+    const got = Object.fromEntries(
+      Object.entries(runs).map(([id, runId]) => {
+        const { run } = db.run(runId)
+        const claim = claims.find((c) => c.id === run.claim_id)
+        return [id, { status: run.status, move_to: run.claim_outcome?.move_to ?? null, claim_move: claim?.move }]
+      }),
+    )
+    expect(got).toEqual(parity.approve_runs)
   })
 })

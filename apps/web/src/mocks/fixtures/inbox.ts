@@ -3,6 +3,7 @@
  * (docs/spec/04-seed.md "Inbox open"), in server priority order. The Delta missing-PA group of 3 is first.
  */
 import type { Evidence, InboxGroup, InboxItemDetail } from '../wire'
+import { trackRecord } from '../d1'
 import { at } from './claims'
 
 /**
@@ -17,6 +18,8 @@ export type MockInboxItem = Pick<Row, Always> & Partial<Omit<Row, Always>> & {
   claim_id?: string | null
   summary?: string | null
   payload?: Record<string, unknown>
+  /** The classifier's situation key (the API reads it from the item's scripted run); feeds `headline`. */
+  situation?: string
 }
 
 export const GROUP_DELTA_PA = 'delta_ny:resubmit_with_attachment'
@@ -25,7 +28,9 @@ export const GROUP_META: Record<string, Pick<InboxGroup, 'title'>> = {
   [GROUP_DELTA_PA]: { title: 'Delta Dental · missing PA x-ray' },
 }
 
-const PA_BASIS = '23 of 25 Delta CO-16 · N29 denials paid within 30 d after a PA resubmit (12 mo)'
+/** The seed's track records (apps/api seed/canonical/agents.py), so the mock and the API show the same k of n. */
+const PA_RECORD = trackRecord(23, 25, 'Delta CO-16 · N29 denials paid within 30 days after a PA resubmit (12 mo)')
+const NO_RECORD = { pct: null, k: 0, n: 0, outcome: '' }
 
 function paEvidence(n: number, tooth: string, date: string): Evidence[] {
   return [
@@ -179,7 +184,7 @@ const base = {
   audit_note: null,
 }
 
-function paItem(n: number, patient: string, tooth: string, cents: number, pct: number, created: string): MockInboxItem {
+function paItem(n: number, patient: string, tooth: string, cents: number, created: string): MockInboxItem {
   return {
     ...base,
     id: `itm_${n}`,
@@ -189,7 +194,8 @@ function paItem(n: number, patient: string, tooth: string, cents: number, pct: n
     title: `#${n} · ${patient} · D27xx #${tooth}`,
     recommendation: `Upload the PA of #${tooth} to NEA; resubmit with the NEA# and the original claim number.`,
     summary: 'Denied CO-16 · N29: pre-op radiograph required. Our Claims agent sent the BWX, not the PA; rule fixed 10/26.',
-    confidence: { pct, basis: PA_BASIS },
+    confidence: PA_RECORD,
+    situation: 'denied:CO-16:N29:pa_missing',
     evidence_ids: [`ev_${n}_portal`, `ev_${n}_pms`, `ev_${n}_era`, ...(n === 4821 ? ['ev_4821_ivr', 'ev_4821_rep'] : [])],
     proposed_action: { action: 'resubmit_with_attachment', params: { attachment_kind: 'pa', tooth, file: 'delta_ny 11:15' }, cents, requires_hold_window: true },
     plan_steps: [
@@ -209,9 +215,9 @@ function paItem(n: number, patient: string, tooth: string, cents: number, pct: n
 
 export function buildInbox(): MockInboxItem[] {
   return [
-    paItem(4821, 'K. Owens', '19', 124000, 92, '10/12'),
-    paItem(4836, 'L. Grant', '3', 118000, 95, '10/14'),
-    paItem(4840, 'F. Diaz', '14', 131000, 93, '10/19'),
+    paItem(4821, 'K. Owens', '19', 124000, '10/12'),
+    paItem(4836, 'L. Grant', '3', 118000, '10/14'),
+    paItem(4840, 'F. Diaz', '14', 131000, '10/19'),
     {
       ...base,
       id: 'itm_4733',
@@ -221,7 +227,8 @@ export function buildInbox(): MockInboxItem[] {
       title: '#4733 · J. Webb · claim inquiry drafted',
       recommendation: 'Send a claim inquiry with Delta’s own 03/2022 EOB: their tooth history puts a 2022 crown on #30 that was #31.',
       summary: 'Frequency denial (CO-119): payer tooth-# error. Review the drafted inquiry?',
-      confidence: { pct: 82, basis: '5 of 6 reconsiderations won (12 mo)' },
+      confidence: trackRecord(9, 11, 'tooth-history reconsiderations paid (12 mo)'),
+      situation: 'denied:CO-119:frequency_history_conflict',
       evidence_ids: ['ev_4733_prior', 'ev_4733_era'],
       proposed_action: { action: 'reprocessing_request', params: { basis: 'payer_history_error', attach: ['ev_4733_prior'] }, cents: 0, requires_hold_window: false },
       plan_steps: ['Attach the 03/2022 EOB', 'Send the inquiry text (drafted, cites the EOB)'],
@@ -248,7 +255,8 @@ export function buildInbox(): MockInboxItem[] {
       title: '#4611 · R. Diaz · max met',
       recommendation: 'Transfer allowed $1,012 to the patient and post the $228 contractual adjustment.',
       summary: 'Max met (PR-119). Bill patient allowed $1,012, contractual $228?',
-      confidence: { pct: 96, basis: 'max confirmed on portal 10/27' },
+      confidence: { ...NO_RECORD, basis: 'A person decides this one. Annual max confirmed on the Delta portal 10/27.' },
+      situation: 'denied:PR-119:max_met',
       evidence_ids: ['ev_4611_portal'],
       proposed_action: { action: 'write_off', params: { writeoff_cents: 22800, patient_transfer_cents: 101200 }, cents: 22800, requires_hold_window: false },
       plan_steps: ['Move $1,012 to patient responsibility', 'Write off the $228 contractual difference (tier 3 · Dr. Morgan)', 'Statement goes in the next run'],
@@ -266,7 +274,8 @@ export function buildInbox(): MockInboxItem[] {
       title: '#4705 · T. Brooks · day 64',
       recommendation: 'Send a NY prompt-pay reprocessing request citing § 3224-a and the 10/27 rep call.',
       summary: 'Clean claim, 64 days. Send NY prompt-pay reprocessing request?',
-      confidence: { pct: 88, basis: '7 of 8 prompt-pay requests paid within 15 d' },
+      confidence: trackRecord(22, 25, 'prompt-pay requests paid within 30 days'),
+      situation: 'pending:prompt_pay_eligible',
       evidence_ids: ['ev_4705_rep', 'ev_4705_policy'],
       proposed_action: { action: 'reprocessing_request', params: { basis: 'ny_prompt_pay' }, cents: 0, requires_hold_window: false },
       tier: 1,
@@ -283,9 +292,10 @@ export function buildInbox(): MockInboxItem[] {
       title: '#4851 · I. Moreau · 277CA reject',
       recommendation: 'Update the subscriber id from the 271 and resend in the next Cigna file.',
       summary: 'Subscriber ID not found; 271 has a new ID. Update & resend?',
-      confidence: { pct: 84, basis: '21 of 25 A7:164 fixes accepted on resend' },
+      confidence: trackRecord(16, 19, 'demographic resends accepted'),
+      situation: 'rejected:A7:164',
       evidence_ids: ['ev_4851_pms'],
-      proposed_action: { action: 'fix_demographics_resend', params: { field: 'subscriber_id' }, cents: 0, requires_hold_window: false },
+      proposed_action: { action: 'fix_demographics_resend', params: { field: 'subscriber_id', value: 'U48213370', source: '271' }, cents: 0, requires_hold_window: false },
       tier: 1,
       created_at: at('2026-10-28', '07:02'),
       cents: 39500,
@@ -300,7 +310,8 @@ export function buildInbox(): MockInboxItem[] {
       title: '#4772 · D. Foster · underpaid $32',
       recommendation: 'Hold the $32 variance for reprocessing (deductible was met 05/12). Not a write-off.',
       summary: 'Cigna ERA hold: PR-1 deductible applied though met 05/12.',
-      confidence: { pct: 90, basis: 'deductible met per 05/12 EOB' },
+      confidence: trackRecord(3, 3, 'deductible corrections balanced'),
+      situation: 'variance:deductible_misapplied',
       evidence_ids: ['ev_4772_era'],
       proposed_action: { action: 'post_era_line', params: { post: 'patient_share_only', patient_cents: 2720, disputed_cents: 3200, then: 'reprocessing_request:deductible_misapplied' }, cents: 3200, requires_hold_window: false },
       tier: 2, // posting a line is tier 2 (rule_t2_post_era); the line was held because it does not match tracked benefits
@@ -317,7 +328,8 @@ export function buildInbox(): MockInboxItem[] {
       title: '#4748 · L. Osei · alternate benefit',
       recommendation: 'Bill the patient the $38 alternate-benefit difference (not appealable under the plan).',
       summary: 'Aetna alternate benefit D2140 applied. Bill patient difference?',
-      confidence: { pct: 94, basis: 'plan language: alternate benefit, no appeal' },
+      confidence: trackRecord(4, 4, 'alternate-benefit transfers balanced'),
+      situation: 'variance:alternate_benefit',
       evidence_ids: ['ev_4748_era'],
       proposed_action: { action: 'patient_transfer', params: { cents: 3800 }, cents: 0, requires_hold_window: false },
       tier: 2,
@@ -335,7 +347,8 @@ export function buildInbox(): MockInboxItem[] {
       title: 'J. Chen · Thu 9:00 · max left $180',
       recommendation: 'Tell the front desk: plan pays $180 of $650 planned; patient estimate $470.',
       summary: 'Annual max nearly used. Flag the shortfall to the front desk?',
-      confidence: { pct: 97, basis: 'portal as of 10/28 6:12 AM' },
+      confidence: { ...NO_RECORD, basis: 'As of 10/28 6:12 AM · portal' },
+      payload: { issue: 'over_max' },
       evidence_ids: ['ev_chen_portal'],
       proposed_action: { action: 'eligibility_check', params: { notify: 'front_desk' }, cents: 0, requires_hold_window: false },
       tier: 1,
@@ -352,7 +365,8 @@ export function buildInbox(): MockInboxItem[] {
       title: 'S. Kim · Thu 1:00 · bitewings not covered until 11/03',
       recommendation: 'Bitewings are not covered until 11/03 (last 11/03/2025). Skip D0274 or have the patient sign the non-covered acknowledgment.',
       summary: 'D0274 frequency: next eligible 11/03.',
-      confidence: { pct: 91, basis: 'Guardian portal as of 10/28 6:12 AM' },
+      confidence: { ...NO_RECORD, basis: 'As of 10/28 6:12 AM · portal' },
+      payload: { issue: 'frequency', cdt: 'D0274' },
       evidence_ids: ['ev_kim_271'],
       proposed_action: { action: 'eligibility_check', params: { notify: 'front_desk' }, cents: 0, requires_hold_window: false },
       tier: 1,
@@ -369,7 +383,8 @@ export function buildInbox(): MockInboxItem[] {
       title: 'N. Park · Fri 9:00 · unverified (portal down)',
       recommendation: 'MetLife portal and IVR unavailable since 05:40; 271 returned no plan detail. Verify at check-in or call MetLife.',
       summary: 'Portal down; unverified.',
-      confidence: { pct: null, basis: 'could not verify: MetLife portal and IVR down since 05:40' },
+      confidence: { ...NO_RECORD, basis: 'Unverified · portal down' },
+      payload: { issue: 'unverified' },
       evidence_ids: ['ev_park_ivr'],
       proposed_action: { action: 'eligibility_check', params: { channel: 'rep_call' }, cents: 0, requires_hold_window: false },
       tier: 1,

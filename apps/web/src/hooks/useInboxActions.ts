@@ -76,7 +76,9 @@ export interface FileDeparted {
 
 function explain(err: unknown): string {
   if (isApiError(err, 'already_resolved')) return `Already handled: ${err.message}`
-  if (isApiError(err, 'tier_requires_owner') || isApiError(err, 'signoff_stale')) return err.message
+  // The server's own words. A `claim_busy` 409 means this tab's list was stale: `settle` refetches it, and the
+  // claim's fresh `move` (agents) locks Approve until the run ends.
+  if (isApiError(err, 'tier_requires_owner') || isApiError(err, 'signoff_stale') || isApiError(err, 'claim_busy')) return err.message
   if (isApiError(err, 'network')) return 'The API is unreachable; nothing was sent.'
   return 'Approval failed; nothing was sent. The item is back in your Inbox.'
 }

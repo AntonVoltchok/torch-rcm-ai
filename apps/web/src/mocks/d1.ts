@@ -5,7 +5,7 @@
  * server does. `parity.test.ts` holds it to `fixtures/parity.json`, which the API regenerates and checks
  * (`apps/api/tests/test_mock_parity.py`), so a rule changed on one side fails a test on the other.
  */
-import type { ClaimMove, ClaimOutcome, ClaimStatus, HolderCount, MoveCount, MoveWho, Role, StripChange } from '@/api/schema'
+import type { ClaimMove, ClaimOutcome, ClaimStatus, Confidence, HolderCount, Learnable, MoveCount, MoveWho, Role, StripChange } from '@/api/schema'
 import type { MockClaim } from './fixtures/claims'
 import type { MockInboxItem } from './fixtures/inbox'
 
@@ -469,4 +469,137 @@ export function plainProcedures(lines: { cdt: string; tooth?: string | null }[])
   if (!first) return ''
   const head = `${first.cdt} ${PLAIN[first.cdt] ?? ''}`.trim() + (first.tooth ? `, tooth ${first.tooth}` : '')
   return lines.length > 1 ? `${head} + ${lines.length - 1} more` : head
+}
+
+// ── track record (the API's domain/values.py `track_record`) ─────────────────────────────────────────────
+
+const MIN_BASE_RATE_N = 5
+const METRIC_PHRASE: Record<string, string> = { paid_30d: 'paid within 30 days', accepted: 'accepted', balanced: 'balanced' }
+
+export function metricPhrase(metric: string | null | undefined): string {
+  return METRIC_PHRASE[metric ?? ''] ?? 'succeeded'
+}
+
+export function trackRecord(k: number, n: number, outcome: string): Confidence {
+  if (n === 0) return { pct: null, k: 0, n: 0, outcome, basis: 'No past cases like this yet.' }
+  if (n < MIN_BASE_RATE_N) {
+    return { pct: null, k, n, outcome, basis: `Only ${n} past ${n === 1 ? 'case' : 'cases'} like this, too few for a track record yet.` }
+  }
+  return { pct: Math.round((100 * k) / n), k, n, outcome, basis: `${k} of ${n} ${outcome}` }
+}
+
+// ── could this rule learn? (the API's agents/policy.py `learnable`) ─────────────────────────────────────
+
+export const ROOT_CAUSE_OURS_REASON =
+  'Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review.'
+
+interface LearnRule {
+  label: string
+  outcome_metric?: string | null
+  base_rate?: { n: number; k: number } | null
+}
+
+/** Same order as the API: tier 3, agent-written text, tier 2, no rule, root cause ours, no metric, too few cases. */
+export function learnable(item: MockInboxItem, rule: LearnRule | undefined, causes: (string | null | undefined)[]): Learnable {
+  const no = (code: NonNullable<Learnable['code']>, reason: string): Learnable => ({ ok: false, code, reason })
+  if (item.tier === 3) return no('tier_not_learnable', 'A person always does this one. It never runs on its own.')
+  if (item.kind === 'review_draft') return no('tier_not_learnable', 'The agents wrote this text, so a person reads it before it goes out.')
+  if (item.tier === 2) return no('tier_not_learnable', "The owner sets this rule. It isn't learned from approvals.")
+  if (item.tier == null || !rule) return no('tier_not_learnable', 'No rule covers this, so a person decides each time.')
+  if (causes.includes('ours')) return no('root_cause_guard', ROOT_CAUSE_OURS_REASON)
+  if (!rule.outcome_metric || rule.outcome_metric === 'none') {
+    return no('tier_not_learnable', `“${rule.label}” has no outcome to measure, so it is never learned.`)
+  }
+  const n = rule.base_rate?.n ?? 0
+  if (n < MIN_BASE_RATE_N) return no('not_enough_evidence', `Only ${n} past ${n === 1 ? 'case' : 'cases'} like this, too few to learn from yet.`)
+  return { ok: true, code: null, reason: 'You can propose running this without review. Nothing changes until the proposal is accepted.' }
+}
+
+// ── headline (the API's readmodels/headline.py) ──────────────────────────────────────────────────────────
+
+export interface HeadlineFacts {
+  payer: string
+  procedure: string
+  days: number | null
+  params: Record<string, unknown>
+  /** Claims in the batch the sentence speaks for (1 for an item). */
+  n?: number
+}
+
+/** 'this crown', or 'these 3 crowns' for a batch. */
+function subject(f: HeadlineFacts): string {
+  const n = f.n ?? 1
+  if (n === 1) return `this ${f.procedure}`
+  return `these ${n} ${f.procedure.endsWith('s') ? f.procedure : `${f.procedure}s`}`
+}
+
+/** 'Crown, PFM' → 'crown'; 'PA x-ray' keeps its capitals. */
+export function procedureNoun(cdt: string | null | undefined): string {
+  const name = (PLAIN[cdt ?? ''] ?? '').split(',')[0]?.trim() ?? ''
+  if (!name) return 'claim'
+  const second = name.charAt(1)
+  return second && second !== second.toLowerCase() ? name : name.charAt(0).toLowerCase() + name.slice(1)
+}
+
+const SENTENCES: Record<string, (f: HeadlineFacts) => string> = {
+  'denied:CO-16:N29:pa_missing': (f) => `${f.payer} needs the PA x-ray for ${subject(f)}`,
+  'denied:CO-16:M127:records_request': (f) => `${f.payer} asked for records before paying ${subject(f)}`,
+  'denied:CO-119:frequency_history_conflict': (f) =>
+    `${f.payer} denied ${subject(f)} as too frequent; its tooth history doesn't match our chart`,
+  'denied:CO-22:cob_order': (f) => `${f.payer} says another plan pays first on ${subject(f)}`,
+  'denied:CO-50:N10:formal_appeal': (f) => `${f.payer} denied ${subject(f)} as not medically necessary`,
+  'denied:CO-29:timely_filing_appeal': (f) => `${f.payer} says ${subject(f)} was filed too late`,
+  'denied:PR-119:max_met': () => 'The annual maximum is used up, so the balance goes to the patient',
+  'pending:prompt_pay_eligible': (f) => `${f.payer} hasn't paid in ${f.days} days, past the prompt-pay limit`,
+  'pending:status_due': (f) => `${f.payer} hasn't answered in ${f.days} days, so a status check is due`,
+  'pending:adjudicated_no_835': (f) => `${f.payer} has processed this claim, but no 835 has come in`,
+  'rejected:A7:164': (f) => {
+    const otherId = f.params.field === 'subscriber_id' && f.params.source === '271'
+    return `${f.payer} rejected the subscriber ID${otherId ? ', and the eligibility response has a different one' : ''}`
+  },
+  'variance:deductible_misapplied': (f) => `${f.payer} applied a deductible the patient already met`,
+  'variance:alternate_benefit': (f) => `${f.payer} paid the alternate benefit; the difference may be billable to the patient`,
+  'era:variance': (f) => `${f.payer}'s payment for ${subject(f)} doesn't match what we expected`,
+}
+const KEYS = Object.keys(SENTENCES).sort((a, b) => b.length - a.length)
+export const RUN_FAILED_HEADLINE = "The agents couldn't finish this; it's back with you"
+
+export function claimHeadline(situation: string | null | undefined, f: HeadlineFacts, denialCarc: string | null | undefined): string | null {
+  const key = situation ? KEYS.find((k) => situation === k || situation.startsWith(`${k}:`)) : undefined
+  const sentence = key ? SENTENCES[key] : undefined
+  if (key && sentence && (f.days !== null || !key.startsWith('pending:'))) return sentence(f)
+  return denialCarc ? `${f.payer} denied ${subject(f)} (${denialCarc})` : null
+}
+
+/** The API's `group_headline`: one counted sentence when every member shares situation, payer and procedure. */
+export function groupHeadline(members: { situation?: string; payer: string; procedure: string }[], fallback: string): string {
+  const one = <T,>(xs: T[]) => (new Set(xs).size === 1 ? xs[0] : undefined)
+  const situation = one(members.map((m) => m.situation))
+  const payer = one(members.map((m) => m.payer))
+  const procedure = one(members.map((m) => m.procedure))
+  const key = situation ? KEYS.find((k) => situation === k || situation.startsWith(`${k}:`)) : undefined
+  const sentence = key ? SENTENCES[key] : undefined
+  if (!key || !sentence || payer === undefined || procedure === undefined || key.startsWith('pending:')) return fallback
+  return sentence({ payer, procedure, days: null, params: {}, n: members.length })
+}
+
+const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+/** "tomorrow's 9:00 AM visit", on the mock's frozen clock (ISO strings carry the practice's own offset). */
+export function visitWhen(now: string, start: string): string {
+  const day = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10))
+  const days = Math.round((day(start) - day(now)) / 86_400_000)
+  const h = +start.slice(11, 13)
+  const time = `${h % 12 || 12}:${start.slice(14, 16)} ${h < 12 ? 'AM' : 'PM'}`
+  const weekday = WEEKDAY[new Date(day(start)).getUTCDay()] ?? ''
+  const when =
+    days === 0 ? "today's" : days === 1 ? "tomorrow's" : days > 1 && days < 7 ? `${weekday}'s` : `the ${+start.slice(5, 7)}/${+start.slice(8, 10)}`
+  return `${when} ${time} visit`
+}
+
+export function eligibilityHeadline(issue: unknown, who: string, when: string, cdt: string | null | undefined): string | null {
+  if (issue === 'over_max') return `${who} reaches the annual maximum at ${when}`
+  if (issue === 'frequency') return `Too soon for ${who}'s plan to cover ${procedureNoun(cdt)} at ${when}`
+  if (issue === 'unverified') return `${who}'s coverage couldn't be verified for ${when}`
+  return null
 }

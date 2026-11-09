@@ -81,12 +81,37 @@ describe('Inbox approve', () => {
     expect(await screen.findByRole('button', { name: 'Build a corrected claim' })).toBeInTheDocument()
   })
 
-  it('shows the root-cause guard reason when "Always auto-run" is refused', async () => {
-    const user = userEvent.setup()
+  it('says up front when a rule can never learn to run alone, and offers the proposal only when it can', async () => {
     renderApp('/inbox?item=itm_4821&group=delta_ny%3Aresubmit_with_attachment')
-    await screen.findByRole('article', { name: /#4821/ })
-    await user.click(screen.getByRole('button', { name: 'Propose always auto-run' }))
-    expect(await screen.findByTestId('guard-reason')).toHaveTextContent(/Root cause is ours/)
+    const pa = await screen.findByRole('article', { name: /#4821/ })
+    expect(within(pa).getByTestId('guard-reason')).toHaveTextContent(/Root cause: ours/)
+    expect(within(pa).queryByRole('button', { name: 'Propose always auto-run' })).toBeNull()
+    api.reset()
+    renderApp('/inbox?item=itm_4705')
+    const brooks = await decision('4705')
+    expect(within(brooks).getByTestId('policy')).toHaveTextContent('Nothing changes until the proposal is accepted.')
+    expect(within(brooks).getByRole('button', { name: 'Propose always auto-run' })).toBeEnabled()
+  })
+
+  it('heads the pane with the server’s headline, the title above it', async () => {
+    renderApp('/inbox?item=itm_4705')
+    const article = await decision('4705')
+    expect(within(article).getByRole('heading', { level: 1 })).toHaveTextContent("MetLife hasn't paid in 64 days, past the prompt-pay limit")
+    expect(within(article).getByTestId('decision-title')).toHaveTextContent('#4705')
+  })
+
+  it('on 409 claim_busy says the server’s words, refetches, and the fresh move locks Approve', async () => {
+    const user = userEvent.setup()
+    await openBrooks()
+    const claimId = api.db.inbox({}).items.find((i) => i.id === 'itm_4705')?.claim?.id ?? ''
+    api.db.holdRun(claimId) // another tab, or a scheduled status check: this tab's list does not know yet
+    await user.click(within(await decision('4705')).getByRole('button', { name: SEND }))
+    expect(await screen.findByText('Agents are working on #4705. Approve again when they finish.')).toBeInTheDocument()
+    await waitFor(() => expect(row('itm_4705')).not.toBeNull())
+    await user.click(row('itm_4705') as HTMLElement)
+    const article = await decision('4705')
+    await waitFor(() => expect(within(article).getByRole('button', { name: SEND })).toBeDisabled())
+    expect(within(article).getByTestId('locked')).toHaveTextContent('With the agents')
   })
 
   it('shows the words of a review draft, each sentence with its evidence', async () => {
@@ -110,7 +135,9 @@ describe('Inbox approve', () => {
     const article = await screen.findByRole('article', { name: /#4821/ })
     await waitFor(() => expect(article.querySelectorAll('[data-evidence-kind]')).toHaveLength(5))
     expect([...article.querySelectorAll('[data-evidence-kind]')].map((e) => e.getAttribute('data-evidence-kind'))).toEqual(['portal_screenshot', 'pms_record', 'era_line', 'ivr_transcript', 'rep_call'])
-    expect(within(article).getByTestId('track-record')).toHaveTextContent(/92%\s*23 of 25/)
+    const record = within(article).getByTestId('track-record')
+    expect(record.querySelector('strong')).toHaveTextContent(/^23 of 25$/) // bolded from k and n, not parsed from the basis
+    expect(record).toHaveTextContent('23 of 25 Delta CO-16 · N29 denials paid within 30 days after a PA resubmit (12 mo) (92%)')
     expect(within(article).getByTestId('audit-note')).toHaveTextContent('root cause: ours')
   })
 

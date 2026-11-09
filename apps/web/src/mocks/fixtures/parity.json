@@ -24,6 +24,107 @@
    }
   ]
  },
+ "approve_runs": {
+  "itm_4611": {
+   "claim_move": {
+    "holder_role": "billing",
+    "holder_user_id": null,
+    "label": "Denied, nothing filed",
+    "mine": true,
+    "who": "practice"
+   },
+   "move_to": "practice",
+   "status": "succeeded"
+  },
+  "itm_4705": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "Waiting on MetLife",
+    "mine": false,
+    "who": "payer"
+   },
+   "move_to": "payer",
+   "status": "succeeded"
+  },
+  "itm_4733": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "Waiting on Delta",
+    "mine": false,
+    "who": "payer"
+   },
+   "move_to": "payer",
+   "status": "succeeded"
+  },
+  "itm_4748": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "Finished",
+    "mine": false,
+    "who": "nobody"
+   },
+   "move_to": "nobody",
+   "status": "succeeded"
+  },
+  "itm_4772": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "Waiting on Cigna",
+    "mine": false,
+    "who": "payer"
+   },
+   "move_to": "payer",
+   "status": "succeeded"
+  },
+  "itm_4821": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "In the 11:15 AM Delta file",
+    "mine": false,
+    "who": "agents"
+   },
+   "move_to": "agents",
+   "status": "succeeded"
+  },
+  "itm_4836": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "In the 11:15 AM Delta file",
+    "mine": false,
+    "who": "agents"
+   },
+   "move_to": "agents",
+   "status": "succeeded"
+  },
+  "itm_4840": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "In the 11:15 AM Delta file",
+    "mine": false,
+    "who": "agents"
+   },
+   "move_to": "agents",
+   "status": "succeeded"
+  },
+  "itm_4851": {
+   "claim_move": {
+    "holder_role": null,
+    "holder_user_id": null,
+    "label": "In the 10:45 AM Cigna file",
+    "mine": false,
+    "who": "agents"
+   },
+   "move_to": "agents",
+   "status": "succeeded"
+  }
+ },
  "group_approve": {
   "changes": [
    {
@@ -921,6 +1022,7 @@
   "groups": {
    "delta_ny:denied:CO-16:N29:pa_missing": {
     "action_label": "Send 3 x-rays and resubmit",
+    "headline": "Delta needs the PA x-ray for these 3 crowns",
     "touches": [
      "3 x-rays uploaded to NEA",
      "3 claims in the 11:15 AM Delta file",
@@ -931,7 +1033,20 @@
   "items": {
    "itm_4611": {
     "action_label": "Sign $228 write-off, $1,012 to patient",
+    "confidence": {
+     "basis": "A person decides this one. Annual max confirmed on the Delta portal 10/27.",
+     "k": 0,
+     "n": 0,
+     "outcome": "",
+     "pct": null
+    },
+    "headline": "The annual maximum is used up, so the balance goes to the patient",
     "lands": "practice",
+    "learnable": {
+     "code": "tier_not_learnable",
+     "ok": false,
+     "reason": "A person always does this one. It never runs on its own."
+    },
     "signer_note": "Writing off money commits the practice, so only Dr. Morgan can sign this.",
     "touches": [
      "Signed decision recorded on the claim",
@@ -941,7 +1056,20 @@
    },
    "itm_4705": {
     "action_label": "Send prompt-pay request",
+    "confidence": {
+     "basis": "22 of 25 prompt-pay requests paid within 30 days",
+     "k": 22,
+     "n": 25,
+     "outcome": "prompt-pay requests paid within 30 days",
+     "pct": 88
+    },
+    "headline": "MetLife hasn't paid in 64 days, past the prompt-pay limit",
     "lands": "payer",
+    "learnable": {
+     "code": null,
+     "ok": true,
+     "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
+    },
     "signer_note": null,
     "touches": [
      "1 prompt-pay request sent to MetLife",
@@ -950,7 +1078,20 @@
    },
    "itm_4733": {
     "action_label": "Send this note to Delta",
+    "confidence": {
+     "basis": "9 of 11 tooth-history reconsiderations paid (12 mo)",
+     "k": 9,
+     "n": 11,
+     "outcome": "tooth-history reconsiderations paid (12 mo)",
+     "pct": 82
+    },
+    "headline": "Delta denied this crown as too frequent; its tooth history doesn't match our chart",
     "lands": "payer",
+    "learnable": {
+     "code": "tier_not_learnable",
+     "ok": false,
+     "reason": "The agents wrote this text, so a person reads it before it goes out."
+    },
     "signer_note": null,
     "touches": [
      "1 note sent to Delta",
@@ -960,7 +1101,20 @@
    },
    "itm_4748": {
     "action_label": "Move $38 to patient",
+    "confidence": {
+     "basis": "Only 4 past cases like this, too few for a track record yet.",
+     "k": 4,
+     "n": 4,
+     "outcome": "alternate-benefit transfers balanced",
+     "pct": null
+    },
+    "headline": "Aetna paid the alternate benefit; the difference may be billable to the patient",
     "lands": "nobody",
+    "learnable": {
+     "code": "tier_not_learnable",
+     "ok": false,
+     "reason": "The owner sets this rule. It isn't learned from approvals."
+    },
     "signer_note": null,
     "touches": [
      "$38 moved to patient balance",
@@ -969,7 +1123,20 @@
    },
    "itm_4772": {
     "action_label": "Post Cigna's payment, ask Cigna to reprocess $32",
+    "confidence": {
+     "basis": "Only 3 past cases like this, too few for a track record yet.",
+     "k": 3,
+     "n": 3,
+     "outcome": "deductible corrections balanced",
+     "pct": null
+    },
+    "headline": "Cigna applied a deductible the patient already met",
     "lands": "payer",
+    "learnable": {
+     "code": "tier_not_learnable",
+     "ok": false,
+     "reason": "The owner sets this rule. It isn't learned from approvals."
+    },
     "signer_note": null,
     "touches": [
      "Cigna payment posted, patient share only",
@@ -982,7 +1149,20 @@
    },
    "itm_4821": {
     "action_label": "Send x-ray and resubmit",
+    "confidence": {
+     "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+     "k": 23,
+     "n": 25,
+     "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+     "pct": 92
+    },
+    "headline": "Delta needs the PA x-ray for this crown",
     "lands": "agents",
+    "learnable": {
+     "code": "root_cause_guard",
+     "ok": false,
+     "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+    },
     "signer_note": null,
     "touches": [
      "1 x-ray uploaded to NEA",
@@ -992,7 +1172,20 @@
    },
    "itm_4836": {
     "action_label": "Send x-ray and resubmit",
+    "confidence": {
+     "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+     "k": 23,
+     "n": 25,
+     "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+     "pct": 92
+    },
+    "headline": "Delta needs the PA x-ray for this crown",
     "lands": "agents",
+    "learnable": {
+     "code": "root_cause_guard",
+     "ok": false,
+     "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+    },
     "signer_note": null,
     "touches": [
      "1 x-ray uploaded to NEA",
@@ -1002,7 +1195,20 @@
    },
    "itm_4840": {
     "action_label": "Send x-ray and resubmit",
+    "confidence": {
+     "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+     "k": 23,
+     "n": 25,
+     "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+     "pct": 92
+    },
+    "headline": "Delta needs the PA x-ray for this crown",
     "lands": "agents",
+    "learnable": {
+     "code": "root_cause_guard",
+     "ok": false,
+     "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+    },
     "signer_note": null,
     "touches": [
      "1 x-ray uploaded to NEA",
@@ -1012,7 +1218,20 @@
    },
    "itm_4851": {
     "action_label": "Update ID and resend",
+    "confidence": {
+     "basis": "16 of 19 demographic resends accepted",
+     "k": 16,
+     "n": 19,
+     "outcome": "demographic resends accepted",
+     "pct": 84
+    },
+    "headline": "Cigna rejected the subscriber ID, and the eligibility response has a different one",
     "lands": "agents",
+    "learnable": {
+     "code": null,
+     "ok": true,
+     "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
+    },
     "signer_note": null,
     "touches": [
      "Subscriber ID on this claim changed",
@@ -1022,7 +1241,20 @@
    },
    "itm_elig_chen": {
     "action_label": "Note it for the front desk",
+    "confidence": {
+     "basis": "As of 10/28 6:12 AM \u00b7 portal",
+     "k": 0,
+     "n": 0,
+     "outcome": "",
+     "pct": null
+    },
+    "headline": "J. Chen reaches the annual maximum at tomorrow's 9:00 AM visit",
     "lands": null,
+    "learnable": {
+     "code": "tier_not_learnable",
+     "ok": false,
+     "reason": "No rule covers this, so a person decides each time."
+    },
     "signer_note": null,
     "touches": [
      "Note added for the front desk"
@@ -1030,7 +1262,20 @@
    },
    "itm_elig_kim": {
     "action_label": "Note it for the front desk",
+    "confidence": {
+     "basis": "As of 10/28 6:12 AM \u00b7 portal",
+     "k": 0,
+     "n": 0,
+     "outcome": "",
+     "pct": null
+    },
+    "headline": "Too soon for S. Kim's plan to cover bitewings at tomorrow's 1:00 PM visit",
     "lands": null,
+    "learnable": {
+     "code": "tier_not_learnable",
+     "ok": false,
+     "reason": "No rule covers this, so a person decides each time."
+    },
     "signer_note": null,
     "touches": [
      "Note added for the front desk"
@@ -1038,7 +1283,20 @@
    },
    "itm_elig_park": {
     "action_label": "Note it for the front desk",
+    "confidence": {
+     "basis": "Unverified \u00b7 portal down",
+     "k": 0,
+     "n": 0,
+     "outcome": "",
+     "pct": null
+    },
+    "headline": "N. Park's coverage couldn't be verified for Friday's 9:00 AM visit",
     "lands": null,
+    "learnable": {
+     "code": "tier_not_learnable",
+     "ok": false,
+     "reason": "No rule covers this, so a person decides each time."
+    },
     "signer_note": null,
     "touches": [
      "Note added for the front desk"

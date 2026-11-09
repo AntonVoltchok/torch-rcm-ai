@@ -40,7 +40,7 @@ function ItemRow({ item, selected, member = false, onSelect }: { item: InboxItem
         <span className="text-mid"> {c ? c.procedures_plain : 'Upcoming visit'}</span>
       </span>
       <span className="col-start-3 row-start-1 font-medium tabular-nums">{money(item.cents)}</span>
-      {!member && <span className="col-span-2 col-start-2 row-start-2 truncate text-sm text-mid">{item.signer_note ?? item.title}</span>}
+      {!member && <span className="col-span-2 col-start-2 row-start-2 truncate text-sm text-mid">{item.signer_note ?? item.headline}</span>}
     </button>
   )
 }
