@@ -96,7 +96,7 @@ All three are pinned in `04-seed.md` as pending claims with no open item, so the
 - `investigate` streams the reads the model chose ("read portal correspondence 10/22", "pms_get_visit 2019-03-02 · D7140 #14").
 - `decide` shows the model's label ("payer asks for missing-tooth history"), its rationale, and the verdict ("records request · Ask Dana → inbox").
 - No thinking text is shown, because `between_tools` rejects `display`. The visible reasoning is the chosen reads plus the rationale.
-- Deterministic mode replays the reviewed plan recorded from a live run (`planner=recorded_plan`, labeled "recorded agent plan").
+- Deterministic mode replays a plan written by hand in the live format (`planner=recorded_plan`, labeled "hand-written plan, replayed"); its cassette is marked `synthetic: true` until a live recording replaces it.
 - Both modes end with exactly one open InboxItem on the claim.
 
 ---
@@ -316,7 +316,7 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 ```
 
 **`unknown` keys.**
-- `RecordedPlanPlanner` loads `planner/recorded/<claim_id>.plan.json` if it exists. That is a plan recorded from a live run, reviewed by a person and committed (it exists for the three §2.1 cases). Its label reads "recorded agent plan".
+- `RecordedPlanPlanner` loads `planner/recorded/<claim_id>.plan.json` if it exists. That is a plan written by hand in the live wire format and committed (it exists for the three §2.1 cases; their cassettes are `synthetic: true`). Its label reads "hand-written plan, replayed".
 - If no fixture exists, the run ends `cannot_decide`, with one `run_failed` item: "Needs a person: TorchRCM couldn't classify this".
 
 **Templates.** Drafts and result text come from Jinja templates (`templates/<agent>/<situation>.<kind>.j2`). Slots are filled only from `CaseFile` and evidence. The output is the same segmented `Draft`, so the text guard runs on deterministic drafts too.

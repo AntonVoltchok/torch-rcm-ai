@@ -22,7 +22,7 @@ export async function step3b(page: Page) {
     await expect(panel.getByText('↳ read portal correspondence 10/22')).toBeVisible({ timeout: 20_000 })
     await expect(panel.getByText(/payer asks for missing-tooth history/)).toBeVisible({ timeout: 20_000 })
     await expect(panel.getByText('Policy: ask Dana → Inbox')).toBeVisible()
-    await expect(panel.getByText(/recorded agent plan|live agent/)).toBeVisible()
+    await expect(panel.getByText(/hand-written plan, replayed|live agent/)).toBeVisible()
     await expect(panel.locator('[data-step="report"]')).toHaveAttribute('data-status', 'ok', { timeout: 20_000 })
     await expect(badge).toHaveText('9')
     await expect(page.getByRole('region', { name: 'Open inbox items' })).toContainText('records request')

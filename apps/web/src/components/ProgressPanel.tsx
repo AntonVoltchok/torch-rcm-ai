@@ -28,7 +28,7 @@ import { RelayRow, RelayTable } from './RelayTable'
 const PLANNER_LABEL: Record<PlannerKind, string> = {
   live: 'live agent',
   scripted: 'scripted',
-  recorded_plan: 'recorded agent plan',
+  recorded_plan: 'hand-written plan, replayed',
   scripted_fallback: 'fell back to rules',
 }
 
