@@ -17,7 +17,7 @@ apps/api/        FastAPI + pydantic, JSON document store on SQLite (`db/store.py
 apps/web/        Vite + React 19 + TS · TanStack Router/Query/Table · Zod schemas generated from the API's OpenAPI snapshot (`src/api/generated.ts`, named in `schema.ts`; `pnpm check:api` and `pnpm test:contract` hold them to the API)
 packages/        (none yet; shared contracts live in the API's OpenAPI → web codegen)
 docs/            spec/ (contracts) · adr/ · design/ (mocks, red-team reports, decisions log) · SESSIONS.md
-infra/           docker-compose, Dockerfiles, deploy configs (Fly for api, Vercel for web — not deployed)
+infra/           docker-compose, Dockerfiles. Deploy (ADR-0011): /render.yaml (api on Render) · apps/web/vercel.json (web on Vercel)
 Makefile         make dev | seed | test | eval | gen-api | lint | e2e
 ```
 

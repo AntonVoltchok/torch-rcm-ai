@@ -1,0 +1,27 @@
+# Render Blueprint for the API (ADR-0011). The web app is on Vercel: apps/web/vercel.json.
+# One always-on instance with a disk: the scheduler worker runs in the API process and SQLite lives on /data.
+services:
+  - type: web
+    name: torch-rcm-api
+    runtime: docker
+    plan: starter
+    region: virginia
+    branch: main
+    dockerContext: ./apps/api
+    dockerfilePath: ./infra/api.Dockerfile
+    healthCheckPath: /api/v1/clock
+    domains:
+      - torch-api.antonvolt.com
+    disk:
+      name: torch-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: TORCH_AGENT_MODE
+        value: deterministic
+      - key: TORCH_DB_URL
+        value: sqlite:////data/torch.db
+      - key: TORCH_CORS_ORIGINS
+        value: '["https://torch.antonvolt.com"]'
