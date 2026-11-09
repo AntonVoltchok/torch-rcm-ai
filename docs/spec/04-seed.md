@@ -33,7 +33,7 @@ Practice size: ~600 active patients, 2 locations, providers Dr. Morgan, Dr. Lee,
 - `clm_4705` T. Brooks · MetLife · pending 64 d → NY prompt-pay reprocessing request
 - `clm_4748` · Aetna · D2392 → alternate benefit D2150 (`PR-186`, −$38) · billed $255
 - `clm_4790` M. Duarte · Cigna · D2392 alternate benefit — not appealable; bill patient difference
-- `clm_4772` Foster · Cigna · line underpaid $32: **PR-1 deductible applied though met 05/12** → variance held for reprocessing, NOT write-off; patient owes $27.20, $32 disputed, refund $6.40 owed
+- `clm_4772` Foster · Cigna · line underpaid $25.60: **PR-1 $32 deductible applied though met 05/12** → variance held for reprocessing, NOT write-off. At the tracked benefits Cigna owes 80% × $168 allowed = $134.40 and paid $108.80, so it is $25.60 short; the patient owes $33.60 (20%), not the 835's $59.20; no refund. The item's figures are built from the 835 line and that adjudication (`tests/test_seed_variance.py`)
 - `clm_4776` W. Abara · D4341 UR · Cigna secondary to MetLife (MetLife 50% after $50 deductible = $82.80; OA-23; Cigna paid $131.20; patient $0)
 - `clm_4796` L. Ito · Guardian · D4341 UR+UL · DOS 10/09 · **CO-50·N10** after consultant review · self-funded ERISA group 00512 · Dr. Lee rendering → formal appeal (tier 3, Dr. Lee signs, patient authorization required)
 - `clm_4797` Castillo · Guardian · **CO-16·M127** records request → send 10/09 chart + FMX via NEA (tier 1); outcome: new 835 line with SVC06

@@ -133,7 +133,9 @@ function Header({ d, today }: { d: ClaimDetail; today: string | undefined }) {
             {c.move.mine && c.move.who === 'practice' ? 'Waiting on you' : c.move.label}
           </Fact>
           <Fact label="Billed">{money(c.billed_cents)}</Fact>
-          {pr && d.money.patient_resp_cents !== null ? (
+          {c.status === 'partial' && est && d.money.insurance_est_cents !== null ? (
+            <Fact label={`Expected from ${payer}, tracked benefits`}>{money(d.money.insurance_est_cents)}</Fact>
+          ) : pr && d.money.patient_resp_cents !== null ? (
             <Fact label="Patient owes, per the 835">{money(d.money.patient_resp_cents)}</Fact>
           ) : est && d.money.insurance_est_cents !== null ? (
             <Fact label={`Expected from ${payer}, est.`}>{money(d.money.insurance_est_cents)}</Fact>

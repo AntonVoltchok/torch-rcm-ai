@@ -18,7 +18,7 @@ from torch_rcm.api.schemas import (
     ViewList,
 )
 from torch_rcm.api.services.context import Ctx
-from torch_rcm.domain.entities import Claim, ClaimLine, Coverage, FileEntry, Run, SavedView
+from torch_rcm.domain.entities import Claim, ClaimLine, Coverage, FileEntry, Remittance, Run, SavedView
 from torch_rcm.domain.enums import (
     ACTIVE_RUN_STATUSES,
     AgentKind,
@@ -81,11 +81,14 @@ def coverage_out(cov: Coverage) -> CoverageOut:
     )
 
 
-def money(claim: Claim, coverage: Coverage, schedules: ScheduleBook) -> MoneyMath:
+def money(claim: Claim, coverage: Coverage, schedules: ScheduleBook, *, held_variance: bool = False) -> MoneyMath:
     """The header money math: billed, contract allowed, contractual, and paid/patient per the 835 — or, before
-    the 835, the estimate the checkout used (same adjudication function, no denial)."""
+    the 835, the estimate the checkout used (same adjudication function, no denial). A partial payment held as a
+    benefit variance (the 835 balances but disagrees with tracked benefits, e.g. a deductible already met) shows
+    that same adjudication as the expected figures beside the 835's."""
     allowed = sum(line.allowed_cents or 0 for line in claim.lines)
-    if claim.paid_cents is not None and claim.status in (ClaimStatus.PAID, ClaimStatus.PARTIAL):
+    settled = claim.paid_cents is not None and claim.status in (ClaimStatus.PAID, ClaimStatus.PARTIAL)
+    if settled and not (held_variance and claim.status is ClaimStatus.PARTIAL):
         ins_est, pt_est, basis = claim.paid_cents, claim.patient_resp_cents, "per 835"
     else:
         est = adjudicate(
@@ -98,7 +101,9 @@ def money(claim: Claim, coverage: Coverage, schedules: ScheduleBook) -> MoneyMat
         ins_est, pt_est, basis = (
             est.paid,
             est.patient,
-            f"estimate from contract allowed · {coverage.plan_name}",
+            f"expected at tracked benefits · {coverage.plan_name}"
+            if settled
+            else f"estimate from contract allowed · {coverage.plan_name}",
         )
     return MoneyMath(
         billed_cents=claim.billed_cents,
@@ -133,7 +138,14 @@ def claim_detail(ctx: Ctx, claim_id: str) -> ClaimDetail:
         readiness=claim.readiness,
         denial=claim.denial,
         deadline=claim.deadline,
-        money=money(claim, cov, ctx.rt.world.payers[claim.payer_key].schedules),
+        money=money(
+            claim,
+            cov,
+            ctx.rt.world.payers[claim.payer_key].schedules,
+            held_variance=any(
+                line.claim_id == claim.id and line.variance_cents for r in snap.of(Remittance) for line in r.lines
+            ),
+        ),
         timeline=page,
         timeline_next_cursor=encode_cursor(len(entries) - len(page)) if len(entries) > len(page) else None,
         open_inbox_items=[item_out(snap, i, ctx.user.id) for i in snap.open_items_by_claim.get(claim.id, [])],

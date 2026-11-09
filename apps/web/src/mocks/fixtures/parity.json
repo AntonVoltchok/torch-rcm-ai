@@ -1214,7 +1214,7 @@
     ]
    },
    "itm_4772": {
-    "action_label": "Post Cigna's payment, ask Cigna to reprocess $32",
+    "action_label": "Post Cigna's payment, ask Cigna to reprocess $25.60",
     "confidence": {
      "basis": "Only 3 past cases like this, too few for a track record yet.",
      "k": 3,
@@ -1232,8 +1232,8 @@
     "signer_note": null,
     "touches": [
      "Cigna payment posted, patient share only",
-     "$27.20 moved to patient balance",
-     "$32 held as disputed",
+     "$33.60 moved to patient balance",
+     "$25.60 held as disputed",
      "Can be undone until day close",
      "1 reprocessing request sent to Cigna",
      "Cannot be recalled once sent"

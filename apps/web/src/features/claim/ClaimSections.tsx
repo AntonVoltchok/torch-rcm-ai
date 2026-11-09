@@ -29,12 +29,14 @@ export function DenialCard({ d }: { d: ClaimDetail }) {
   if (!denial) return null
   const rootEntry = d.timeline.findLast((e) => e.kind === 'root_cause')
   const why = rootEntry?.title.replace(/^Root cause:\s*(ours|payer|patient|unknown)\s*[—:-]\s*/i, '')
+  // A partial payment where every line paid is a short payment, not a denial (e.g. PR-1 applied though met).
+  const short = d.claim.status === 'partial' && d.lines.every((l) => (l.paid_cents ?? 0) > 0)
   return (
     <Card
-      label="Denial"
+      label={short ? 'Underpaid' : 'Denial'}
       title={
         <>
-          Denied <Code code={denial.carc} meaning={denial.decoded} />
+          {short ? 'Underpaid' : 'Denied'} <Code code={denial.carc} meaning={denial.decoded} />
           {denial.rarc && (
             <>
               {' '}
@@ -44,7 +46,7 @@ export function DenialCard({ d }: { d: ClaimDetail }) {
         </>
       }
     >
-      <p className="m-0 text-sm text-ink">{denial.decoded}.</p>
+      <p className="m-0 text-sm text-ink">{short && d.claim.reason ? `${d.claim.reason.charAt(0).toUpperCase()}${d.claim.reason.slice(1)}` : denial.decoded}.</p>
       {denial.root_cause === 'ours' ? (
         <p className="m-0 mt-2 rounded-[7px] border border-risk-line bg-risk-bg px-2.5 py-1.5 text-sm text-risk-ink" data-root-cause="ours">
           <b>Root cause: ours.</b>
@@ -121,6 +123,12 @@ export function MoneyCard({ m, plan, payer, denial }: { m: MoneyMath; plan: stri
   )
 }
 
+/** Every 835 adjustment on the line, contractual (CO/OA) then patient (PR), as the 835 lists them. */
+function adjustments(l: ClaimLine): string {
+  const all = [...(l.adj ?? []), ...(l.patient_adj ?? [])]
+  return all.length ? all.map((a) => `${a.group}-${a.code} ${money(a.cents)}`).join(', ') : 'None'
+}
+
 export function LinesTable({ lines, estimate }: { lines: ClaimLine[]; estimate: boolean }) {
   const th = 'py-1.5 pr-2 text-left text-xs font-medium text-soft'
   return (
@@ -145,7 +153,7 @@ export function LinesTable({ lines, estimate }: { lines: ClaimLine[]; estimate: 
             <td className="py-1.5 pr-2 text-right tabular-nums">{money(l.fee_cents)}</td>
             <td className="py-1.5 pr-2 text-right tabular-nums">{money(l.allowed_cents ?? null)}</td>
             <td className="py-1.5 pr-2 text-right tabular-nums">{money(l.paid_cents ?? null)}</td>
-            <td className="py-1.5 pl-4 text-mid">{l.adj?.length ? l.adj.map((a) => `${a.group}-${a.code} ${money(a.cents)}`).join(', ') : 'None'}</td>
+            <td className="py-1.5 pl-4 text-mid">{adjustments(l)}</td>
           </tr>
         ))}
       </tbody>

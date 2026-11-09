@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from torch_rcm.agents.catalog.recipes import dollars
 from torch_rcm.domain.entities import (
     ROOT_CAUSE_RECORDED,
     Appointment,
@@ -1185,12 +1186,23 @@ class AgentSeed:
 
     def posting_items(self) -> None:
         foster = self.claims[4772]
+        # Every figure below comes from the held 835 line and the same line adjudicated at the tracked benefits.
+        remit = self.pinned.remits["cigna_1028"]
+        line = next(rl for rl in remit.lines if rl.claim_id == foster.id)
+        want = self.pinned.expected[4772].lines[0]
+        cov = self.b.w.index(Coverage)[foster.coverage_id]
+        met = cov.plan.deductible_met_on
+        assert met is not None and line.variance_cents == want.paid - line.paid
+        pr = {a.code: a.cents for a in line.patient_adj}
+        pct = cov.plan.pct_basic
         ev = [
             self.evidence(
                 "ev_4772_era",
                 EvidenceKind.ERA_LINE,
                 "Cigna 835 · 10/28 · line held",
-                "D2392 #19 · billed $255.00 · allowed $168.00 · CO-45 $87.00 · PR-1 $32.00 · PR-2 $27.20 · paid $108.80",
+                f"{line.cdt} #{foster.lines[0].tooth} · billed {cents2(line.billed)} · allowed {cents2(line.allowed)}"
+                f" · CO-45 {cents2(sum(a.cents for a in line.adj if a.code == '45'))} · PR-1 {cents2(pr['1'])}"
+                f" · PR-2 {cents2(pr['2'])} · paid {cents2(line.paid)}",
                 dt(TODAY, "06:20"),
                 claim=foster,
                 reference="rem_cigna_1028",
@@ -1234,7 +1246,9 @@ class AgentSeed:
             InboxItemKind.VARIANCE,
             AG.POSTING,
             "Cigna ERA hold · #4772 · PR-1 applied though met",
-            "PR-1 $32 applied though the deductible was met 05/12 → hold for reprocessing, not write-off. Patient owes $27.20 now; $32 disputed; refund $6.40 owed.",
+            f"Cigna applied PR-1 {dollars(pr['1'])} though the deductible was met {met:%m/%d}. Post {dollars(line.paid)},"
+            f" bill the patient {dollars(want.patient_cents)} ({100 - pct}% of {dollars(line.allowed)}), hold"
+            f" {dollars(line.variance_cents)} and ask Cigna to reprocess at {pct}%. Not a write-off.",
             claim=foster,
             tier=Tier.TWO,
             cents=foster.billed_cents,
@@ -1248,11 +1262,11 @@ class AgentSeed:
                     "remittance_id": "rem_cigna_1028",
                     "claim_id": foster.id,
                     "post": "patient_share_only",
-                    "patient_cents": 2_720,
-                    "disputed_cents": 3_200,
+                    "patient_cents": want.patient_cents,
+                    "disputed_cents": line.variance_cents,
                     "then": "reprocessing_request:deductible_misapplied",
                 },
-                cents=10_880,
+                cents=line.paid,
             ),
             rule_id="rule_t2_post_era",
             run_id=run.id,
@@ -1990,6 +2004,12 @@ _ELIG_NOTES = {
     "kim": "D0274 frequency: next eligible 11/03.",
     "park": "Portal down; unverified.",
 }
+
+
+def cents2(cents: int) -> str:
+    """An 835 figure as the evidence excerpt quotes it: always two decimals ("$255.00")."""
+    whole, part = divmod(cents, 100)
+    return f"${whole:,}.{part:02d}"
 
 
 def _estimate(cov: Coverage, planned_cents: int, flag: str | None) -> tuple[int, int]:

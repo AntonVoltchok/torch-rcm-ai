@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from torch_rcm.agents.catalog.recipes import dollars
 from torch_rcm.domain.entities import (
     AppealRecord,
     Claim,
@@ -59,6 +60,8 @@ class Pinned:
     claims: dict[int, Claim] = field(default_factory=dict)
     remits: dict[str, Remittance] = field(default_factory=dict)
     results: dict[int, ClaimResult] = field(default_factory=dict)
+    #: Held benefit variances: the same claim adjudicated at the tracked benefits (what the payer owed).
+    expected: dict[int, ClaimResult] = field(default_factory=dict)
     images: dict[str, str] = field(default_factory=dict)
     #: Claims queued for the next file at 10:40: claim id → file time.
     queued: dict[str, datetime] = field(default_factory=dict)
@@ -797,8 +800,25 @@ class PinnedBuilder:
         rf = b.adjudicate(foster, foster_cov, outcome="PR-1=3200")
         assert rf.status is S.PARTIAL and rf.paid == 10_880
         self.adjudicated(foster, rf, dt(date(2026, 10, 28), "06:20"))
-        foster.reason_text = "underpaid $32 · PR-1 though deductible met 05/12"
+        # What Cigna owed at the tracked benefits (deductible met 05/12): 80% of $168 allowed = $134.40.
+        ef = self.out.expected[4772] = b.adjudicate(foster, foster_cov)
+        assert ef.status is S.PAID and ef.paid == 13_440 and ef.patient == 3_360
+        met = foster_cov.plan.deductible_met_on
+        assert met is not None
+        foster.reason_text = f"underpaid {dollars(ef.paid - rf.paid)} · PR-1 though deductible met {met:%m/%d}"
         self.out.results[4776], self.out.results[4772] = rs, rf
+
+    def benefit_variance(self, claim: Claim) -> tuple[int, str]:
+        """The held remit line's variance (what the payer still owes at the tracked benefits) and its note."""
+        line, want = self.out.results[claim.number].lines[0], self.out.expected[claim.number].lines[0]
+        pr1 = sum(a.cents for a in line.patient_adj if a.code == "1")
+        met = self.b.w.index(Coverage)[claim.coverage_id].plan.deductible_met_on
+        assert met is not None and want.paid > line.paid
+        return (
+            want.paid - line.paid,
+            f"PR-1 {dollars(pr1)} applied though the deductible was met {met:%m/%d} → short {dollars(want.paid - line.paid)};"
+            " hold for reprocessing, not write-off",
+        )
 
     def cigna_era(self) -> None:
         """Cigna ERA Wed 10/28 06:20: 12 lines on 7 claims (Foster held, Abara secondary, five clean claims)."""
@@ -878,12 +898,7 @@ class PinnedBuilder:
             dt(date(2026, 10, 28), "06:20"),
             items,
             status=RemitStatus.NEEDS_REVIEW,
-            held={
-                foster.lines[0].id: (
-                    3_200,
-                    "PR-1 $32 applied though the deductible was met 05/12 → hold for reprocessing, not write-off",
-                )
-            },
+            held={foster.lines[0].id: self.benefit_variance(foster)},
         )
         self.out.remits["cigna_1028"] = remit
         totals = {
