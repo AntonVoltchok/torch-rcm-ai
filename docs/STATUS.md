@@ -2,9 +2,22 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Final red team: top five fixed (Opus 5.5)
+
+**State:** on `feat/d1-dashboard`, pushed to PR #1. The final red team (`docs/design/red-team/challenge-final-d1-2026-11-08.md`) rated realism 7/10; its top five are fixed (notes: `docs/adr/worker-notes/rt-fixes.md`).
+
+- **Foster #4772:** $25.60 underpaid, patient owes $33.60, no refund, built from the 835 line. A test recomputes every seeded variance.
+- **Event order:** 17 claims were sent before they were built. Now visit ≤ built ≤ sent ≤ acks ≤ remitted, tested over the whole seed.
+- **"Need you":** counts only what the viewer can act on (11), with "1 waiting on Dr. Morgan" from the server. Tested per seeded user.
+- **#4744:** an unknown situation shows no track record and can't be learned.
+- **Payments, Patients, appeal workbench:** show only their own design screen.
+- Checks on the merged tree: `make lint`, `make test` (639 API, 148 web), `make eval`, MSW e2e 7/7, real-target `@demo` 3/3 on a throwaway stack.
+
+**Next:** `make seed` (the seed changed). Still open from the red team: the signer comes from the dentist role, not the treating dentist (Dr. Lee vs Dr. Morgan on Ito and Morris); Diaz should be a tier-2 transfer to the patient; Castillo still shows the rule's 91 of 97; the Patients design still has Foster's old numbers; the approve flash; real cassettes.
+
 ## 2026-11-08 — D1 dashboard redesign built (Opus 5.5)
 
-**State:** committed on `d1-final` (on top of `feat/d1-dashboard`), not pushed or merged. ADR-0008 records the decisions, and the build plan is folded in and deleted.
+**State:** merged into `feat/d1-dashboard` and pushed as PR #1. ADR-0008 records the decisions, and the build plan is folded in and deleted.
 
 **What D1 shipped**
 - **Server half.** Whose move on every claim (`ClaimSummary.move`, with `mine` for the viewer) and the KPI moves. Wording from the action catalog: `action_label`, `touches`, `lands`, `signer_note`, `headline`, `learnable`. Plus `Confidence k/n`, approve-time `changes`, `Run.claim_outcome` (in the eval shape) and `409 claim_busy`.
