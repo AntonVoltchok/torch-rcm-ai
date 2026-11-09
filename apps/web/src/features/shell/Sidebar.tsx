@@ -15,7 +15,7 @@ import { navFor } from './nav'
 
 /**
  * D1's white sidebar: the brand, the two work queues, a rule, the records; then the demo's own controls kept in
- * one tidy foot (agents, outage, clock, who is signed in), each one click away. The Inbox count is the server's
+ * one tidy foot (agents, outage, clock, who is signed in), each one click away. Between them, centred, the tour row. The Inbox count is the server's
  * `strip.inbox_open`, the same number as the "Yours" card.
  */
 export function Sidebar() {
@@ -61,8 +61,11 @@ export function Sidebar() {
           )
         })}
       </nav>
-      <div className="mt-auto flex flex-col gap-3 px-1.5 pt-5 text-sm text-mid">
+      {/* The tour row takes the free height and sits at its middle: halfway between the nav and the agents line. */}
+      <div className="flex flex-1 flex-col justify-center px-1.5 py-5">
         <TourSidebarRow />
+      </div>
+      <div className="flex flex-col gap-3 px-1.5 text-sm text-mid">
         <AgentsIndicator />
         <OutageLine />
         <div className="flex flex-col gap-2.5 border-t border-line pt-3">

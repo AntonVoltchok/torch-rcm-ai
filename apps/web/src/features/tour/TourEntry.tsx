@@ -8,8 +8,8 @@ import { useTour } from './TourProvider'
 import type { TourId } from './types'
 
 /**
- * The two ways back into a tour. In the sidebar foot, above the agents line: "Tour this screen" plus a menu of every
- * tour with a check on the ones seen. In each screen's header: a round "?" that starts that screen's tour.
+ * The two ways back into a tour. In the sidebar, centred between the nav and the agents line and solid so it cannot be
+ * missed: "Tour this screen" plus a menu of every tour with a check on the ones seen. In each screen's header: a round "?" that starts that screen's tour.
  */
 export function TourSidebarRow() {
   const { screenTour, start } = useTour()
@@ -52,16 +52,14 @@ export function TourSidebarRow() {
 
   return (
     <div ref={wrap} className="relative" data-tour="tour-row">
-      <div className="flex items-stretch overflow-hidden rounded-[7px] border border-act-line bg-act-bg text-act">
+      <div className="flex items-stretch overflow-hidden rounded-[7px] border border-act bg-act text-white">
         <button
           type="button"
           onClick={() => start(screenTour ?? 'main')}
-          className="flex flex-1 items-center gap-1.5 px-2 py-1.5 text-left text-sm font-medium hover:bg-act hover:text-white"
+          className="flex flex-1 items-center gap-1.5 px-2 py-1.5 text-left text-sm font-medium hover:bg-act-hover"
           title={screenTour ? `Start the ${TOURS[screenTour].name} tour` : 'Start the main tour'}
         >
-          <span aria-hidden className="grid h-4 w-4 place-items-center rounded-full border border-current text-[10px] font-semibold">
-            ?
-          </span>
+          <HelpIcon />
           Tour this screen
         </button>
         <button
@@ -72,7 +70,7 @@ export function TourSidebarRow() {
           aria-controls={open ? 'tour-menu' : undefined}
           aria-label="All tours"
           onClick={() => setOpen((o) => !o)}
-          className="border-l border-act-line px-2 text-xs hover:bg-act hover:text-white"
+          className="border-l border-white/30 px-2 text-xs hover:bg-act-hover"
         >
           ▾
         </button>
@@ -112,6 +110,17 @@ export function TourSidebarRow() {
         </div>
       )}
     </div>
+  )
+}
+
+/** A "?" in a circle, drawn rather than typed so the glyph sits at the circle's centre whatever the font's metrics. */
+function HelpIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 flex-none" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+      <circle cx="8" cy="8" r="7.1" />
+      <path d="M6.1 5.85a1.95 1.95 0 0 1 3.8.6c0 1.3-1.9 1.6-1.9 2.7" />
+      <circle cx="8" cy="11.25" r="0.2" strokeWidth="1.2" />
+    </svg>
   )
 }
 
