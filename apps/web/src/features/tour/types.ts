@@ -4,7 +4,7 @@
  * the app's own query hooks; it never types a number the server computes (see `Num`).
  */
 import type { ComponentType } from 'react'
-import type { QueryKey } from '@tanstack/react-query'
+import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import type { DemoUser } from '@/state/session'
 import type { PayloadName } from './payloads'
 
@@ -56,6 +56,8 @@ export interface Step {
   ey?: string
   /** The route the step needs; the tour navigates there (URL first) before drawing. */
   route?: { to: string; search?: Record<string, unknown> }
+  /** Search params read from a server response (e.g. the first flagged appointment), merged into `route.search`. */
+  searchFrom?: (qc: QueryClient) => Promise<Record<string, unknown>>
   anchor?: string
   /** Shown instead of the spotlight when the anchor is not on screen (the demo has moved past this state). */
   missing?: string

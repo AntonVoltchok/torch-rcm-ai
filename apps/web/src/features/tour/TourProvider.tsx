@@ -101,12 +101,20 @@ export function TourProvider({ children }: { children: ReactNode }) {
   // Each step's route, URL first. A step without one uses its tour's screen, and keeps the user's filters there.
   useEffect(() => {
     if (!active || !step || step.modal) return
-    const want = step.route ?? { to: active.tour.home }
-    const here = router.state.location
-    const sameSearch = !step.route?.search || Object.entries(step.route.search).every(([k, v]) => (here.search as Record<string, unknown>)[k] === v)
-    if (here.pathname === want.to && sameSearch) return
-    void navigate(want.to, want.search)
-  }, [active, step, router, navigate])
+    let live = true
+    void (async () => {
+      const want = step.route ?? { to: active.tour.home }
+      const extra = step.searchFrom ? await step.searchFrom(qc).catch(() => ({})) : {}
+      const search = want.search || step.searchFrom ? { ...want.search, ...extra } : undefined
+      const here = router.state.location
+      const sameSearch = !search || Object.entries(search).every(([k, v]) => (here.search as Record<string, unknown>)[k] === v)
+      if (!live || (here.pathname === want.to && sameSearch)) return
+      await navigate(want.to, search)
+    })()
+    return () => {
+      live = false
+    }
+  }, [active, step, router, navigate, qc])
 
   const tryCtx = useMemo<TryCtx>(
     () => ({

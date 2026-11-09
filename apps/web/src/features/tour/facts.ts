@@ -12,6 +12,7 @@ import { useSession } from '@/state/session'
 import { tileFor } from '@/lib/strip'
 import type { ClaimStatus } from '@/api/schema'
 
+/** Records the seed pins by id (docs/spec/04-seed.md); the demo script follows the same ones. */
 export const FOLLOWED = { item: 'itm_4821', claim: 'clm_4821', triage: 'clm_4744' } as const
 
 export function useStripFacts() {

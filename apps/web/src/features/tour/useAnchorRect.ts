@@ -33,8 +33,9 @@ export function useAnchorRect(name: string | undefined, key: string, graceMs = 2
       if (el !== scrolled) {
         scrolled = el
         resize?.disconnect()
-        resize = new ResizeObserver(schedule)
-        resize.observe(el)
+        // Absent in jsdom and very old browsers; scroll, resize and DOM changes still re-measure.
+        resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
+        resize?.observe(el)
         const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
         el.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
       }

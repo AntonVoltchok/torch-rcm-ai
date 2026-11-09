@@ -678,7 +678,15 @@ const ELIGIBILITY: Tour = {
         </P>
         <P>The agent flags; the front desk decides. Contacting the patient is not an action any agent has.</P>
       </>
-    ), [pane.eligibility()], { missing: 'Select an appointment in the list to open its benefits card.' }),
+    ), [pane.eligibility()], {
+      route: { to: '/eligibility' },
+      searchFrom: async (qc) => {
+        const e = await qc.fetchQuery({ queryKey: qk.eligibility({}), queryFn: () => api.eligibility({}) })
+        const flagged = e.rows.find((r) => r.status === 'issue') ?? e.rows[0]
+        return flagged ? { appt: flagged.appointment_id } : {}
+      },
+      missing: 'Select an appointment in the list to open its benefits card.',
+    }),
   ],
 }
 
