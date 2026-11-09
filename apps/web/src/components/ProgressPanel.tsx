@@ -32,8 +32,8 @@ const PLANNER_LABEL: Record<PlannerKind, string> = {
 
 const VERDICT: Record<PolicyVerdict, { label: string; tone: 'ok' | 'acc' | 'warn' | 'bad' | 'dashed' }> = {
   execute: { label: 'Policy: runs without review', tone: 'ok' },
-  propose: { label: 'Policy: ask a person, to the Inbox', tone: 'acc' },
-  observe: { label: 'Policy: observe, would have run', tone: 'dashed' },
+  propose: { label: 'Policy: ask Dana → Inbox', tone: 'acc' },
+  observe: { label: 'Policy: observe · would have run', tone: 'dashed' },
   refuse: { label: 'Policy: refused', tone: 'bad' },
   park: { label: 'Policy: parked (agents paused)', tone: 'warn' },
 }
@@ -69,7 +69,7 @@ function StepRow({ step, run, last }: { step: RunViewStep; run: RunView; last: b
         {step.progress_lines.length > 0 && (
           <ul className="m-0 list-none p-0 text-sm text-mid">
             {step.progress_lines.map((l) => (
-              <li key={l}>{l}</li>
+              <li key={l}>↳ {l}</li>
             ))}
           </ul>
         )}

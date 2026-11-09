@@ -5,7 +5,7 @@ import { freshDemo } from './demo/shared'
 test('reload mid-run resubscribes and finishes @demo', async ({ page }) => {
   await freshDemo(page)
   await page.goto('/inbox?item=itm_4705')
-  await page.getByRole('button', { name: /Approve & run/ }).click()
+  await page.getByRole('button', { name: /Send prompt-pay request/ }).click() // D1: the button is the action (was "Approve & run")
   const panel = page.getByRole('region', { name: 'Agent progress' })
   await expect(panel).toBeVisible()
   await expect(page).toHaveURL(/launch=/)

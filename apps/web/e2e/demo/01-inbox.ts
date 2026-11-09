@@ -29,9 +29,12 @@ export async function step2(page: Page) {
     await page.locator('[data-item-id="itm_4821"]').click() // the group opens on its top-priority member, #4840
     await expect(page).toHaveURL(/item=itm_4821/)
     const detail = page.getByRole('article', { name: /#4821/ })
-    await expect(detail.getByRole('heading', { name: '#4821 · K. Owens' })).toBeVisible()
-    await expect(detail.getByText(/Why 92%:/)).toBeVisible()
-    await expect(detail.getByText(/23 of 25/)).toBeVisible()
+    // D1: the pane decides for the open batch (its title is the heading); #4821 is the highlighted relay row, and the
+    // track record leads with the server's percent and basis (was "#4821 · K. Owens" and "Why 92%:").
+    await expect(detail.getByRole('heading', { level: 1 })).toHaveText('Delta Dental · missing PA x-ray (3)')
+    await expect(detail.getByRole('link', { name: /K\. Owens #4821/ })).toBeVisible()
+    await expect(detail.getByTestId('track-record')).toContainText('92%')
+    await expect(detail.getByTestId('track-record')).toContainText('23 of 25')
     await expect(detail.locator('[data-evidence-kind]')).toHaveCount(5)
     await expect(detail.locator('[data-evidence-kind="portal_screenshot"]')).toBeVisible()
     await expect(detail.locator('[data-evidence-kind="pms_record"]')).toContainText('PA x-ray, tooth #19')

@@ -9,7 +9,9 @@ import { expect, test, type Page } from '@playwright/test'
 export async function step4(page: Page) {
   await test.step('4 · back to the Inbox, open #4821 from the completed run: whole story, nothing open, resubmit queued', async () => {
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: /Inbox/ }).click()
-    await page.getByRole('region', { name: 'Runs you started' }).getByRole('button', { name: /Approve 3/ }).click()
+    const runs = page.getByRole('region', { name: 'Runs you started' })
+    await runs.getByRole('button', { name: /Runs you started/ }).click() // D1: collapsed under the queue
+    await runs.getByRole('button', { name: /Approve 3/ }).click()
     await page.getByRole('link', { name: 'Open claim #4821 →' }).click()
     await expect(page.getByRole('heading', { name: 'Claim #4821' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: '‹ Inbox' })).toBeVisible()

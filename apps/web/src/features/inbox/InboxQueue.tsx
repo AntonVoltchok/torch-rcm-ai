@@ -36,8 +36,8 @@ function ItemRow({ item, selected, member = false, onSelect }: { item: InboxItem
       <ItemBaton item={item} />
       <span className="col-start-2 min-w-0 truncate">
         <span className="font-semibold">{item.patient?.display_name ?? c?.patient.display_name ?? item.title}</span>
-        {c && <span className="ml-1.5 text-mid">#{c.number}</span>}
-        <span className="ml-1.5 text-mid">{c ? c.procedures_plain : 'Upcoming visit'}</span>
+        {c && <span className="text-mid"> #{c.number}</span>}
+        <span className="text-mid"> {c ? c.procedures_plain : 'Upcoming visit'}</span>
       </span>
       <span className="col-start-3 row-start-1 font-medium tabular-nums">{money(item.cents)}</span>
       {!member && <span className="col-span-2 col-start-2 row-start-2 truncate text-sm text-mid">{item.title}</span>}

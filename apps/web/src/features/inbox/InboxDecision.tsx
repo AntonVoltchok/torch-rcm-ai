@@ -100,8 +100,8 @@ export function InboxDecision(p: Props) {
           const name = (
             <>
               <span className="font-semibold">{m.patient?.display_name ?? c?.patient.display_name}</span>
-              {c && <span className="ml-1.5 text-mid">#{c.number}</span>}
-              {c && <span className="ml-1.5 text-mid">{c.procedures_plain}</span>}
+              {c && <span className="text-mid"> #{c.number}</span>}
+              {c && <span className="text-mid"> {c.procedures_plain}</span>}
             </>
           )
           return (
