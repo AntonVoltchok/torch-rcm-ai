@@ -103,3 +103,72 @@ appeal workbench keeps its own note. e2e: `shell.spec.ts` checks all three route
 - **The Patients design still shows Foster's old numbers** ("$32 disputed", "owe her $6.40") inside `mocks.html`'s
   r7-s2 screen, which `/patients` now shows on its own. Design-doc content; not changed here.
 - `docs/STATUS.md` not updated in this branch, to keep the coordinator's merge with `rt-seed` clean.
+
+## rt-signer
+
+Finding 3 (one Denials row named two signers) and the Castillo note under finding 5 (a named situation still showed
+the records-request rule's 91 of 97). The owner decided two things: the treating dentist signs clinical appeals, so
+Dr. Lee signs Ito's and Morris's; and Castillo shows only its own situation's record. One red-team subagent (a dental
+billing lead) settled the remaining calls, and its answers were adopted as below.
+
+### One signer, named by the server
+
+| Decision | Choice | Why / alternative rejected |
+|---|---|---|
+| Who signs | `moves.signer(snap, item)`: the item's assignee, else for a clinical sign-off (`formal_appeal`) the claim's treating dentist (`treating_dentist`: the rendering provider's login), else the owner. Clinical holds (note unsigned, procedures not in note, rendering mismatch) wait on the treating dentist by the same rule (`claim_signer`). | The old `_sole(role)` picked "the only user with the dentist role" (Dr. Lee) and Denials read the provider (Dr. Morgan). Setting `assignee_user_id` at creation (the report's first option) would store a fact that can be derived, and every creator would have to remember it. |
+| Morris #3561 | The seed now records Dr. Lee as the rendering dentist of the 10/30/2025 crown visit (visit, lines, note signer and claim provider all follow from `make(provider=PRV_LEE)`). | The owner's decision ("Dr. Lee signs Morris's") plus "treating dentist signs" is only true if Lee treated Morris. No cassette covers Morris; `make eval` is OK in both modes. |
+| Who may approve | `can_approve`: the named signer, or the owner (override). `services.inbox._check_authority` raises 403 `tier_requires_owner` on the same test, naming the signer. Any dentist no longer approves any appeal. | Owner's rule. |
+| Whose count | `can_act` (what "N items need you" counts) adds: an item that names someone else is not yours, even for the owner. Dr. Morgan's Inbox shows "Waiting on Dr. Lee · 2" and keeps her approve as an override. | Red team: counting Dr. Lee's appeals as hers double-counts and invites the owner to sign to clear her number. |
+| Waiting rows | A signed item's row names its signer only (`signer_ids = [signer]`). Rows come in the order of their oldest item, in the API and the mock. | First-seen order was the store's id order (random ids), so API and mock disagreed on order. Oldest wait first puts Diaz (10/27) before the appeals. |
+| Signer note | "A formal appeal goes out over the treating dentist's signature, so Dr. Lee signs this." / "Writing off money commits the practice, so Dr. Morgan signs this." The owner's override is not mentioned. | Red team: telling billing the owner can also sign teaches them to walk it to whichever dentist is free. |
+| `InboxItemOut.signer_user_id` (new field) | The id `moves.signer` names. The claim screen's open-items panel used it instead of `USERS.find(u => u.role === it.required_role)` (a client-side signer guess: "Someone else signs this" on Ito). | Same bug class as finding 3. |
+| Denials row signer | `_denial_signer`: the open item's signer, else `claim_signer` by the route's role. | It hard-coded "Dr. Morgan" for owner routes. |
+
+Demo after the night: Dana "14 items need you: … · 1 waiting on Dr. Morgan · 2 waiting on Dr. Lee"; Dr. Lee's badge 2;
+Dr. Morgan "Waiting on Dr. Lee · 2". Step 1 is unchanged (Diaz, Dr. Morgan · 1).
+
+Tests: `tests/test_signer.py` (at seed, after 3 + 3b and after the night, every signed item: the move label and holder,
+the signer note, Dana's waiting row and strip row, and the Denials row name the same person; that person and the owner
+pass the approve endpoint's authority check, everyone else gets 403; Ito and Morris → Dr. Lee, Diaz → Dr. Morgan).
+`test_inbox_truth.py` gained two `# rt-signer` lines (a waiting item has a signer note, or the viewer is the owner who
+may sign in the signer's place; the night's rows). MSW: `db.s2.test.ts` step 8; e2e `06-overnight.ts` (header, the
+"Waiting on Dr. Lee" region) and `09-denials.ts` (the Morris row says only Dr. Lee).
+
+### Track records per situation
+
+- `Rule.situation_rates: dict[situation, BaseRate]` (schema: optional on `Rule`). `policy.confidence(rule, situation)`
+  reads only this situation's past cases; a situation missing from the map is "No past cases like this yet." The rule's
+  `base_rate` stays its whole scope and appears only on the Rules screen and rule proposals. `item_learnable` counts
+  the situation's n. Row 12 (confidence floor) gates on the same number.
+- Castillo #4797 (Guardian CO-16 · M127): **86% · 6 of 7 paid within 30 days**. Red team: count every Guardian
+  CO-16 · M127 records request, whatever the root cause, because the question is "when the right chart goes, does
+  Guardian pay?". Root cause ours still blocks learning (`root_cause_guard`).
+- Under five cases: "{k} of {n} {outcome}, too few for a rate" (red team: keep what counted as success visible), e.g.
+  "4 of 4 alternate-benefit transfers balanced, too few for a rate".
+- Seed: every rule that produces an item in the demo has its situations' records. Single-situation rules carry their
+  whole record under that situation. The patient-transfer rule's `base_rate` is now 4 of 4 (its one situation's).
+  Every situation record fits inside its rule (a test).
+- #4733 has no rule; its seeded "9 of 11 tooth-history reconsiderations" is that situation's own record. The test checks
+  that a rule-less item never shows a rule's whole-scope record.
+- Cassettes unchanged: confidence is computed by code after the model call.
+
+Tests: `tests/test_signer.py` (every item at every moment: k/n equal its rule's record for its own situation, 0/0 for
+`unknown`; Castillo is 86% · 6 of 7; records fit inside their rule); `test_d1_api3.py` and `test_policy_table.py`
+wording; the MSW mock mirrors `situation_rates` and computes overnight items' records (it showed none before); e2e
+step 8 opens Castillo and reads "6 of 7 paid within 30 days".
+
+### Not done here (follow-ups)
+
+- **Owner override wording (red team).** An owner can't attest in the first person to care she didn't give. When
+  Dr. Morgan approves Dr. Lee's appeal, the letter should switch to reviewing-dentist language, and the Inbox should
+  say "Signing as owner and reviewing dentist". That needs the appeal draft and the Inbox decision pane (`src/features/inbox/**`,
+  the other session's files). Today the API lets her approve, and the Inbox shows the item under "Waiting on Dr. Lee"
+  with no signer note, so the web's `isBlocked` (signer note present) leaves her Approve enabled.
+- **Morris is administrative (finding 3, second half; fix list item 8).** A CO-29 with the payer's own 277CA is a
+  reconsideration billing sends. The owner kept it a formal appeal signed by Dr. Lee. The letter must not carry clinical
+  attestation wording. Also show the 277CA date next to MetLife's 12-month limit.
+- **Header wording.** The red team prefers "14 need you · waiting on Dr. Lee 2, Dr. Morgan 1". The server's
+  rows and labels support it; the string is built in `src/features/inbox/selectors.ts` (`waitingLine`).
+- **Castillo wording.** "Sent the FMX without the perio chart", not "instead of"; the request should send the perio
+  chart and re-attach the FMX. This is seed and agent-script text, not changed here.
+- `docs/STATUS.md` is not updated in this branch, to keep the coordinator's merge clean (as rt-truth).

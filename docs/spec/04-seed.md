@@ -37,7 +37,7 @@ Practice size: ~600 active patients, 2 locations, providers Dr. Morgan, Dr. Lee,
 - `clm_4776` W. Abara · D4341 UR · Cigna secondary to MetLife (MetLife 50% after $50 deductible = $82.80; OA-23; Cigna paid $131.20; patient $0)
 - `clm_4796` L. Ito · Guardian · D4341 UR+UL · DOS 10/09 · **CO-50·N10** after consultant review · self-funded ERISA group 00512 · Dr. Lee rendering → formal appeal (tier 3, Dr. Lee signs, patient authorization required)
 - `clm_4797` Castillo · Guardian · **CO-16·M127** records request → send 10/09 chart + FMX via NEA (tier 1); outcome: new 835 line with SVC06
-- `clm_3561` Morris · MetLife · **CO-29** timely filing → timely-filing appeal with 11/2025 payer 277CA as proof of receipt; if upheld → non-contractual write-off, patient cannot be billed
+- `clm_3561` Morris · MetLife · Dr. Lee rendered (crown #3, 10/30/2025) · **CO-29** timely filing → timely-filing appeal with 11/2025 payer 277CA as proof of receipt; if upheld → non-contractual write-off, patient cannot be billed
 - `clm_4800` Moreno · **CO-22** COB → COB resubmit; coverage order changes in PMS → tier 2 → no rule → Dana
 - Kaur: corrected claim (tier 2) · Partial
 - **Seeded `unknown` situations** (classifier cannot name them; live model triage, see `07-agents.md` §2.1). All are `pending`, have no open inbox item and no status check due before Mon 11/02, so the 10:40 numbers above are unchanged (they are inside the 57 pending · $46,520):
