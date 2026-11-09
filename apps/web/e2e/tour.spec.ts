@@ -4,6 +4,7 @@
  *  - @demo: the main tour end to end, both Try-its included: approve the Delta group (the run streams), then skip to
  *    the next morning as Dr. Morgan and back to Dana. Runs on MSW and, with E2E_TARGET=real, on the real API.
  *  - a screen tour opens on the first visit only; the sidebar menu checks it off; the header "?" restarts it.
+ *  - the welcome opens on every load: a refresh or a new tab starts it again (owner's decision, D20).
  *  - Esc gives the app back from any step; the app's own shortcuts are quiet while the tour is up.
  */
 import { expect, test, type Page } from '@playwright/test'
@@ -60,6 +61,24 @@ test('the main tour follows #4821 through the loop, Try-its included @demo', asy
   await finish.getByRole('button', { name: 'Finish' }).click()
   await expect(page.getByTestId('tour-modal')).toHaveCount(0)
   await expect(page.getByTestId('tour-card')).toHaveCount(0)
+})
+
+test('the welcome opens on every load: after Skip, a refresh and a new tab both start it again', async ({ page, context }) => {
+  test.skip(real, 'UI only; the real target runs @demo')
+  await freshWithTours(page)
+  const welcome = (p: Page) => p.getByTestId('tour-modal').getByRole('heading', { name: 'Welcome to TorchRCM' })
+  await expect(welcome(page)).toBeVisible()
+  await page.getByTestId('tour-modal').getByRole('button', { name: 'Skip, use the app' }).click()
+  await expect(page.getByTestId('tour-modal')).toHaveCount(0)
+
+  await page.reload()
+  await expect(welcome(page)).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  const tab = await context.newPage()
+  await tab.goto('/claims')
+  await expect(welcome(tab)).toBeVisible()
+  await tab.close()
 })
 
 test('a screen tour opens on the first visit only, and the sidebar and header restart it', async ({ page }) => {

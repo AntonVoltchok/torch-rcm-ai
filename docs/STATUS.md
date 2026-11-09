@@ -12,7 +12,9 @@ _Updated by whoever ends a session. Newest first._
 - **Red team:** three passes (decisions, evaluator, front-end); one blocker (the claim tour pulled the presenter off #4744) and twelve majors fixed. Also renamed "recorded agent plan" to "hand-written plan, replayed" in the UI and specs 05/06/07.
 - Checks: `make lint`; API 652 passed; web Vitest 229 passed; MSW e2e 10 passed (1 real-only skipped); real-API `@demo` 5/5 on a throwaway stack (:8100/:5182).
 
-**Next:** the owner decides whether the welcome keeps opening on every load after the evaluation. The relay header's "3 claims" is counted in the browser (D1 code). `clm_4744.plan.json` still says `recorded_from: live triage` and `reviewed_by: usr_dana`.
+**Decided:** the welcome opens on every load, a refresh and a new tab included (owner, D20; e2e pins it).
+
+**Next:** the relay header's "3 claims" is counted in the browser (D1 code). `clm_4744.plan.json` still says `recorded_from: live triage` and `reviewed_by: usr_dana`.
 
 ## 2026-11-09 — Signer, Castillo, Patients numbers, Approve flash (Opus 5.5)
 

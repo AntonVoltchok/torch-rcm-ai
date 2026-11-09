@@ -49,6 +49,8 @@ Taken while building `apps/web/src/features/tour/` (ADR-0009), without the owner
 | D18 | **The menu and finish list only the role's screens** (from `navFor`), plus claim detail. | All tours for everyone | A tour of a screen the role cannot open would redirect. | Red team: agree |
 | D19 | **Screen tours auto-open on the first navigation to a screen**, not on the load (the main tour owns it). A screen tour without its own route stays on the screen it opened on, so the claim tour explains the claim on screen. | Open on load too; route claim detail to #4821 | Two tours back to back on one screen is noise. Staying on the claim was the evaluator red team's blocker: the claim tour used to pull the presenter from #4744 to #4821 in demo step 3b. | Red team: agree; evaluator pass |
 
+| D20 | **The welcome opens on every load: a refresh or a new tab starts the onboarding again.** Skip lasts until the next load; nothing about it is stored. | First load per browser only; a "Don't open on load" option | The owner's decision (2026-11-09), given after the evaluator red team rated the every-load welcome a major for live presenting. One Esc dismisses it. Pinned by `e2e/tour.spec.ts` (reload and new tab). | Owner |
+
 ### Corrections to D2 and D8 found while generating the payloads
 
 - **D2:** live mode sends #4821's situation to the model too (`is_judgment` is true for `denied:CO-16:N29:pa_missing`, M127, CO-119 and CO-22), not only #4744. In this demo no model sees #4821: its item is seeded and the approval run replays the plan. The copy now says exactly that.

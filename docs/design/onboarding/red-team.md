@@ -94,6 +94,6 @@ Three independent Opus 5.5 reviews of `apps/web/src/features/tour/` once it was 
 | `role="listitem"` on buttons in the finish modal | front-end | minor | `<ul>`/`<li>` around plain buttons |
 
 **Not changed, and why**
-- *The main tour opens on every load with no in-app off switch* (evaluator, major). The owner decided this and asked that it not be reopened. Esc dismisses it in one key, and the demo specs turn it off with the D16 flag. Listed under "needs the owner" in the PR.
+- *The main tour opens on every load with no in-app off switch* (evaluator, major). Put to the owner, who confirmed it: every load, a refresh or a new tab starts the onboarding (D20). Esc dismisses it in one key, and the demo specs turn it off with the D16 flag.
 - *The relay table's "3 claims" header is counted in the browser* (`RelayTable count={members.length}`). That is existing D1 code outside this change; the tour no longer claims otherwise. Follow-up.
 - *`recorded_from` and `reviewed_by` in `clm_4744.plan.json`*: the plan file is left as is (it is an agents artifact); the tour and the payload header say what it is.

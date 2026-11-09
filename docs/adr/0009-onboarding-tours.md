@@ -27,7 +27,7 @@ The owner approved an interactive mock of the onboarding (`docs/design/onboardin
 - Copy cannot drift from the data: after the tour's own Approve the run step reads the server's `changes`, not a number typed at design time.
 - Adding a screen to `nav.ts` without a tour fails the registry test; changing the agents code without regenerating payloads fails the drift test; editing `MockOnlyBanner.tsx` regenerates `mockonly.txt`.
 - The tours touch screens only through `data-tour` attributes, two `data-rule`/`data-mode` attributes on the mode control, a `tour` prop on `DataTable`, and the header `?` (in `PageHeader`, and in the Denials and claim-detail headers, which have none).
-- Every load of the app shows the welcome; a presenter dismisses it with Esc. Whether to keep that after the evaluation is the owner's call.
+- Every load of the app shows the welcome, including a refresh or a new tab (the owner confirmed this, D20); a presenter dismisses it with Esc.
 
 ## Alternatives rejected
 
