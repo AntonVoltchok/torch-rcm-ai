@@ -23,6 +23,7 @@ import { Baton, batonProps, PARTY_TEXT } from '@/components/Baton'
 import { StatusChip } from '@/components/StatusChip'
 import { moneyIsEstimate } from '@/components/MoneyMath'
 import { Timeline } from '@/components/Timeline'
+import { ReadinessChecklist } from '@/components/ReadinessChecklist'
 import { ProgressPanel } from '@/components/ProgressPanel'
 import { TriageButton } from '@/components/TriageButton'
 import { QueryError } from '@/components/QueryError'
@@ -117,7 +118,7 @@ function Header({ d, today }: { d: ClaimDetail; today: string | undefined }) {
             {c.icn ? (
               <>
                 {' '}
-                ICN <span className="select-all font-medium text-ink">{c.icn}</span>.
+                ICN <span className="select-all whitespace-nowrap font-medium text-ink">{c.icn}</span>.
               </>
             ) : null}
           </p>
@@ -200,6 +201,11 @@ export function ClaimDetailPage() {
           <div className={cn(!d.denial && 'col-span-2')}>
             <MoneyCard m={d.money} plan={d.coverage.plan_name} payer={d.payer.short_name} denial={d.denial} />
           </div>
+          {(c.status === 'ready' || d.holds.length > 0) && d.readiness.length > 0 && (
+            <Card title="Before it can be sent" label="Readiness checks" className="col-span-2">
+              <ReadinessChecklist checks={d.readiness} />
+            </Card>
+          )}
           <Card title="Lines" className="col-span-2">
             <LinesTable lines={d.lines} estimate={moneyIsEstimate(d.money)} />
           </Card>
