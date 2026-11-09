@@ -439,10 +439,13 @@ class SimWorld:
             data["payer_tooth_history"] = cast(JsonValue, dict(pc.tooth_history) if pc else {})
         if "runs" in include:
             from torch_rcm.domain.entities import Run
+            from torch_rcm.domain.enums import ACTIVE_RUN_STATUSES
 
+            # finished runs only: the run doing the reading (and any other still in flight) has no result yet
             data["runs"] = [
                 f"{r.started_at:%m/%d} {r.agent.value} · {r.result_summary}"
                 for r in self.store.find(Run, {"claim_id": claim.id}, order_by="started_at")
+                if r.id != run_id and r.status not in ACTIVE_RUN_STATUSES
             ]
         if "prior_eobs" in include:
             rows = self.store.find(EvidenceRow, {"claim_id": claim.id})
