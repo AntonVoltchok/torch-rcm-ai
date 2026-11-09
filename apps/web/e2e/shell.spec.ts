@@ -50,3 +50,20 @@ test('skip link moves focus to the screen', async ({ page }) => {
   await page.keyboard.press('Enter')
   await expect(page.locator('main#main')).toBeFocused()
 })
+
+test('mock-only routes show only their own design: no exploration copy at any scroll position', async ({ page }) => {
+  test.skip(real, 'layout only; the real target runs @demo')
+  await freshDemo(page)
+  for (const route of ['/payments', '/patients', '/denials/clm_4796']) {
+    await page.goto(route)
+    await expect(page.getByText('Designed, not built in this demo.')).toBeVisible()
+    const frame = page.frameLocator('iframe')
+    await expect(frame.locator('html[data-frame="ready"]')).toHaveCount(1)
+    const body = frame.locator('body')
+    await expect(body).not.toContainText(/All data is fake|red team|Round \d|design exploration/i)
+    await expect(frame.locator('body > *')).toHaveCount(1) // the one screen; nothing to scroll to
+    await expect(frame.locator('aside.sb')).toBeHidden() // the app's sidebar is the only one
+    const open = page.getByRole('link', { name: 'Open the design ↗' })
+    await expect(open).toHaveAttribute('href', /\/design\/mocks\.html\?frame=/)
+  }
+})
