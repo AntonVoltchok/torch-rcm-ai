@@ -106,7 +106,10 @@ function Row({ r, today, selected, onSelect }: { r: DenialRow; today: string | u
       data-claim-number={c.number}
       data-row-id={c.id}
       aria-selected={selected}
-      onClick={onSelect}
+      // Selecting on a row click, but a link inside it navigates on its own.
+      onClick={(e) => {
+        if (!(e.target instanceof Element && e.target.closest('a, button'))) onSelect()
+      }}
       className={cn('border-b border-line align-top last:border-b-0', selected ? 'bg-act-bg' : 'hover:bg-hover')}
     >
       <td className="py-3 pl-5 pr-4">
@@ -115,6 +118,8 @@ function Row({ r, today, selected, onSelect }: { r: DenialRow; today: string | u
       <td className="py-3 pr-4">
         <Baton {...batonProps(c.move)} size="md" decorative />
         <div className={cn('mt-1.5 text-sm font-medium', PARTY_TEXT[c.move.who])}>{moveText(r)}</div>
+        {/* Who signs is its own server fact (the rendering dentist attests a formal appeal), shown when the move doesn't say it. */}
+        {r.signer && moveText(r) !== `${r.signer} signs` && <div className="text-xs text-mid">{r.signer} signs</div>}
       </td>
       <td className="min-w-0 py-3 pr-4">
         <Link to="/claims/$claimId" params={{ claimId: c.id }} search={{ from: 'denials:' }} className="group text-base text-ink no-underline">

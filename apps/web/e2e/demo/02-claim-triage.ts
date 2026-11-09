@@ -15,6 +15,8 @@ export async function step3b(page: Page) {
     await expect(page).toHaveURL(/\/claims\?q=4744/)
     await page.getByRole('row').filter({ hasText: '#4744' }).click()
     await expect(page.getByRole('heading', { name: 'Claim #4744' })).toBeVisible()
+    // D1: the history as party lanes, ending on whose move it is now.
+    await expect(page.getByRole('group', { name: 'History by party' }).locator('li[data-now]')).toHaveCount(1)
     await page.getByRole('button', { name: /Ask Follow-up to look/ }).click()
     const panel = page.getByRole('region', { name: 'Agent progress' })
     await expect(panel.getByText('↳ read portal correspondence 10/22')).toBeVisible({ timeout: 20_000 })

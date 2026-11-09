@@ -3,7 +3,7 @@ import { Ledger } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
 import { THURSDAY_0710 } from '@/mocks/fixtures/static'
 import { ackChips, fileGroups } from '@/features/ledger/selectors'
-import { deadlineLabel, ifWeLose, pathTier, payerReasonMatrix, tag } from './selectors'
+import { daysUntil, deadlineLabel, deadlineVerb, ifWeLose, pathTier, payerReasonMatrix, sortedRows, tag, worklistOrder } from './selectors'
 
 function thursday() {
   const queue: (() => void)[] = []
@@ -61,5 +61,25 @@ describe('today’s claims selectors', () => {
     expect(iqbal && ackChips(iqbal.acks, true).vyne.text).toBe('A7:164 9:49 AM → A1 10:19 AM')
     expect(iqbal && ackChips(iqbal.acks, true).payer).toEqual({ tone: 'pending', text: 'pending' })
     expect(fileGroups(l.leaving_next_file).map((g) => [g.file_time, g.rows.length])).toEqual([['2026-10-28T10:45:00-04:00', 4]])
+  })
+})
+
+describe('worklist order and deadlines', () => {
+  it('sorts rows by deadline inside the server groups, undated last', async () => {
+    const { MockDb: Db } = await import('@/mocks/db')
+    const d = new Db({ stepDelayMs: 0, schedule: () => undefined }).denials('usr_dana')
+    const order = worklistOrder(d)
+    expect(order).toHaveLength(d.total)
+    for (const g of d.groups) {
+      const due = sortedRows(g.rows).map((r) => r.deadline.due_on ?? '9999-12-31')
+      expect(due).toEqual([...due].sort())
+    }
+  })
+
+  it('counts days at noon UTC on both dates, so no timezone moves a day', () => {
+    expect(daysUntil('2027-04-20', '2026-10-28')).toBe(174)
+    expect(daysUntil('2026-10-28', '2026-10-28')).toBe(0)
+    expect(deadlineVerb('timely_filing')).toBe('File by')
+    expect(deadlineVerb('appeal')).toBe('Appeal by')
   })
 })

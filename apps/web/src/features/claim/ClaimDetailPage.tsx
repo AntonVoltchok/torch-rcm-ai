@@ -109,7 +109,7 @@ function Header({ d, today }: { d: ClaimDetail; today: string | undefined }) {
       <div className="mt-2 flex flex-wrap items-start gap-x-8 gap-y-3">
         <div className="min-w-[280px] max-w-[540px] flex-1">
           <h1 className="m-0 text-title font-semibold">
-            {d.patient.display_name} <span className="sr-only">claim</span>
+            {d.patient.display_name} <span className="sr-only">claim </span>
             <span className="font-normal text-mid">#{c.number}</span>
           </h1>
           <p className="m-0 mt-0.5 text-sm text-mid">
