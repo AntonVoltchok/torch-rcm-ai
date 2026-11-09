@@ -1008,6 +1008,7 @@ class AgentSeed:
             payload={
                 "draft": {
                     "kind": "reconsideration_note",
+                    "audience": "payer",
                     "segments": [
                         {
                             "text": "Claim 26265-030412 (DOS 09/21/2026, D2740 #30) was denied CO-119.",

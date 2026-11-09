@@ -96,6 +96,7 @@ class RecipeStep:
     args: Args
     output_key: str | None = None  # where the step's `reference` lands for later steps (e.g. nea_number)
     effect: Effect | None = None  # what it changes outside TorchRCM; None = a read or a local computation
+    sends_text: bool = False  # its args carry the run's draft text out of TorchRCM (`_text`)
 
 
 def clock(hhmm: str) -> str:
@@ -227,7 +228,9 @@ BASIS_WORD = {
 
 
 def _reprocessing_effect(c: EffectCtx) -> tuple[Touch, ...]:
-    noun = "note" if c.drafted else ("prompt-pay request" if c.p("basis") == "ny_prompt_pay" else "request")
+    noun = (
+        "note" if c.drafted else ("prompt-pay request" if c.p("basis") == "ny_prompt_pay" else "reprocessing request")
+    )
     sent = _counted(noun, f"sent to {c.payer_short}")
     return (sent, *(Touch(f"{title} enclosed") for title in c.enclosures))
 
@@ -329,6 +332,7 @@ RECIPES: dict[str, tuple[RecipeStep, ...]] = {
             "code.render_request",
             lambda c: f"Fill in {c.payer_short}'s reprocessing form ({BASIS_WORD[str(c.p('basis'))]})",
             lambda c: {"claim_id": c.claim_id, "basis": c.p("basis"), "text": _text(c)},
+            sends_text=True,
         ),
         _payer_submit(
             lambda c: f"Submit to {c.payer_short}" + (" with the enclosures" if c.p("attach") else ""),
@@ -431,6 +435,7 @@ RECIPES: dict[str, tuple[RecipeStep, ...]] = {
             lambda c: "Add the reviewed narrative to the claim",
             lambda c: {"claim_id": c.claim_id, "text": _text(c)},
             effect=lambda c: (Touch("Reviewed narrative added to the claim"),),
+            sends_text=True,
         ),
         _queue("original"),
     ),
@@ -495,6 +500,12 @@ RECIPES: dict[str, tuple[RecipeStep, ...]] = {
 def recipe_for(action: str) -> tuple[RecipeStep, ...] | None:
     """The recipe, or None for tier 3: those are performed by a person, never by Torch."""
     return RECIPES.get(action)
+
+
+def sends_text(action: str) -> bool:
+    """Whether running this action carries draft text out of TorchRCM. Read from the recipe, not the catalog: the
+    tier-1 `reprocessing_request` has no `carries_text` kind but its form step sends whatever draft the run holds."""
+    return any(step.sends_text for step in recipe_for(action) or ())
 
 
 def _assert_recipes_cover_tiers_1_and_2_only() -> None:

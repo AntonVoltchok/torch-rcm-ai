@@ -255,7 +255,9 @@ const PHRASES: Record<string, (c: WordsCtx) => string> = {
   fix_demographics_resend: (c) => (c.params.field === 'subscriber_id' ? 'Update ID and resend' : `Update ${(FIELD_WORD[String(c.params.field)] ?? 'field').toLowerCase()} and resend`),
   eligibility_check: () => 'Check eligibility',
   post_era_line: (c) =>
-    c.params.post === 'patient_share_only' && c.params.disputed_cents
+    followUp('post_era_line', c.params)?.[0] === 'reprocessing_request' && c.params.disputed_cents
+      ? `Post ${c.payer}'s payment, ask ${c.payer} to reprocess ${dollars(c.params.disputed_cents)}`
+      : c.params.post === 'patient_share_only' && c.params.disputed_cents
       ? `Post ${c.payer}'s payment, dispute ${dollars(c.params.disputed_cents)}`
       : c.params.post === 'patient_share_only'
         ? 'Post the patient share'
@@ -288,7 +290,7 @@ const EFFECTS: Record<string, (c: WordsCtx) => Touch[]> = {
   status_check: (c) => [[`status check with ${c.payer}`, `status checks with ${c.payer}`]],
   payer_rep_call: (c) => [[`call to ${c.payer} provider services`, `calls to ${c.payer} provider services`]],
   reprocessing_request: (c) => [
-    counted(c.drafted ? 'note' : c.params.basis === 'ny_prompt_pay' ? 'prompt-pay request' : 'request', `sent to ${c.payer}`),
+    counted(c.drafted ? 'note' : c.params.basis === 'ny_prompt_pay' ? 'prompt-pay request' : 'reprocessing request', `sent to ${c.payer}`),
     ...c.enclosures.map((t) => `${t} enclosed`),
   ],
   request_835: (c) => [`835 requested from ${c.payer}`],
@@ -360,7 +362,29 @@ export function touches(action: string, members: WordsCtx[]): string[] {
   }
   const out = [...seen.values()].map(([t, n]) => (typeof t === 'string' ? t[0]?.toUpperCase() + t.slice(1) : `${n} ${n === 1 ? t[0] : t[1]}`))
   const back = reversibility(action, first)
-  return back ? [...out, back] : out
+  const lines = back ? [...out, back] : out
+  const next = followUp(action, first.params) // what the post's `then` queues runs in the same approval
+  if (next && EFFECTS[next[0]]) {
+    const then = members.flatMap((m) => {
+      const f = followUp(action, m.params)
+      return f ? [{ ...m, params: f[1], drafted: false, enclosures: [] }] : []
+    })
+    for (const t of touches(next[0], then)) if (!lines.includes(t)) lines.push(t)
+  }
+  return lines
+}
+
+const FOLLOW_UP_ARG: Record<string, string> = { reprocessing_request: 'basis' }
+
+/** The action an ERA post's `then` queues and its params (the API's `catalog.actions.follow_up`). */
+export function followUp(action: string, params: Record<string, unknown>): [string, Record<string, unknown>] | null {
+  const then = action === 'post_era_line' ? params.then : null
+  if (typeof then !== 'string' || !then) return null
+  const [name = '', arg] = then.split(':', 2)
+  const out: Record<string, unknown> = typeof params.claim_id === 'string' ? { claim_id: params.claim_id } : {}
+  const key = FOLLOW_UP_ARG[name]
+  if (arg && key) out[key] = arg
+  return [name, out]
 }
 
 const SIGNER_WHY: Record<string, string> = {
@@ -386,7 +410,8 @@ export function signerNote(item: MockInboxItem, viewer: UserId | null): string |
 /** Where the claim's move goes once the approval has run (the API's `wording.lands`). */
 export function lands(item: MockInboxItem, resolvedMove: () => ClaimMove): MoveWho | null {
   if (!item.claim_id) return null
-  const action = item.proposed_action?.action
+  const posted = item.proposed_action?.action
+  const action = (posted && followUp(posted, item.proposed_action?.params ?? {})?.[0]) || posted
   if (action && item.tier !== 3) {
     if (PAYER_REQUESTS.has(action)) return 'payer'
     if (FILING_ACTIONS.has(action)) return 'agents'

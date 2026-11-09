@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from torch_rcm.agents.catalog.actions import follow_up
 from torch_rcm.agents.catalog.phrases import PhraseCtx, phrase, touches
 from torch_rcm.agents.types import PayerView
 from torch_rcm.domain.entities import InboxItem, User
@@ -96,6 +97,9 @@ def lands(snap: Snapshot, item: InboxItem) -> MoveWho | None:
     if claim is None:
         return None
     action = item.proposed_action.action if item.proposed_action else None
+    nxt = follow_up(action.value, item.proposed_action.params) if action and item.proposed_action else None
+    if nxt is not None and nxt[0] in RuleAction:  # the run ends with what the post's `then` queues
+        action = RuleAction(nxt[0])
     if action is not None and item.tier is not Tier.THREE:
         if action in PAYER_REQUESTS:
             return MoveWho.PAYER

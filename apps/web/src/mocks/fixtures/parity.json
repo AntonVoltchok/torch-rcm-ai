@@ -968,14 +968,16 @@
     ]
    },
    "itm_4772": {
-    "action_label": "Post Cigna's payment, dispute $32",
-    "lands": "practice",
+    "action_label": "Post Cigna's payment, ask Cigna to reprocess $32",
+    "lands": "payer",
     "signer_note": null,
     "touches": [
      "Cigna payment posted, patient share only",
      "$27.20 moved to patient balance",
      "$32 held as disputed",
-     "Can be undone until day close"
+     "Can be undone until day close",
+     "1 reprocessing request sent to Cigna",
+     "Cannot be recalled once sent"
     ]
    },
    "itm_4821": {

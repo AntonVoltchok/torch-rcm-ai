@@ -9,6 +9,7 @@ Also here, because they are policy and must be impossible to bypass:
 - `assert_invariants()` — rules-table invariants, raised as `PolicyInvariantError` at boot and in tests;
   the table's own invariants are asserted at import.
 - `guard_root_cause_ours()` — root cause `ours` can never be learned into auto-run.
+- `unreviewed_text()` — text leaving TorchRCM is the body of an approved `review_draft`, or it is tier 2 (rows 1, 9).
 - `route_rule_patch()` / `apply_rule_patch()` / `signoff_item()` — owner sign-off routing.
 """
 
@@ -72,6 +73,8 @@ class PolicyCtx(Frozen):
     paper_eob: bool = False
     hold_window_open: bool | None = None
     draft_guard: GuardResult | None = None
+    outbound_text: str = ""  # the draft text this action's recipe would send (`recipes.sends_text`); "" = none
+    reviewed_text: str | None = None  # the body of the `review_draft` a person approved for this run, if any
     rules: tuple[RuleView, ...] = ()
     practice_cap_cents: int = PRACTICE_CAP_CENTS
 
@@ -141,7 +144,19 @@ def validation_errors(ctx: PolicyCtx, action: ProposedAction) -> list[str]:
     errors += [f"evidence {e} was not gathered in this run" for e in action.evidence_ids if e not in ctx.evidence]
     if spec.tier == 3 and ctx.run_kind != "triage" and ctx.actor_role not in TIER3_ROLES[spec.name]:
         errors.append(f"actor lacks role for {spec.label.lower()}")
+    if ctx.run_kind != "triage" and unreviewed_text(ctx):
+        errors.append("the text to send is not the draft a person reviewed and approved")
     return errors
+
+
+def unreviewed_text(ctx: PolicyCtx) -> bool:
+    """Text would leave TorchRCM that is not, word for word, the body of a `review_draft` a person approved.
+
+    Closes the tier gap: `reprocessing_request` is tier 1 (a form with a basis) but its form step sends whatever
+    draft the run holds. Such a run is unattended only with no text or with exactly the reviewed text; anything
+    else is tier 2: a triage run proposes it as a `review_draft` (row 9) and an approval run refuses it (row 1).
+    """
+    return bool(ctx.outbound_text.strip()) and ctx.outbound_text != ctx.reviewed_text
 
 
 def _scope_errors(ctx: PolicyCtx, params: Mapping[str, object]) -> list[str]:
@@ -193,7 +208,7 @@ def _cites_only_suspicious(ctx: PolicyCtx, a: ProposedAction) -> bool:
 
 
 def _carries_text(spec: ActionSpec, ctx: PolicyCtx) -> bool:
-    return spec.carries_text is not None or ctx.draft_guard is not None
+    return spec.carries_text is not None or ctx.draft_guard is not None or unreviewed_text(ctx)
 
 
 def _observes(rule: RuleView | None) -> bool:
@@ -262,6 +277,8 @@ def _row8(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) 
 def _row9(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
     if not _carries_text(s, ctx):
         return None
+    if s.carries_text is None and unreviewed_text(ctx):  # no text rule can cover a tier-1 action: tier 2 always
+        return "agent-written payer text on a tier-1 action · a person reviews it"
     if ctx.draft_guard is not None and not ctx.draft_guard.ok:
         return "agent text failed the fact check"
     if r is None or not (r.covers_agent_text and r.signed_by):

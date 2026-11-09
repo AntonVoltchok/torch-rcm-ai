@@ -9,10 +9,10 @@ what happens (plan d1-build decision 2; red team d1-api).
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 
-from torch_rcm.agents.catalog.actions import spec_for
+from torch_rcm.agents.catalog.actions import follow_up, spec_for
 from torch_rcm.agents.catalog.recipes import (
     ATTACHMENT_WORD,
     FIELD_WORD,
@@ -62,6 +62,9 @@ def _reprocessing(c: PhraseCtx) -> str:
 
 
 def _post(c: PhraseCtx) -> str:
+    then = follow_up("post_era_line", c.params)
+    if then is not None and then[0] == "reprocessing_request" and c.p("disputed_cents"):
+        return f"Post {c.payer_short}'s payment, ask {c.payer_short} to reprocess {dollars(c.p('disputed_cents'))}"
     if c.p("post") == "patient_share_only" and c.p("disputed_cents"):
         return f"Post {c.payer_short}'s payment, dispute {dollars(c.p('disputed_cents'))}"
     if c.p("post") == "patient_share_only":
@@ -170,4 +173,11 @@ def touches(action: str, members: Sequence[PhraseCtx]) -> list[str]:
         for t, n in seen.values()
     ]
     back = _reversibility(action, first)
-    return [*out, back] if back else out
+    out = [*out, back] if back else out
+    nxt = follow_up(action, first.params)  # what the post's `then` queues runs in the same approval
+    if nxt is not None and recipe_for(nxt[0]):
+        then = [
+            replace(m, params=f[1], drafted=False, enclosures=()) for m in members if (f := follow_up(action, m.params))
+        ]
+        out += [t for t in touches(nxt[0], then) if t not in out]
+    return out

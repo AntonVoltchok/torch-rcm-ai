@@ -21,8 +21,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from torch_rcm.agents.case import build_case
-from torch_rcm.agents.catalog.actions import spec_for
-from torch_rcm.agents.catalog.recipes import DOMAIN_OP_HOLD, RecipeCtx, RecipeStep, recipe_for
+from torch_rcm.agents.catalog.actions import follow_up, spec_for
+from torch_rcm.agents.catalog.recipes import DOMAIN_OP_HOLD, RecipeCtx, RecipeStep, recipe_for, sends_text
 from torch_rcm.agents.catalog.situations import is_judgment, label_for, root_cause_finding
 from torch_rcm.agents.guardrails import guard_draft
 from torch_rcm.agents.planner.base import EvidenceSet, Planner, PlannerFallback, Reader, ReadResult
@@ -41,6 +41,7 @@ from torch_rcm.agents.types import (
     CaseFile,
     Decision,
     Draft,
+    DraftKind,
     Evidence,
     EvidenceCandidate,
     JsonValue,
@@ -274,6 +275,28 @@ class ApprovedPlanPlanner(ScriptedPlanner):
             planner=self.kind,
         )
 
+    def held_draft(self) -> Draft | None:
+        """The draft the approved item carries, whatever its kind. Policy decides whether it may be sent."""
+        raw = (self.item.payload if self.item else {}).get("draft")
+        try:
+            return Draft.model_validate(raw) if raw else None
+        except ValueError:
+            return None
+
+    @property
+    def reviewed_text(self) -> str | None:
+        """The body a person read and approved: only a `review_draft` item's draft counts as reviewed."""
+        if self.item is None or self.item.kind is not InboxItemKind.REVIEW_DRAFT:
+            return None
+        if self.item.state not in (InboxItemState.APPROVED, InboxItemState.EDITED):
+            return None
+        held = self.held_draft()
+        return held.text if held else None
+
+    async def draft(self, case: CaseFile, plan: Plan, kind: DraftKind, evidence: EvidenceSet) -> Draft | None:
+        """An approval sends the text the person read, never a re-render (and makes no model call)."""
+        return self.held_draft()
+
 
 def _load_live_planner(rt: AgentRuntime, run_id: str, on_progress: Any = None) -> Planner | None:
     """The live planner for a run: `live.make_planner(runtime, run_id)` when that seam is set, otherwise
@@ -469,7 +492,14 @@ class Executor:
             return await fb.plan(case, self._reader(run.id, case, "code"), evidence), fb
 
     def _policy_ctx(
-        self, run: Run, case: CaseFile, plan: Plan, evidence: EvidenceSet, draft_guard: Any = None
+        self,
+        run: Run,
+        case: CaseFile,
+        plan: Plan,
+        evidence: EvidenceSet,
+        draft_guard: Any = None,
+        outbound_text: str = "",
+        reviewed_text: str | None = None,
     ) -> PolicyCtx:
         claim = case.claim
         needs_window = any((s := spec_for(a.action)) is not None and s.needs_hold_window for a in plan.actions)
@@ -492,6 +522,8 @@ class Executor:
             paper_eob=case.paper_eob,
             hold_window_open=self.rt.dom.hold_window_open(claim.id) if (claim and needs_window) else None,
             draft_guard=draft_guard,
+            outbound_text=outbound_text,
+            reviewed_text=reviewed_text,
             rules=case.rules_snapshot,
             practice_cap_cents=practice.practice_cap_cents,
         )
@@ -675,6 +707,7 @@ class Executor:
             paused = await self._decide(run, case, plan, planner, evidence, state, pin)
             if paused is not None:
                 return paused
+            plan = Plan.model_validate(state["plan"])  # decide may have appended a `then` follow-up
         decisions = [Decision.model_validate(d) for d in state["decisions"]]
 
         acted = await self._act_steps(run_id, case, plan, state, pin)
@@ -779,25 +812,49 @@ class Executor:
         end = self._start(run_id, DECIDE, f"{len(plan.actions)} proposed action(s)")
         drafts: dict[str, Any] = {}
         decisions: list[Decision] = []
-        for ai, action in enumerate(plan.actions):
+        approval = isinstance(planner, ApprovedPlanPlanner)
+        reviewed = planner.reviewed_text if isinstance(planner, ApprovedPlanPlanner) else None
+
+        async def decide_one(ai: int, action: ProposedAction, plan: Plan) -> Decision:
             spec = spec_for(action.action)
-            guard = None
-            if spec is not None and spec.carries_text:
-                draft = await planner.draft(case, plan, spec.carries_text, evidence)
+            guard, outbound = None, ""
+            texty = spec is not None and (spec.carries_text or (approval and sends_text(spec.name)))
+            if spec is not None and texty:
+                draft = await planner.draft(case, plan, spec.carries_text or "reconsideration_note", evidence)
                 if draft is not None:
-                    facts = [str(case.claim.number), case.claim.dos.strftime("%m/%d/%Y")] if case.claim else []
-                    guard = guard_draft(draft, evidence.by_id(), facts, case.patient.id if case.patient else None)
+                    if spec.carries_text:
+                        facts = [str(case.claim.number), case.claim.dos.strftime("%m/%d/%Y")] if case.claim else []
+                        guard = guard_draft(draft, evidence.by_id(), facts, case.patient.id if case.patient else None)
                     drafts[str(ai)] = draft.model_dump(mode="json")
-            decisions.append(decide(self._policy_ctx(run, case, plan, evidence, guard), action))
+                    outbound = draft.text if sends_text(spec.name) else ""
+            return decide(self._policy_ctx(run, case, plan, evidence, guard, outbound, reviewed), action)
+
+        for ai, action in enumerate(plan.actions):
+            decisions.append(await decide_one(ai, action, plan))
+        # An executed action's `then` queues the next action in this run (an ERA post that then asks the payer to
+        # reprocess). Policy decides it on its own; its recipe runs only if its parent's did (`_act_steps`).
+        follows: dict[int, int] = {}
+        for ai, (action, d) in enumerate(zip(plan.actions, decisions, strict=False)):
+            nxt = follow_up(action.action, action.params) if d.verdict == "execute" else None
+            if nxt is None:
+                continue
+            name, params = nxt
+            fu = ProposedAction(
+                action=name, params=params, evidence_ids=action.evidence_ids, rationale=f"then, after {action.action}"
+            )
+            plan = plan.model_copy(update={"actions": (*plan.actions, fu)})
+            follows[len(plan.actions) - 1] = ai
+            decisions.append(await decide_one(len(plan.actions) - 1, fu, plan))
         if any(d.verdict == "park" for d in decisions):
             return self._pause(run_id)
-        layout, groups = self._act_layout(case, plan, decisions, base=len(run.steps))
+        layout, groups = self._act_layout(case, plan, decisions, base=len(run.steps), follows=follows)
         item_ids: list[str] = []
         for ai, (action, d) in enumerate(zip(plan.actions, decisions, strict=True)):
             if d.verdict == "propose" and run.trigger is not RunTrigger.APPROVAL:
                 dr = Draft.model_validate(drafts[str(ai)]) if str(ai) in drafts else None
                 item_ids.append(self._open_item(run, case, plan, action, d, dr))
         state.update(
+            plan=plan.model_dump(mode="json"),
             decisions=[d.model_dump(mode="json") for d in decisions],
             act=groups,
             drafts=drafts,
@@ -830,7 +887,7 @@ class Executor:
 
     @staticmethod
     def _act_layout(
-        case: CaseFile, plan: Plan, decisions: list[Decision], *, base: int
+        case: CaseFile, plan: Plan, decisions: list[Decision], *, base: int, follows: dict[int, int] | None = None
     ) -> tuple[list[tuple[str, str, str]], list[dict[str, Any]]]:
         """Step rows for every executed action's recipe (`act:<step>` or `act:<action>:<step>`), then `report`."""
         layout: list[tuple[str, str, str]] = []
@@ -849,7 +906,10 @@ class Executor:
                 name = f"act:{rs.name}" if len(executed) == 1 else f"act:{ai}:{rs.name}"
                 idxs.append(base + len(layout))
                 layout.append((name, rs.label(rctx), rs.op))
-            groups.append({"action": ai, "steps": idxs})
+            group: dict[str, Any] = {"action": ai, "steps": idxs}
+            if follows and ai in follows:
+                group["after"] = follows[ai]
+            groups.append(group)
         layout.append(("report", "Report", "code"))
         return layout, groups
 
@@ -861,6 +921,7 @@ class Executor:
         failure: str | None = state.get("failure")
         outputs: dict[str, dict[str, JsonValue]] = state.setdefault("outputs", {})
         pending_ops: list[str] = []
+        unfinished: set[int] = set()  # actions whose recipe failed or was skipped; their `then` does not run
         for group in state["act"]:
             ai = group["action"]
             action = plan.actions[ai]
@@ -869,14 +930,15 @@ class Executor:
             params = spec.params.model_validate(action.params)
             draft = Draft.model_validate(state["drafts"][str(ai)]) if str(ai) in state.get("drafts", {}) else None
             out = outputs.setdefault(str(ai), {})
-            aborted = False
+            aborted = group.get("after") in unfinished
             for rstep, idx in zip(recipe_for(action.action) or (), group["steps"], strict=True):
                 step = self.rt.runs.require(run_id).steps[idx]
                 if step.status is StepStatus.OK:
                     continue
                 if aborted or step.status in (StepStatus.FAILED, StepStatus.SKIPPED):
                     if step.status is StepStatus.PENDING:
-                        self.rt.runs.finish_step(run_id, idx, "skipped", "skipped · an earlier step failed")
+                        why = "an earlier step failed" if group.get("after") not in unfinished else "its parent failed"
+                        self.rt.runs.finish_step(run_id, idx, "skipped", f"skipped · {why}")
                         self._step_event(run_id, idx, "completed")
                     pending_ops.append(rstep.op)
                     aborted = True
@@ -890,6 +952,8 @@ class Executor:
                     failure = "world_unavailable"
                     pending_ops.append(rstep.op)
                 aborted = outcome != "ok"
+            if aborted:
+                unfinished.add(ai)
         return failure, pending_ops
 
     async def _act_step(
