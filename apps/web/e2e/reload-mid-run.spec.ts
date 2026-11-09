@@ -8,7 +8,7 @@ test('reload mid-run resubscribes and finishes @demo', async ({ page }) => {
   await page.getByRole('button', { name: /Send prompt-pay request/ }).click() // D1: the button is the action (was "Approve & run")
   const panel = page.getByRole('region', { name: 'Agent progress' })
   await expect(panel).toBeVisible()
-  await expect(page).toHaveURL(/launch=/)
+  await expect(page).toHaveURL(/launch=run_/) // not `launch=starting`: the run must exist before the reload
   await page.reload()
   await expect(page.getByRole('region', { name: 'Agent progress' }).getByTestId('audit-line')).toBeVisible({ timeout: 20_000 })
 })

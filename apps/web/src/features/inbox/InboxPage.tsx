@@ -1,19 +1,24 @@
 /**
  * Inbox (home), D1: the queue on the left, one pane on the right that is either the decision or, after Approve,
- * the run (decision 5: the run owns the pane). State ownership on this screen:
+ * the run (ADR-0008 decision 4: the run owns the pane). State ownership on this screen:
  *  - URL (`/inbox?item=&group=&launch=&kind=`): selection, expanded group, the run in the pane, filter tab. Selecting
  *    an item (J/K, click, Next) drops `launch`: the run carries on and stays under "Runs you started".
+ *  - Approve / ⇧A set `launch=starting` in the same handler as `mutate()`: the pane is the run at once, "Starting…"
+ *    drawn from the pending mutation's variables, and the same panel takes the launch when the 202 records it. A
+ *    refusal (409, 403, network) returns the URL to the item and says the server's reason there. The callbacks read
+ *    the URL as it is when the server answers: if the reader has moved on, a 202 only lists the run and a refusal
+ *    is a toast with a way back.
  *  - Query cache: the list (['inbox','list',params]), item detail, runs, strip, claims. Counts are the server's.
  *  - `useActiveLaunch`: which claims are under a run, from the server's run status and `claim.move`. Approve, Reject
  *    and Snooze are locked only for items on those claims.
- *  - Component state: which inline form is open and a 409 file_departed notice: ephemeral, per item.
+ *  - Component state: which inline form is open, a 409 file_departed notice and a refusal's reason: ephemeral, per item.
  */
 import { useState } from 'react'
-import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router'
 import type { InboxGroup, InboxItem } from '@/api/schema'
 import { useActiveLaunch } from '@/hooks/useActiveLaunch'
 import { useInboxList } from '@/hooks/useInbox'
-import { useApprove, useApproveGroup, useCorrectedClaim, useReject, useSnooze, type FileDeparted } from '@/hooks/useInboxActions'
+import { useApprove, useApproveGroup, useCorrectedClaim, useReject, useSnooze, type FileDeparted, type Refusal } from '@/hooks/useInboxActions'
 import { useListKeys } from '@/hooks/useListKeys'
 import { useNow } from '@/hooks/useClock'
 import { useStrip } from '@/hooks/useStrip'
@@ -23,18 +28,38 @@ import { cn } from '@/lib/cn'
 import { useLaunches, type Launch } from '@/state/launches'
 import { toast } from '@/state/toast'
 import { PageHeader } from '@/components/PageHeader'
-import { ProgressPanel } from '@/components/ProgressPanel'
+import { ProgressPanel, type StartingRow } from '@/components/ProgressPanel'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryError } from '@/components/QueryError'
 import { Button } from '@/components/ui/Button'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { InboxDecision, type DetailPanel } from './InboxDecision'
 import { InboxQueue } from './InboxQueue'
-import { groupFor, groupRowId, inboxGroups, itemOrder, keyOrder, nextSelection, waitingLine } from './selectors'
+import { STARTING, type InboxSearch } from './search'
+import { approveStartsRun, groupFor, groupRowId, inboxGroups, itemOrder, keyOrder, nextSelection, waitingLine } from './selectors'
 
 const route = getRouteApi('/inbox')
 
 const who = (i: InboxItem) => [i.patient?.display_name ?? i.claim?.patient.display_name ?? i.title, i.claim ? `#${i.claim.number}` : null].filter(Boolean).join(' ')
+/** A run's relay label, as `recordLaunch` writes it from the server's item. */
+const runRow = (i: InboxItem): StartingRow => ({
+  label: [i.claim ? `#${i.claim.number}` : null, i.patient?.display_name].filter(Boolean).join(' ') || i.title,
+  claim_id: i.claim?.id ?? null,
+})
+const itemHref = (i: InboxItem) => `/inbox?${new URLSearchParams({ item: i.id, ...(i.group_key ? { group: i.group_key } : {}) }).toString()}`
+
+/** The approval this tab sent last, single or batch, as the run pane needs it before and after the server answers. */
+interface Attempt {
+  key: string
+  pending: boolean
+  ok: boolean
+  itemIds: string[]
+  /** The run the 202 named (a batch's first): the launch's id. */
+  runId: string | undefined
+  /** Stands in for the launch until it exists: the same heading and "What this does". */
+  standIn: Launch
+  rows: StartingRow[]
+}
 
 export function InboxPage() {
   const search = route.useSearch()
@@ -44,17 +69,36 @@ export function InboxPage() {
   const now = useNow()
   const launches = useLaunches()
   const active = useActiveLaunch()
+  const router = useRouter()
 
   // Ephemeral, per selected item.
   const [panelFor, setPanelFor] = useState<{ id: string; panel: DetailPanel } | null>(null)
   const [departed, setDeparted] = useState<FileDeparted | null>(null)
+  const [refused, setRefused] = useState<{ itemId: string; message: string } | null>(null)
 
   const select = (patch: { item?: string | undefined; group?: string | undefined; launch?: string | undefined }) =>
     navigate({ search: (s) => ({ ...s, launch: undefined, ...patch }), replace: true })
 
-  const openLaunch = (l: Launch) => void select({ launch: l.id })
-  const approve = useApprove({ onLaunched: openLaunch, onFileDeparted: setDeparted })
-  const approveGroup = useApproveGroup({ onLaunched: openLaunch })
+  /** Whether the pane still shows the approval in flight, read when the server answers (the reader may have moved on). */
+  const stillStarting = () => {
+    const loc = router.state.location
+    return loc.pathname === '/inbox' && (loc.search as InboxSearch).launch === STARTING
+  }
+  // The 202: the pane already shows this approval, so it takes the run. Moved on, the run is only listed.
+  const openLaunch = (l: Launch) => {
+    if (stillStarting()) void navigate({ search: (s) => ({ ...s, launch: l.id }), replace: true })
+  }
+  const onRefused = (back: InboxItem | undefined, r: Refusal) => {
+    if (!back) toast(r.message, { tone: r.tone })
+    else if (stillStarting()) {
+      void navigate({ search: (s) => ({ ...s, item: back.id, group: back.group_key ?? undefined, launch: undefined }), replace: true })
+      if (!r.departed) setRefused({ itemId: back.id, message: r.message })
+    } else {
+      toast(r.message, { tone: r.tone, action: { label: `Back to ${who(back)}`, href: itemHref(back) } })
+    }
+  }
+  const approve = useApprove({ onLaunched: openLaunch, onFileDeparted: setDeparted, onRefused: (r, v) => onRefused(v.item, r) })
+  const approveGroup = useApproveGroup({ onLaunched: openLaunch, onRefused: (r, v) => onRefused(v.from ?? v.items[0], r) })
   const reject = useReject()
   const snooze = useSnooze()
   const corrected = useCorrectedClaim()
@@ -70,12 +114,30 @@ export function InboxPage() {
   const setPanel = (p: DetailPanel) => {
     setPanelFor(selected ? { id: selected.id, panel: p } : null)
   }
-  const busy = approve.isPending || approveGroup.isPending || reject.isPending || snooze.isPending
+  const sending = approve.isPending || approveGroup.isPending
+  const busy = sending || reject.isPending || snooze.isPending
   const launch = launches.find((l) => l.id === search.launch)
+  const attempt = latestAttempt(approve, approveGroup)
+  const attemptLaunch = attempt?.runId ? launches.find((l) => l.id === attempt.runId) : undefined
+  // The run pane for the approval in flight: from the click (before the URL commits, the approved item still names
+  // it) until the URL catches up with the server's answer. Once the 202 has recorded the launch, the same panel
+  // (same key) shows it, so focus and the live region carry over.
+  const ownsPane =
+    attempt !== null &&
+    (search.launch === STARTING || (attempt.pending && search.launch === undefined && search.item !== undefined && attempt.itemIds.includes(search.item)))
+  const runPane = ownsPane
+    ? attemptLaunch
+      ? { key: attempt.key, launch: attemptLaunch, starting: undefined }
+      : attempt.ok
+        ? null // no run after all (the API answered without one): the item pane shows
+        : { key: attempt.key, launch: attempt.standIn, starting: attempt.rows }
+    : launch
+      ? { key: launch.id === attempt?.runId ? attempt.key : launch.id, launch, starting: undefined }
+      : null
   const lock = active.lockFor(selected?.claim)
   const groupLock = members.map((m) => active.lockFor(m.claim)).find((l) => l !== null) ?? null
 
-  const removeAndAdvance = (ids: string[], patch: { group?: undefined } = {}) => {
+  const removeAndAdvance = (ids: string[], patch: { group?: undefined; launch?: typeof STARTING } = {}) => {
     void select({ item: nextSelection(order, ids, search.item), ...patch })
     setPanelFor(null)
   }
@@ -86,13 +148,21 @@ export function InboxPage() {
     else fn()
   }
 
+  // `mutate` first: any render after it reads the pending mutation (useSyncExternalStore), so the frame that commits
+  // `launch=starting` already draws "Starting…", never the next item.
   const doApprove = (item: InboxItem, edits?: Record<string, unknown>) => {
-    removeAndAdvance([item.id])
+    setRefused(null)
     approve.mutate({ item, ...(edits ? { edits } : {}) })
+    removeAndAdvance([item.id], approveStartsRun(item) ? { launch: STARTING } : {})
   }
   const doApproveGroup = (g: InboxGroup, gm: InboxItem[]) => {
-    removeAndAdvance(gm.map((m) => m.id), { group: undefined })
-    approveGroup.mutate({ groupKey: g.group_key, title: g.title, items: gm, wording: { action_label: g.action_label, touches: g.touches } })
+    setRefused(null)
+    approveGroup.mutate({ groupKey: g.group_key, title: g.title, items: gm, wording: { action_label: g.action_label, touches: g.touches }, ...(selected ? { from: selected } : {}) })
+    removeAndAdvance(gm.map((m) => m.id), { group: undefined, launch: STARTING })
+  }
+  /** A or ⇧A while an approval is on its way: say so, instead of a key that does nothing. */
+  const waitForIt = () => {
+    toast(`${attempt?.rows.map((r) => r.label).join(', ') || 'Your approval'} is starting. Approve opens when the server answers.`, { tone: 'info' })
   }
   const openGroup = (g: InboxGroup) => void select({ group: g.group_key, item: g.item_ids[0] })
 
@@ -117,11 +187,11 @@ export function InboxPage() {
     onSelect: selectKey,
     onOpen: (id) => openClaim(items.find((i) => i.id === id)),
     bindings: {
-      a: selected && !blocked && departed?.itemId !== selected.id && !busy ? guarded(lock, () => doApprove(selected)) : undefined,
+      a: selected && !blocked && departed?.itemId !== selected.id ? (sending ? waitForIt : busy ? undefined : guarded(lock, () => doApprove(selected))) : undefined,
       e: selected && !blocked ? guarded(lock, () => setPanel('edit')) : undefined,
       r: selected && !blocked ? guarded(lock, () => setPanel('reject')) : undefined,
       s: selected && !blocked ? guarded(lock, () => setPanel('snooze')) : undefined,
-      'shift+a': group && !busy ? guarded(groupLock, () => doApproveGroup(group.group, members)) : undefined,
+      'shift+a': group ? (sending ? waitForIt : busy ? undefined : guarded(groupLock, () => doApproveGroup(group.group, members))) : undefined,
       'g c': selected?.claim ? () => openClaim(selected) : undefined,
       escape: search.launch ? () => void select({ item: search.item }) : undefined,
     },
@@ -142,10 +212,11 @@ export function InboxPage() {
   ) : null
 
   const next = selected ?? items.find((i) => i.signer_note === null)
-  const pane = launch ? (
+  const pane = runPane ? (
     <ProgressPanel
-      key={launch.id}
-      launch={launch}
+      key={runPane.key}
+      launch={runPane.launch}
+      {...(runPane.starting ? { starting: runPane.starting } : {})}
       variant="pane"
       onClose={() => void select({ item: search.item })}
       footer={({ failed }) => {
@@ -172,7 +243,7 @@ export function InboxPage() {
         )
       }}
     />
-  ) : search.launch ? (
+  ) : search.launch && search.launch !== STARTING ? (
     <EmptyState title="This run was started in another tab">Runs you start are listed in the tab that started them. Its claim shows the result.</EmptyState>
   ) : selected ? (
     <InboxDecision
@@ -183,6 +254,7 @@ export function InboxPage() {
       setPanel={setPanel}
       now={now}
       departed={departed?.itemId === selected.id ? departed : null}
+      refused={refused?.itemId === selected.id ? refused.message : null}
       busy={busy}
       lock={group ? groupLock : lock}
       onApprove={(edits) => doApprove(selected, edits)}
@@ -241,4 +313,33 @@ export function InboxPage() {
       </div>
     </div>
   )
+}
+
+/** The latest Approve or ⇧A this page sent, or null before the first. */
+function latestAttempt(single: ReturnType<typeof useApprove>, batch: ReturnType<typeof useApproveGroup>): Attempt | null {
+  const one = single.variables && !single.isIdle ? single : null
+  const many = batch.variables && !batch.isIdle ? batch : null
+  if (one?.variables && (!many || one.submittedAt >= many.submittedAt)) {
+    const item = one.variables.item
+    return {
+      key: `approve:${one.submittedAt}`,
+      pending: one.isPending,
+      ok: one.isSuccess,
+      itemIds: [item.id],
+      runId: one.data?.run?.id,
+      standIn: { id: STARTING, kind: 'approve', title: item.title, runs: [], started_at: '', action_label: item.action_label, touches: item.touches },
+      rows: [runRow(item)],
+    }
+  }
+  if (!many?.variables) return null
+  const v = many.variables
+  return {
+    key: `approve_group:${many.submittedAt}`,
+    pending: many.isPending,
+    ok: many.isSuccess,
+    itemIds: v.items.map((i) => i.id),
+    runId: many.data?.runs[0]?.id,
+    standIn: { id: STARTING, kind: 'approve_group', title: `Approve ${v.items.length} · ${v.title}`, runs: [], started_at: '', action_label: v.wording?.action_label ?? null, touches: v.wording?.touches ?? [] },
+    rows: v.items.map(runRow),
+  }
 }

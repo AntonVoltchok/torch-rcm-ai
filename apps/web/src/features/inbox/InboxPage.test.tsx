@@ -203,6 +203,140 @@ describe('Inbox approve', () => {
   })
 })
 
+/** Holds a POST until released, then falls through to the mock API (or answers with `refuse`). */
+function hold(url: RegExp, refuse?: { status: number; code: string; message: string }) {
+  let release = () => {}
+  const held = new Promise<void>((r) => {
+    release = r
+  })
+  let answered = false
+  api.server.use(
+    http.post(url, async () => {
+      await held
+      answered = true
+      if (refuse) return HttpResponse.json({ error: { code: refuse.code, message: refuse.message } }, { status: refuse.status })
+    }),
+  )
+  return { release, answered: () => answered }
+}
+
+/**
+ * Every decision pane React mounts from now on, read from the DOM's own mutation records, so a pane that is
+ * mounted and gone again before the next assertion still counts.
+ */
+function watchDecisions() {
+  const mounted: string[] = []
+  const obs = new MutationObserver((records) => {
+    for (const r of records)
+      for (const n of r.addedNodes) {
+        if (!(n instanceof HTMLElement)) continue
+        const found = n.matches('[data-testid="decision"]') ? [n] : [...n.querySelectorAll('[data-testid="decision"]')]
+        for (const d of found) mounted.push(d.getAttribute('aria-label') ?? '?')
+      }
+  })
+  obs.observe(document.body, { childList: true, subtree: true })
+  return { mounted, stop: () => obs.disconnect() }
+}
+
+describe('Inbox approve: the run pane opens on the click (final D1 red team, flash)', () => {
+  it('shows "Starting…" before the server answers, never the next item, then the same pane takes the steps', async () => {
+    const approve = hold(approveUrl)
+    const user = userEvent.setup()
+    const { router } = renderApp('/inbox?item=itm_4705')
+    await screen.findByRole('article', { name: /#4705/ })
+    const watch = watchDecisions()
+    await user.click(within(await decision('4705')).getByRole('button', { name: SEND }))
+
+    const pane = await screen.findByRole('region', { name: 'Agent progress' })
+    expect(approve.answered()).toBe(false)
+    expect(pane).toHaveAttribute('data-starting', 'true')
+    expect(within(pane).getByRole('heading', { level: 1 })).toHaveTextContent('Send prompt-pay request')
+    expect(within(pane).getByRole('heading', { level: 2 })).toHaveTextContent('Starting…')
+    expect(within(pane).getByRole('region', { name: /^Run #4705/ })).toHaveTextContent('Starting…')
+    expect(router.state.location.search).toMatchObject({ launch: 'starting' })
+    expect(screen.queryByRole('article')).toBeNull()
+    expect(launchStore.get()).toHaveLength(0)
+
+    approve.release()
+    await waitFor(() => expect(pane.querySelectorAll('[data-step]').length).toBeGreaterThan(0), { timeout: 3000 })
+    expect(screen.getByRole('region', { name: 'Agent progress' })).toBe(pane) // the same panel, not a remount
+    expect(pane).not.toHaveAttribute('data-starting')
+    const launched = launchStore.get()[0]
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ launch: launched?.id }))
+    watch.stop()
+    expect(watch.mounted).toEqual([])
+  })
+
+  it('on a refusal returns to the same item with the server’s reason, and leaves nothing launched', async () => {
+    const message = 'Only Dr. Morgan can approve this.'
+    const approve = hold(approveUrl, { status: 403, code: 'tier_requires_owner', message })
+    const user = userEvent.setup()
+    const { router } = renderApp('/inbox?item=itm_4705')
+    await screen.findByRole('article', { name: /#4705/ })
+    const watch = watchDecisions()
+    await user.keyboard('a')
+    expect(await screen.findByRole('region', { name: 'Agent progress' })).toHaveAttribute('data-starting', 'true')
+
+    approve.release()
+    const back = await decision('4705')
+    expect(within(back).getByRole('alert')).toHaveTextContent(message)
+    expect(screen.queryByRole('region', { name: 'Agent progress' })).toBeNull()
+    expect(router.state.location.search).toMatchObject({ item: 'itm_4705' })
+    expect(router.state.location.search).not.toHaveProperty('launch')
+    expect(launchStore.get()).toHaveLength(0)
+    expect(row('itm_4705')).not.toBeNull()
+    expect(screen.getAllByText(message)).toHaveLength(1) // said once, inline, not also toasted
+    watch.stop()
+    expect(watch.mounted).toEqual([back.getAttribute('aria-label')]) // only the item it came back to
+  })
+
+  it('⇧A opens one Starting pane for the whole batch, then its runs; J/K stay live and leave it', async () => {
+    const group = hold(/\/inbox:approve-group$/)
+    const user = userEvent.setup()
+    const { router } = renderApp('/inbox?item=itm_4821&group=delta_ny%3Aresubmit_with_attachment')
+    await screen.findByRole('article', { name: /#4821/ })
+    const watch = watchDecisions()
+    await user.keyboard('{Shift>}A{/Shift}')
+
+    const pane = await screen.findByRole('region', { name: 'Agent progress' })
+    expect(pane).toHaveAttribute('data-starting', 'true')
+    const rows = within(pane).getAllByRole('region', { name: /^Run #/ })
+    expect(rows).toHaveLength(3) // "Delta Dental · missing PA x-ray (3)": one row per member, before any run exists
+    expect(rows.every((r) => r.textContent?.includes('Starting…'))).toBe(true)
+    group.release()
+    await waitFor(() => expect(pane.querySelectorAll('[data-run]').length).toBe(rows.length), { timeout: 3000 })
+    expect(screen.getByRole('region', { name: 'Agent progress' })).toBe(pane)
+    watch.stop()
+    expect(watch.mounted).toEqual([])
+
+    // J/K leave the run pane as they do during any run; the batch stays under "Runs you started".
+    await user.keyboard('j')
+    expect(await screen.findByRole('article')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Agent progress' })).toBeNull()
+    expect(router.state.location.search).not.toHaveProperty('launch')
+    expect(launchStore.get()).toHaveLength(1)
+  })
+
+  it('J while Starting leaves the pane; the 202 then only lists the run and does not pull the pane back', async () => {
+    const approve = hold(approveUrl)
+    const user = userEvent.setup()
+    const { router } = renderApp('/inbox?item=itm_4705')
+    await user.click(within(await decision('4705')).getByRole('button', { name: SEND }))
+    expect(await screen.findByRole('region', { name: 'Agent progress' })).toHaveAttribute('data-starting', 'true')
+    await user.keyboard('j')
+    const other = await screen.findByRole('article')
+    expect(screen.queryByRole('region', { name: 'Agent progress' })).toBeNull()
+    await user.keyboard('a') // one approval at a time: the key says why it waits
+    expect(await screen.findByText(/#4705 .* is starting\. Approve opens when the server answers\./)).toBeInTheDocument()
+
+    approve.release()
+    await waitFor(() => expect(launchStore.get()).toHaveLength(1), { timeout: 3000 })
+    expect(screen.getByRole('article')).toBe(other)
+    expect(screen.queryByRole('region', { name: 'Agent progress' })).toBeNull()
+    expect(router.state.location.search).not.toHaveProperty('launch')
+  })
+})
+
 describe('Inbox counts (final D1 red team #4)', () => {
   it('says how many need you and who the rest wait on; badge, header and the All tab are one number', async () => {
     renderApp('/inbox')

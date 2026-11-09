@@ -172,3 +172,69 @@ step 8 opens Castillo and reads "6 of 7 paid within 30 days".
 - **Castillo wording.** "Sent the FMX without the perio chart", not "instead of"; the request should send the perio
   chart and re-attach the FMX. This is seed and agent-script text, not changed here.
 - `docs/STATUS.md` is not updated in this branch, to keep the coordinator's merge clean (as rt-truth).
+## rt-flash
+
+Two fixes from the final red team: the Approve flash in the Inbox, and the last of Foster #4772's old figures in the
+design file. Judgment calls went to one red-team subagent (the hiring Director of Engineering, TanStack-literate). Its
+answers were adopted as below. No API change.
+
+### The run pane opens on the click
+
+Before this fix, Approve and ⇧A moved `?item=` to the next item and set `?launch=` only on the 202. For 1–2 s the
+next item's pane and its (disabled) Approve showed.
+
+| Decision | Choice | Why / alternative rejected |
+|---|---|---|
+| Where "Starting" lives | A URL sentinel, `?launch=starting` (`STARTING` in `features/inbox/search.ts`). It is set in the same handler as `mutate()`, with `item` moved to the next item (the cursor) as before. The pane draws "Starting…" from the mutation's variables. | Component state would be a second source of truth for which pane shows. With the URL, the existing rule "selecting drops `launch`" makes J/K leave the Starting pane with no extra code. |
+| No frame of the next item | `mutate()` is called before `navigate()`. `useMutation` reads the observer through `useSyncExternalStore`, so any render after `mutate()` sees `isPending`, including the one that commits the URL. Before the URL commits, the approved item's id still names the pane. After the answer, the attempt keeps the pane until the URL catches up. | Rendering only on `isPending` leaves a frame at the 202 (pending is false, the URL still says `starting`), which is the flash again. The red team caught this. |
+| Same panel | `ProgressPanel` takes `starting` rows (relay row per claim, "Starting…", the claim's own baton). It is keyed by the attempt (`approve:<submittedAt>`), so when the 202 records the launch, the same instance shows it. Heading focus is applied once per pane. The live line goes "Your approval is on its way to the server." → "Started. The steps show as they run." | A remount would re-run the heading focus, and a screen reader would read the same heading twice. |
+| The 202 | `openLaunch` reads `router.state.location`. If the pathname is `/inbox` and `launch` is still `starting`, `launch` becomes the run id. Otherwise the run is only listed under "Runs you started". | Hook-level callbacks run after the reader has left (J/K, `g c`). A `navigate({ from: '/inbox' })` with no `to` would drag them back. |
+| A refusal (409 `claim_busy`, 403, network, 409 `file_departed`) | Still on Starting: the URL goes back to the item (and its group) with no `launch`, and the server's reason shows inline under the buttons (`role="alert"`, `data-testid="refused"`). There is no toast, so the reason is said once. Moved on: a toast with "Back to <patient> #N". `useApprove` / `useApproveGroup` take `onRefused(refusal, variables)`. Without it they toast, as before (the claim page). | Pulling the reader back from another item would be worse than a toast with a way back. |
+| ⇧A | Same path. The Starting pane has one row per member. `from` (the member the pane showed) is where a refusal returns. | — |
+| A / ⇧A while Starting | A toast: "#4705 B. Brooks is starting. Approve opens when the server answers." | Previously the key did nothing. |
+| No run expected | An owner sign-off or an eligibility flag (`approveStartsRun`, mirroring the API's `_approve` branches) advances as before, with no Starting pane. | — |
+| Reload on `?launch=starting` | The selected item shows. The approval's fate is the server's, and the run is not in this tab's launches. | Showing "started in another tab" would be wrong. |
+
+**Tests.** `InboxPage.test.tsx`, "the run pane opens on the click". Each test holds the approve POST on a promise and
+records every decision pane React mounts, from the DOM's own mutation records:
+
+- Starting shows before the answer, and no decision pane mounts. Steps then stream into the same DOM node, and the
+  URL goes `starting` → run id.
+- A 403 returns to #4705 with the reason, once. Nothing is in `launchStore`, there is no `launch` in the URL, and the
+  only pane mounted is #4705's.
+- ⇧A: a three-row Starting pane, then three runs in the same node. J leaves the pane.
+- J while Starting leaves the pane. A says why it waits. The 202 lists the run and does not pull the pane back.
+
+Three of the four fail on the old code. The ⇧A test fails on an old `doApproveGroup`.
+`e2e/run-pane-starting.spec.ts` (@demo, real target only, because MSW's worker answers before a Playwright route can
+hold the request): the run pane with "Starting…" shows while the approve POST is held, then the steps follow.
+`reload-mid-run.spec.ts` now waits for `launch=run_` before reloading. `launch=` matched `starting`.
+
+### Foster #4772 in `mocks.html`
+
+Changed in both copies, `docs/design/mocks.html` and `apps/web/public/design/mocks.html` (they are identical). The
+figures are the seed's: share $33.60 (20% of $168 allowed, deductible met 05/12), $25.60 Cigna underpaid and held,
+no refund.
+
+- **Patients (r7):** the row now reads "share $33.60 · paid $33.60 · **$25.60 held** · Cigna underpaid · not hers".
+  The design-notes bullet is restated.
+- **Round 6 patient-billing options:** the A row reads "share $33.60 · $25.60 held · hold · no refund". The
+  true-up table reads "Cigna underpaid $25.60 · PR-1 applied though met". "Nobody bills her the $25.60 Cigna owes"
+  replaces "nobody is charged the $32". The Pros line and the intro sentence are updated.
+- **Denials footer:** "Payments 5 · $1,175.20 (… Foster $25.60)" replaces $1,181.60 / "Foster $32", in the screen,
+  its note and the Round 6 change list.
+- **Left as is, because they are the 835 itself:** PR-1 $32.00 and PR-2 $27.20 on the remit line and in its totals,
+  "Cigna applied a $32 PR-1", and Foster's own question "Why $59.20?".
+- **"Paid at checkout":** this was the mock's existing story. The seed's ledger generates checkout payments, and I
+  did not check Foster's in particular.
+
+### Checks
+
+- `make lint`: green. `make test`: API 639, web 152 (28 files).
+- MSW e2e: 7 passed, 1 skipped (the real-only spec).
+- Real-target `@demo`: 4/4, against the API on :8161 over `apps/api/rt-flash.db` and the web on :5261.
+
+### Left
+
+- `docs/STATUS.md` is not updated, to keep the merge with `rt-signer` clean.
+- The rt-seed leftover above ("The Patients design still shows Foster's old numbers") is done.

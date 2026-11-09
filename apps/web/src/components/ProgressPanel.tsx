@@ -4,6 +4,8 @@
  * from the decision, and its baton is the claim's own server `move`, refetched when the run ends. When every run has
  * ended, "What changed" shows the server's before/after for this approval (`Launch.changes`, from ApproveOut), unless a
  * run failed: then those numbers no longer hold, and the failed step's own words lead instead.
+ * In the Inbox the pane opens on the click, before the server answers: `starting` draws the relay rows with
+ * "Starting…" and no steps, and the same instance takes the launch when the 202 lands (InboxPage keys it by attempt).
  * What a reviewer needs to trust a run stays one click away: the reads a live agent chose, its label and rationale,
  * the policy verdict, the planner and the audit line.
  */
@@ -246,6 +248,27 @@ function RunBlock({
   )
 }
 
+/** A claim the pending approval will run on: its relay row, before the server has named the run. */
+function StartingBlock({ row }: { row: StartingRow }) {
+  const claim = useQuery({ ...claimQuery(row.claim_id ?? 'none'), enabled: Boolean(row.claim_id) }).data?.claim
+  return (
+    <section aria-label={`Run ${row.label}`} data-run-status="starting" className="border-b border-line last:border-b-0">
+      <RelayRow
+        className="border-b-0"
+        name={
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-semibold">{row.label}</span>
+            <span className="flex-none text-sm text-mid">Starting…</span>
+          </span>
+        }
+        cents={claim?.billed_cents}
+        status={claim?.status}
+        baton={claim ? <Baton who={claim.move.who} held={claim.move.mine ? 'mine' : 'other'} size="lg" label={claim.move.label || undefined} /> : null}
+      />
+    </section>
+  )
+}
+
 function Changes({ changes }: { changes: StripChange[] }) {
   const strip = useStrip().data
   return (
@@ -293,6 +316,12 @@ function Changes({ changes }: { changes: StripChange[] }) {
   )
 }
 
+/** One claim of an approval the server has not answered yet. */
+export interface StartingRow {
+  label: string
+  claim_id: string | null
+}
+
 export interface LaunchState {
   /** Every run has ended (the server says so). */
   done: boolean
@@ -306,6 +335,7 @@ export function ProgressPanel({
   fromInbox = true,
   variant = 'card',
   footer,
+  starting,
 }: {
   launch: Launch
   onClose?: () => void
@@ -314,8 +344,12 @@ export function ProgressPanel({
   variant?: 'card' | 'pane'
   /** What to do next, once every run has ended (the Inbox's Next). */
   footer?: (s: LaunchState) => ReactNode
+  /** The approval is on its way and the server has not named its runs: these rows show "Starting…". */
+  starting?: StartingRow[]
 }) {
-  const [open, setOpen] = useState<string | null>(launch.runs[0]?.run_id ?? null)
+  // `undefined` until the reader toggles: the first run opens, including when it arrives after "Starting…".
+  const [toggled, setOpen] = useState<string | null | undefined>(undefined)
+  const open = toggled === undefined ? (launch.runs[0]?.run_id ?? null) : toggled
   const [runs, setRuns] = useState<Record<string, RunView | undefined>>({})
   const onRun = useRef((id: string, run: RunView | undefined) => {
     setRuns((cur) => (cur[id] === run ? cur : { ...cur, [id]: run }))
@@ -330,14 +364,21 @@ export function ProgressPanel({
 
   const headRef = useRef<HTMLHeadingElement>(null)
   const footRef = useRef<HTMLDivElement>(null)
+  // Once per pane: when "Starting…" becomes the launch, the heading is the same and keeps its focus.
   useEffect(() => {
     if (pane) headRef.current?.focus()
-  }, [pane, launch.id])
+  }, [pane])
   useEffect(() => {
     if (pane && done) footRef.current?.querySelector('button')?.focus({ preventScroll: true })
   }, [pane, done])
 
-  const summary = done
+  const wasStarting = useRef(Boolean(starting))
+  if (starting) wasStarting.current = true
+  const summary = starting
+    ? 'Your approval is on its way to the server.'
+    : !done && wasStarting.current
+      ? 'Started. The steps show as they run.'
+      : done
     ? failed.length > 0
       ? failed[0]?.result_summary || firstFailedStep?.output_summary || 'A step failed.'
       : views.length === 1
@@ -357,7 +398,7 @@ export function ProgressPanel({
       <div>
         <div className={cn(failed.length > 0 && 'rounded-lg border border-risk-line bg-risk-bg px-3.5 py-3')}>
           <h2 className={cn('m-0 text-md font-semibold', failed.length > 0 && 'text-risk-ink')}>
-            {done ? (failed.length > 0 ? 'Stopped, and nothing more was done' : 'Finished') : 'Agents are on it'}
+            {done ? (failed.length > 0 ? 'Stopped, and nothing more was done' : 'Finished') : starting ? 'Starting…' : 'Agents are on it'}
           </h2>
           <p aria-live="polite" className="m-0 mt-0.5 text-sm text-ink">
             {summary}
@@ -402,6 +443,7 @@ export function ProgressPanel({
       role="region"
       aria-label="Agent progress"
       data-testid="run-pane"
+      data-starting={starting ? true : undefined}
       data-done={done || undefined}
       data-failed={failed.length > 0 || undefined}
       className={cn(pane ? 'px-6 pb-[22px] pt-5' : 'rounded-lg border border-line bg-paper px-4 py-3.5')}
@@ -430,7 +472,8 @@ export function ProgressPanel({
       </div>
 
       {done && outcome}
-      <RelayTable count={launch.runs.length}>
+      <RelayTable count={starting ? starting.length : launch.runs.length}>
+        {starting?.map((r, i) => <StartingBlock key={i} row={r} />)}
         {launch.runs.map((r) => (
           <RunBlock
             key={r.run_id}
