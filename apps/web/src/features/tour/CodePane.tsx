@@ -20,7 +20,7 @@ const KIND: Record<PaneKind, { label: string; cls: string }> = {
   cache: { label: 'GET + SSE, in cache', cls: 'bg-ok-bg text-ok' },
   rendered: { label: 'rendered on the seed', cls: 'bg-act-bg text-act' },
   source: { label: 'verbatim source', cls: 'bg-act-bg text-act' },
-  synthetic: { label: 'hand-authored recording', cls: 'bg-practice-bg text-practice-ink' },
+  recording: { label: 'recorded API response', cls: 'bg-practice-bg text-practice-ink' },
 }
 
 export function CodePane({ tabs }: { tabs: CodeTab[] }) {

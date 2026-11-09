@@ -422,7 +422,7 @@ def tools_txt(w: World) -> str:
     )
     for i, t in enumerate(tools, 1):
         role = "terminal" if t["name"] in schemas_mod.TERMINAL_TOOLS else "read"
-        out.append(f"# {i}. {t['name']}  strict={json.dumps(t.get('strict'))}  ({role})")
+        out.append(f"# {i}. {t['name']}  strict={json.dumps(t.get('strict', False))}  ({role})")
     out.append(f"# lint_tools(tools) -> {schemas_mod.lint_tools(tools)!r}   (strict-mode limits; no PHI in enum/const)")
     out.append(f"# tools_sha_for('{AGENT}', 'plan') = {prompts_mod.tools_sha_for(AGENT, 'plan')}")
     for name in ("pms_find_images", "claim_get_history"):
@@ -573,7 +573,12 @@ def plan_4744(w: World) -> str:
         )
     out = [f"# HONEST LABEL: the cassette turns below are {label}."]
     out += head(
-        f"#{CLAIM_UNKNOWN[4:]}: the reviewed plan deterministic mode replays, and the live-format turns it reproduces",
+        f"#{CLAIM_UNKNOWN[4:]}: the reviewed plan deterministic mode replays, and "
+        + (
+            "the live-format turns it reproduces"
+            if header.get("synthetic")
+            else "the recorded turns live mode replays (inside the plan's envelope, not equal to it)"
+        ),
         [
             f"{rel(RECORDED_PLAN)} (verbatim; {planner} in {where(scripted_mod)} replays it)",
             f"{rel(path)} (header, then each call's response.content)",

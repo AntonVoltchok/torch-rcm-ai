@@ -346,7 +346,7 @@ function TourModal({ step }: { step: Step }) {
           <span className="min-w-[220px] flex-1 text-xs text-mid">
             {welcome
               ? 'Opens each time the app loads; exit any time and restart it from “Tour this screen” in the sidebar.'
-              : 'Panes marked “live response” read the API through the app’s own client; “rendered” ran the real code on the seed; “hand-authored recording” is labelled where it appears.'}
+              : 'Panes marked “live response” read the API through the app’s own client; “rendered” ran the real code on the seed; “recorded API response” is a cassette captured from the API and replayed.'}
           </span>
           <button type="button" onClick={welcome ? exit : () => start('main')} className="rounded-lg border border-line-strong bg-paper px-4 py-2 text-[13.5px] font-semibold">
             {welcome ? 'Skip, use the app' : 'Replay main tour'}

@@ -55,7 +55,6 @@ summary: Attach the 10/12 PA of #19 via NEA and resubmit in the next Delta file.
 {
   "name": "submit_plan",
   "description": "Submit your classification and proposed actions. Call alone, after reading. The practice's rules decide what runs.",
-  "strict": true,
   "input_schema": {
     "type": "object",
     "additionalProperties": false,
@@ -105,5 +104,6 @@ summary: Attach the 10/12 PA of #19 via NEA and resubmit in the next Delta file.
       },
       "injection_suspected": {"type": "boolean"}
     }
-  }
+  },
+  "strict": true
 }

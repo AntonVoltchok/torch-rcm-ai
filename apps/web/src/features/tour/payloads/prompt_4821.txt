@@ -4,7 +4,6 @@
 # ran against: scenario canonical (world/scenarios.py build_scenario, seed 20261028) in a throwaway SQLite DB; clock Wed 2026-10-28 10:40 -0400 (as seeded, not advanced); TORCH_AGENT_MODE=deterministic
 # deterministic mode (the default) sends nothing: the classifier names denied:CO-16:N29:pa_missing, so ScriptedPlanner plans this claim (plan_4821.txt).
 # live mode (TORCH_AGENT_MODE=live) hands this case to the model: executor.Executor._planner, situations.is_judgment('followup', 'denied:CO-16:N29:pa_missing') = True
-# its canonical live turns, apps/api/cassettes/canonical/clm_4821_group.jsonl, are hand-authored in the live wire format (synthetic: true), not a captured API response.
 # regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
 # generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
 

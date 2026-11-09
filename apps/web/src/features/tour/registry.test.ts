@@ -47,10 +47,10 @@ describe('tour registry', () => {
       for (const s of t.steps) for (const c of s.code ?? []) if (c.load.type === 'static') expect(PAYLOADS, `${t.id}/${s.id}`).toContain(c.load.name)
   })
 
-  it('labels every #4744 recording as hand-authored', () => {
+  it('labels every #4744 cassette pane as a recorded API response', () => {
     const panes = Object.values(TOURS).flatMap((t) => t.steps.flatMap((s) => s.code ?? []))
     const plan = panes.filter((c) => c.load.type === 'static' && c.load.name === 'plan_4744')
     expect(plan.length).toBeGreaterThan(0)
-    for (const c of plan) expect(c.kind).toBe('synthetic')
+    for (const c of plan) expect(c.kind).toBe('recording')
   })
 })

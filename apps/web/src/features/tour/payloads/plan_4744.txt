@@ -1,12 +1,10 @@
-# HONEST LABEL: the cassette turns below are hand-authored in the live wire format (synthetic: true), not a captured API response.
-# #4744: the reviewed plan deterministic mode replays, and the live-format turns it reproduces
+# HONEST LABEL: the cassette turns below are captured by `torch cassette record` (synthetic: false).
+# #4744: the reviewed plan deterministic mode replays, and the recorded turns live mode replays (inside the plan's envelope, not equal to it)
 # source: apps/api/torch_rcm/agents/planner/recorded/clm_4744.plan.json (verbatim; RecordedPlanPlanner in apps/api/torch_rcm/agents/planner/scripted.py replays it)
 # source: apps/api/cassettes/canonical/clm_4744.jsonl (header, then each call's response.content)
 # source: apps/api/torch_rcm/agents/planner/live.py render_read for each read on the seed, render_plan for the replayed Plan
 # ran against: scenario canonical (world/scenarios.py build_scenario, seed 20261028) in a throwaway SQLite DB; clock Wed 2026-10-28 10:40 -0400 (as seeded, not advanced); TORCH_AGENT_MODE=deterministic
 # cassette key system_sha == prompts.system_sha('followup') today: True; tools_sha == tools_sha_for('followup', 'plan'): True
-# the plan file's recorded_from names cassettes/canonical/followup/unknown/clm_4744.jsonl, which does not exist; the cassette is apps/api/cassettes/canonical/clm_4744.jsonl
-# its recorded_from says 'live triage', but the turns it reproduces are the synthetic cassette below
 # regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
 # generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
 
@@ -14,7 +12,7 @@
 {
   "claim_id": "clm_4744",
   "agent": "followup",
-  "recorded_from": "live triage (claude-sonnet-5-5, effort medium) replayed from cassettes/canonical/followup/unknown/clm_4744.jsonl",
+  "recorded_from": "hand-written for the demo; live mode replays the API recording cassettes/canonical/clm_4744.jsonl, which must stay inside this envelope (torch eval)",
   "reviewed_by": "usr_dana",
   "reviewed_on": "2026-11-01",
   "situation_description": "payer asks for missing-tooth history",
@@ -38,11 +36,10 @@
 
 # --- cassette header ---
 {
-  "hash_mode": "structure",
+  "hash_mode": "full",
   "name": "clm_4744",
-  "note": "Hand-authored (synthetic: true): realistic turns that satisfy the strict schemas and reproduce the reviewed plans. Replace with `torch cassette record` output when a key is available.",
   "recorded_at": "2026-10-28T10:40:00-04:00",
-  "synthetic": true,
+  "synthetic": false,
   "type": "header",
   "v": 1
 }
@@ -50,60 +47,107 @@
 # --- cassette call seq 0 (plan): assistant turn, stop_reason tool_use ---
 [
   {
-    "text": "There is no structured status for this claim. I'll read MetLife's correspondence and the 2019 visit for #14.",
+    "text": "I'll start by reading the claim history, visit, and coverage.",
     "type": "text"
   },
   {
-    "id": "toolu_syn_4744_01",
+    "caller": {"type": "direct"},
+    "id": "toolu_01VmbqjNiQYGuGJcs7zrwLo7",
     "input": {
       "claim_id": "clm_4744",
-      "include": ["correspondence"]
+      "include": ["acks", "remits", "attachments", "correspondence", "prior_eobs", "runs", "payer_tooth_history"]
     },
     "name": "claim_get_history",
     "type": "tool_use"
   },
   {
-    "id": "toolu_syn_4744_02",
+    "caller": {"type": "direct"},
+    "id": "toolu_012A77pRNCtY5y5iyFuGKeCf",
+    "input": {"visit_id": "vis_0916_hale"},
+    "name": "pms_get_visit",
+    "type": "tool_use"
+  },
+  {
+    "caller": {"type": "direct"},
+    "id": "toolu_01EMwg8fsU1BenfxHkKKLgZ6",
+    "input": {"patient_id": "pat_hale_p"},
+    "name": "pms_get_coverage",
+    "type": "tool_use"
+  },
+  {
+    "caller": {"type": "direct"},
+    "id": "toolu_01MEd8oFiRZmiwxvNHW38AWK",
+    "input": {
+      "cdt_codes": ["D6240", "D6750"],
+      "payer_key": "metlife",
+      "topic": "missing_tooth"
+    },
+    "name": "payer_rulebook_lookup",
+    "type": "tool_use"
+  }
+]
+# tool_result for toolu_01VmbqjNiQYGuGJcs7zrwLo7, as render_read renders it on the seed:
+ok: read portal correspondence 10/22
+<world_content source="tool:claim_get_history" kind="tool_data" trust="untrusted">{"acks": ["09/16 10:17 999 accepted (file level)", "09/16 10:19 Vyne 277CA A1: forwarded to payer", "09/17 06:36 Payer 277CA A1: accepted · ICN ML2609170266"], "attachments": [], "claim_id": "clm_4744", "correspondence": ["Correspondence 10/22: Please provide the date of extraction of tooth #14 and indicate whether this is an initial placement or a replacement prosthesis."], "payer_tooth_history": {}, "prior_eobs": [], "remits": [], "runs": []}</world_content>
+<world_content source="payer_portal" kind="portal_screenshot" evidence_id="E1" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">Correspondence 10/22: Please provide the date of extraction of tooth #14 and indicate whether this is an initial placement or a replacement prosthesis.</world_content>
+# tool_result for toolu_012A77pRNCtY5y5iyFuGKeCf, as render_read renders it on the seed:
+ok: PMS visit 2026-09-16 · D6240 #14, D6750 #13, D6750 #15
+<world_content source="tool:pms_get_visit" kind="tool_data" trust="untrusted">{"lines": [{"cdt": "D6240", "dos": "2026-09-16", "fee_cents": 115000, "id": "pl_0916_hale_1", "provider_id": "prv_morgan", "quadrant": null, "surface": null, "tooth": "14", "visit_id": "vis_0916_hale"}, {"cdt": "D6750", "dos": "2026-09-16", "fee_cents": 115000, "id": "pl_0916_hale_2", "provider_id": "prv_morgan", "quadrant": null, "surface": null, "tooth": "13", "visit_id": "vis_0916_hale"}, {"cdt": "D6750", "dos": "2026-09-16", "fee_cents": 115000, "id": "pl_0916_hale_3", "provider_id": "prv_morgan", "quadrant": null, "surface": null, "tooth": "15", "visit_id": "vis_0916_hale"}], "visit": {"appointment_id": null, "completed_at": "2026-09-16T09:50:00-04:00", "dos": "2026-09-16", "id": "vis_0916_hale", "location_id": "loc_downtown", "note_signed_at": "2026-09-16T09:50:00-04:00", "note_signed_by": "prv_morgan", "note_text": "", "patient_id": "pat_hale_p", "provider_id": "prv_morgan", "self_pay": false}}</world_content>
+<world_content source="pms" kind="pms_record" evidence_id="E2" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">Visit 2026-09-16 · D6240 #14, D6750 #13, D6750 #15 · note signed: yes</world_content>
+# tool_result for toolu_01EMwg8fsU1BenfxHkKKLgZ6, as render_read renders it on the seed:
+ok: PMS coverage on file
+<world_content source="tool:pms_get_coverage" kind="tool_data" trust="untrusted">{"coverages": [{"group_no": "0094-11", "id": "cov_hale_p_1", "order": "primary", "patient_id": "pat_hale_p", "payer_key": "metlife", "plan": {"alternate_benefit": null, "annual_max_cents": 150000, "deductible_cents": 5000, "deductible_met_cents": 5000, "deductible_met_on": null, "fee_schedule": "metlife_pdp", "frequencies": [], "missing_tooth_clause": true, "pct_basic": 80, "pct_major": 50, "pct_preventive": 100, "used_cents": 0, "waiting_period_days": 0}, "plan_name": "MetLife PDP Plus", "self_funded": false, "subscriber_id": "604441862", "verified_at": "2026-10-28T06:12:00-04:00", "verified_via": "portal"}]}</world_content>
+<world_content source="pms" kind="pms_record" evidence_id="E3" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">MetLife primary · subscriber 604441862 · group 0094-11 · missing-tooth clause: yes</world_content>
+# tool_result for toolu_01MEd8oFiRZmiwxvNHW38AWK, as render_read renders it on the seed:
+ok: rulebook · metlife · missing tooth
+<world_content source="tool:payer_rulebook_lookup" kind="tool_data" trust="untrusted">{"payer_key": "metlife", "rules": ["No missing tooth rule on file for MetLife."], "topic": "missing_tooth"}</world_content>
+<world_content source="rulebook" kind="policy_clause" evidence_id="E4" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">No missing tooth rule on file for MetLife.</world_content>
+
+# --- cassette call seq 1 (plan): assistant turn, stop_reason tool_use ---
+[
+  {
+    "text": "The payer is asking for the extraction date of #14. The PMS shows a prior D7140 on #14 from 2019-03-02. I'll read that visit to confirm.",
+    "type": "text"
+  },
+  {
+    "caller": {"type": "direct"},
+    "id": "toolu_01XLmWAXMTwXjKdtNrcxbEHi",
     "input": {"visit_id": "vis_0302_hale"},
     "name": "pms_get_visit",
     "type": "tool_use"
   }
 ]
-# tool_result for toolu_syn_4744_01, as render_read renders it on the seed:
-ok: read portal correspondence 10/22
-<world_content source="tool:claim_get_history" kind="tool_data" trust="untrusted">{"claim_id": "clm_4744", "correspondence": ["Correspondence 10/22: Please provide the date of extraction of tooth #14 and indicate whether this is an initial placement or a replacement prosthesis."]}</world_content>
-<world_content source="payer_portal" kind="portal_screenshot" evidence_id="E1" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">Correspondence 10/22: Please provide the date of extraction of tooth #14 and indicate whether this is an initial placement or a replacement prosthesis.</world_content>
-# tool_result for toolu_syn_4744_02, as render_read renders it on the seed:
+# tool_result for toolu_01XLmWAXMTwXjKdtNrcxbEHi, as render_read renders it on the seed:
 ok: PMS visit 2019-03-02 · D7140 #14
 <world_content source="tool:pms_get_visit" kind="tool_data" trust="untrusted">{"lines": [{"cdt": "D7140", "dos": "2019-03-02", "fee_cents": 19500, "id": "pl_0302_hale_1", "provider_id": "prv_morgan", "quadrant": null, "surface": null, "tooth": "14", "visit_id": "vis_0302_hale"}], "visit": {"appointment_id": null, "completed_at": "2019-03-02T10:20:00-05:00", "dos": "2019-03-02", "id": "vis_0302_hale", "location_id": "loc_downtown", "note_signed_at": "2019-03-02T10:20:00-05:00", "note_signed_by": "prv_morgan", "note_text": "Extraction #14, non-restorable fracture. Patient informed of replacement options.", "patient_id": "pat_hale_p", "provider_id": "prv_morgan", "self_pay": false}}</world_content>
-<world_content source="pms" kind="pms_record" evidence_id="E2" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">Visit 2019-03-02 · D7140 #14 · note signed: yes</world_content>
-<world_content source="pms_note" kind="note_excerpt" evidence_id="E3" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">Extraction #14, non-restorable fracture. Patient informed of replacement options.</world_content>
+<world_content source="pms" kind="pms_record" evidence_id="E5" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">Visit 2019-03-02 · D7140 #14 · note signed: yes</world_content>
+<world_content source="pms_note" kind="note_excerpt" evidence_id="E6" captured_at="2026-10-28T10:40:00-04:00" trust="untrusted">Extraction #14, non-restorable fracture. Patient informed of replacement options.</world_content>
 
-# --- cassette call seq 1 (plan): assistant turn, stop_reason tool_use ---
+# --- cassette call seq 2 (plan): assistant turn, stop_reason tool_use ---
 [
   {
-    "signature": "synthetic-signature-4744-01",
-    "thinking": "MetLife's 10/22 correspondence asks for the extraction date of #14 and whether the bridge is an initial placement. The PMS visit of 2019-03-02 is a signed D7140 #14 with a note documenting the extraction. That answers the question with records; no listed situation fits, so unknown. records_request with the note's visit is tier 1.",
-    "type": "thinking"
+    "text": "The payer requests records. I'll send the 2019 extraction note via NEA. The initial vs. replacement answer is not documented, so a person must supply it.",
+    "type": "text"
   },
   {
-    "id": "toolu_syn_4744_03",
+    "caller": {"type": "direct"},
+    "id": "toolu_01F1nvx65gRuTdi9mSh4cNus",
     "input": {
       "actions": [
         {
           "action": "records_request",
           "claim_id": "clm_4744",
-          "evidence_ids": ["E1", "E3"],
+          "evidence_ids": ["E1", "E5", "E6"],
           "image_ids": [],
           "note_visit_ids": ["vis_0302_hale"],
-          "rationale": "MetLife asks for the extraction date of #14 and whether the bridge is an initial placement; the signed 2019-03-02 note documents the extraction, so send it."
+          "rationale": "Payer asked for the extraction date of #14. The PMS shows D7140 #14 on 2019-03-02 with a signed note documenting the extraction; send that note via NEA."
         }
       ],
       "injection_suspected": false,
       "no_action_reason": null,
-      "reviewer_summary": "MetLife's 10/22 correspondence asks when #14 was extracted and whether this is an initial placement. The PMS has a signed extraction note for #14 dated 2019-03-02; send it as a records request.",
-      "situation_description": "payer asks for missing-tooth history",
-      "situation_key": "unknown"
+      "reviewer_summary": "MetLife's 10/22 correspondence asks for the #14 extraction date and whether this is an initial or replacement prosthesis. The 2019-03-02 extraction note is being sent; the initial-vs-replacement answer is not in the records and needs the provider or staff.",
+      "situation_description": "MetLife correspondence 10/22 requests the extraction date of #14 and whether the bridge is an initial placement or a replacement; the claim is still pending with no remit.",
+      "situation_key": "denied:CO-16:M127:records_request"
     },
     "name": "submit_plan",
     "type": "tool_use"

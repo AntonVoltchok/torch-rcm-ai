@@ -2,7 +2,7 @@
  * Every tour, as data. Copy is ported from docs/design/onboarding/tour-src.html (owner-approved, red-teamed) with one
  * change: the mock's numbers were checked at build time against captured JSON, while here every count and amount is a
  * `Num` read from the live response, so the copy stays true after the tour's own Approve or the overnight.
- * Labels about hand-authored cassettes and model-free approval runs are kept verbatim in spirit (DECISIONS D2, D3).
+ * Honest labels on recordings (now real API recordings, D21) and model-free approval runs are kept (DECISIONS D2, D3).
  */
 import type { ReactNode } from 'react'
 import { api } from '@/api/endpoints'
@@ -98,7 +98,7 @@ function Welcome() {
         <Fact k="Data" v="Canonical seed" m={<>
           <Num v={s?.open_count} /> open claims, generated from a fixed seed
         </>} />
-        <Fact k="Agent mode" v={mode === undefined ? <Server t={undefined} /> : mode === 'live' ? 'Live' : 'Deterministic (default)'} m="no model calls by default; live mode sends the same cases to Claude. Parity is so far checked against hand-authored cassettes" />
+        <Fact k="Agent mode" v={mode === undefined ? <Server t={undefined} /> : mode === 'live' ? 'Live' : 'Deterministic (default)'} m="no model calls by default; live mode sends the same cases to Claude. Parity is checked by replaying recorded API responses" />
       </div>
       <p className="m-0 max-w-[66ch] text-base leading-relaxed">
         The tour follows one claim, <b>K. Owens #4821</b>: Delta denied a crown because our own Claims agent attached a bitewing where Delta’s rule asks for a periapical. Every step
@@ -234,8 +234,8 @@ const MAIN: Tour = {
             <C>{'<world_content trust="untrusted">'}</C>: data to read, never instructions.
           </P>
           <Honest>
-            <b>In this demo no model ever sees #4821.</b> Its item is seeded, and the panes run the scripted planner on it. Live mode would send this situation to the model; the
-            cassette <C>make eval</C> replays for it is hand-authored in the live format (<C>synthetic: true</C>), not recorded from the API.
+            <b>In this demo no model ever sees #4821.</b> Its item is seeded, and the panes run the scripted planner on it. Live mode would send this situation to the model; its
+            cassette (<C>cassettes/canonical/clm_4821_group.jsonl</C>) was recorded from the API with <C>torch cassette record</C>.
           </Honest>
         </>
       ),
@@ -644,11 +644,11 @@ const CLAIM: Tour = {
           Inbox item, and its track record reads none: other situations’ history is not borrowed.
         </P>
         <Honest>
-          Deterministic mode replays a plan written by hand (<C>recorded/clm_4744.plan.json</C>, labelled “hand-written plan, replayed”). Its cassette is <b>hand-authored in the live
-          format</b> (<C>synthetic: true</C>), not a captured API response; the plan file’s “recorded_from: live triage” overstates that.
+          Deterministic mode replays a plan written by hand (<C>recorded/clm_4744.plan.json</C>, labelled “hand-written plan, replayed”). Live mode replays a{' '}
+          <b>recorded API response</b> instead (<C>synthetic: false</C>): it lands inside the same reviewed envelope, but it is not the same plan, and the pane shows both.
         </Honest>
       </>
-    ), [pane.run('triage'), pane.file('recorded plan', 'plan_4744', 'planner/recorded/clm_4744.plan.json · cassette', 'synthetic'), pane.file('policy', 'policy', 'agents/policy.py decide()')], {
+    ), [pane.run('triage'), pane.file('recorded plan', 'plan_4744', 'planner/recorded/clm_4744.plan.json · cassette', 'recording'), pane.file('policy', 'policy', 'agents/policy.py decide()')], {
       route: { to: `/claims/${FOLLOWED.triage}` },
       missing: 'No run pane is open. Press “Try it” on the step before.',
     }),

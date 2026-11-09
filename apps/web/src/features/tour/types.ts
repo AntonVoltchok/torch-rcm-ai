@@ -11,7 +11,7 @@ import type { PayloadName } from './payloads'
 export type TourId = 'main' | 'inbox' | 'denials' | 'ledger' | 'claims' | 'claim' | 'payments' | 'patients' | 'eligibility' | 'activity' | 'cash' | 'settings'
 
 /** Where a pane's text came from; drawn as a tag beside its source line. */
-export type PaneKind = 'captured' | 'cache' | 'rendered' | 'source' | 'synthetic'
+export type PaneKind = 'captured' | 'cache' | 'rendered' | 'source' | 'recording'
 
 export type CodeSource =
   /** A response the app already holds in its query cache (or fetches through the typed client with the screen's own key). */

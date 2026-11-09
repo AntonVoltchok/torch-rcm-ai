@@ -4,21 +4,20 @@
 # regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
 # generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
 
-# 1. pms_get_visit  strict=true  (read)
-# 2. pms_find_images  strict=true  (read)
-# 3. pms_get_coverage  strict=true  (read)
-# 4. payer_rulebook_lookup  strict=true  (read)
-# 5. claim_get_history  strict=true  (read)
+# 1. pms_get_visit  strict=false  (read)
+# 2. pms_find_images  strict=false  (read)
+# 3. pms_get_coverage  strict=false  (read)
+# 4. payer_rulebook_lookup  strict=false  (read)
+# 5. claim_get_history  strict=false  (read)
 # 6. submit_plan  strict=true  (terminal)
-# 7. submit_result  strict=true  (terminal)
+# 7. submit_result  strict=false  (terminal)
 # lint_tools(tools) -> []   (strict-mode limits; no PHI in enum/const)
-# tools_sha_for('followup', 'plan') = 6327ae18a2e579a82f9e93466d8ba6279f65c27fee935bdc4f4601744aaaa295
+# tools_sha_for('followup', 'plan') = 00b29e033cf7b19d93db7e236c68a4a5791c98ad0616a2738b4cdcb629dbe4a0
 
 # --- read tool: pms_find_images ---
 {
   "name": "pms_find_images",
   "description": "List imaging records for the patient on or before a date. Returns image ids, kind as stored in the PMS, tooth, taken_at. An image may be mislabeled; compare kind to the payer rule.",
-  "strict": true,
   "input_schema": {
     "type": "object",
     "additionalProperties": false,
@@ -45,7 +44,6 @@
 {
   "name": "claim_get_history",
   "description": "The claim's acks, remittance lines with CARC/RARC, attachments sent (source agent|user|pms_imaging), payer correspondence, prior EOBs, prior Torch runs.",
-  "strict": true,
   "input_schema": {
     "type": "object",
     "additionalProperties": false,
