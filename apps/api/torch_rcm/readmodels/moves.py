@@ -95,21 +95,57 @@ def approver_roles(item: InboxItem) -> tuple[Role, ...] | None:
     return None
 
 
-def can_approve(user: User | None, item: InboxItem) -> bool:
-    """The server's one authority rule (`services.inbox._check_authority` raises on the same test)."""
+# Clinical sign-offs: the treating dentist attests the care. Every other signed act is the owner's.
+CLINICAL_SIGNOFFS: frozenset[str] = frozenset({"formal_appeal"})
+CLINICAL_HOLDS: frozenset[HoldReason] = frozenset(
+    {HoldReason.NOTE_UNSIGNED, HoldReason.PROCS_NOT_IN_NOTE, HoldReason.RENDERING_MISMATCH}
+)
+
+
+def owner(snap: Snapshot) -> User | None:
+    return next((u for u in sorted(snap.of(User), key=lambda u: u.id) if u.role is Role.OWNER), None)
+
+
+def treating_dentist(snap: Snapshot, claim: Claim | None) -> User | None:
+    """The user who rendered the claim's care (its provider's login), or None: a hygienist, a provider with no login."""
+    provider = snap.providers.get(claim.provider_id) if claim is not None else None
+    user = snap.users.get(provider.user_id or "") if provider is not None else None
+    return user if user is not None and user.role in (Role.DENTIST, Role.OWNER) else None
+
+
+def claim_signer(snap: Snapshot, claim: Claim | None, *, clinical: bool) -> User | None:
+    """Who signs for a claim: the treating dentist for a clinical sign-off (an appeal's attestation, a note), else,
+    and when no dentist has a login on the claim, the owner."""
+    return (treating_dentist(snap, claim) if clinical else None) or owner(snap)
+
+
+def signer(snap: Snapshot, item: InboxItem) -> User | None:
+    """The one person an item that needs a signature names, on every screen (the move, the signer note, the waiting
+    row, Denials): its assignee, else `claim_signer`. None when anyone who sees the item may approve it (tiers 1–2)."""
+    if approver_roles(item) is None:
+        return None
+    assigned = snap.users.get(item.assignee_user_id or "")
+    if assigned is not None:
+        return assigned
+    action = item.proposed_action.action.value if item.proposed_action else ""
+    claim = snap.claims.get(item.claim_id or "")
+    return claim_signer(snap, claim, clinical=action in CLINICAL_SIGNOFFS)
+
+
+def can_approve(snap: Snapshot, user: User | None, item: InboxItem) -> bool:
+    """The server's one authority rule (`services.inbox._check_authority` raises on the same test): an item that
+    needs a signature is approved by its named signer, or by the owner."""
     if user is None:
         return False
-    roles = approver_roles(item)
-    if roles is not None and user.role not in roles:
-        return False
-    if roles is not None and item.assignee_user_id and item.assignee_user_id != user.id:
-        return user.role is Role.OWNER
-    return True
+    if approver_roles(item) is None:
+        return True
+    named = signer(snap, item)
+    return user.role is Role.OWNER or (named is not None and named.id == user.id)
 
 
-def sees(user: User | None, item: InboxItem) -> bool:
+def sees(snap: Snapshot, user: User | None, item: InboxItem) -> bool:
     """Whether the item is in this user's queue (`visible_inbox`): the shared billing queue plus items assigned to
-    them; front desk sees eligibility flags; dentists see only items assigned to them."""
+    them; front desk sees eligibility flags; dentists see items assigned to them and the ones they sign."""
     role = user.role if user else Role.BILLING
     mine = item.assignee_user_id is not None and user is not None and item.assignee_user_id == user.id
     shared = item.assignee_user_id is None
@@ -117,36 +153,39 @@ def sees(user: User | None, item: InboxItem) -> bool:
         return shared or mine
     if role is Role.FRONT_DESK:
         return mine or (shared and item.kind is InboxItemKind.ELIGIBILITY_FLAG)
-    return mine
+    named = signer(snap, item)
+    return mine or (user is not None and named is not None and named.id == user.id)
 
 
-def can_act(user: User | None, item: InboxItem) -> bool:
-    return user is not None and sees(user, item) and can_approve(user, item)
+def can_act(snap: Snapshot, user: User | None, item: InboxItem) -> bool:
+    """In the user's queue and theirs to approve: what "N items need you" counts. An item that names someone else
+    as its signer is theirs, even when the owner could approve it in their place."""
+    if user is None or not sees(snap, user, item) or not can_approve(snap, user, item):
+        return False
+    named = signer(snap, item)
+    return named is None or named.id == user.id
 
 
-def item_holder_role(item: InboxItem) -> Role:
+def item_holder_role(snap: Snapshot, item: InboxItem) -> Role:
     if item.required_role is not None:
         return item.required_role
+    named = signer(snap, item)
+    if named is not None:
+        return named.role
     roles = approver_roles(item)
     return roles[0] if roles else Role.BILLING
 
 
-def _sole(snap: Snapshot, role: Role) -> User | None:
-    holders = [u for u in snap.of(User) if u.role is role]
-    return holders[0] if len(holders) == 1 else None
-
-
-def _practice_label(snap: Snapshot, role: Role, user_id: str | None, signs: bool) -> str:
-    user = snap.users.get(user_id or "") or (_sole(snap, role) if signs else None)
+def _practice_label(role: Role, user: User | None, signs: bool) -> str:
     if signs:
         return f"{user.name} signs" if user else f"{ROLE_WORD[role].capitalize()} signs"
     return f"Waiting on {user.name if user else ROLE_WORD[role]}"
 
 
-def _holder_item(items: Iterable[InboxItem], viewer: User | None) -> InboxItem:
+def _holder_item(snap: Snapshot, items: Iterable[InboxItem], viewer: User | None) -> InboxItem:
     """The item the viewer can act on, else the weightiest: a tier-3 sign-off blocks everything behind it."""
     ordered = sorted(items, key=lambda i: (-(i.tier.value if i.tier else 0), i.created_at, i.id))
-    return next((i for i in ordered if can_act(viewer, i)), ordered[0])
+    return next((i for i in ordered if can_act(snap, viewer, i)), ordered[0])
 
 
 AGENTS_PAUSED = "Agents paused"
@@ -193,11 +232,12 @@ def claim_move(snap: Snapshot, claim: Claim, viewer_id: str | None = None, basis
         extra = next((i for i in snap.of(InboxItem) if i.id == b.open_item and i.claim_id == claim.id), None)
         items += [extra] if extra else []
     if items:
-        item = _holder_item(items, viewer)
-        role = item_holder_role(item)
-        signs = approver_roles(item) is not None
-        label = _practice_label(snap, role, item.assignee_user_id, signs)
-        return move(MoveWho.PRACTICE, label, role, item.assignee_user_id, can_act(viewer, item))
+        item = _holder_item(snap, items, viewer)
+        role = item_holder_role(snap, item)
+        named = signer(snap, item)
+        holder = named or snap.users.get(item.assignee_user_id or "")
+        label = _practice_label(role, holder, signs=named is not None)
+        return move(MoveWho.PRACTICE, label, role, holder.id if holder else None, can_act(snap, viewer, item))
     holds = snap.holds_by_subject.get(claim.id, [])
     if holds:
         hold = holds[0]
@@ -205,9 +245,12 @@ def claim_move(snap: Snapshot, claim: Claim, viewer_id: str | None = None, basis
         if who is MoveWho.PAYER or hold_role is None:
             primary = hold.reason is HoldReason.AWAITING_PRIMARY_EOB
             return move(who, "Waiting on the primary payer's EOB" if primary else f"Waiting on {payer}")
-        user_id = hold.owner_user_id
-        mine = viewer is not None and (viewer.id == user_id if user_id else viewer.role in (hold_role, Role.OWNER))
-        return move(who, _practice_label(snap, hold_role, user_id, signs=False), hold_role, user_id, mine)
+        clinical = hold.reason in CLINICAL_HOLDS
+        user = snap.users.get(hold.owner_user_id or "")
+        user = user or (claim_signer(snap, claim, clinical=True) if clinical else None)
+        mine = viewer is not None and (viewer.id == user.id if user else viewer.role in (hold_role, Role.OWNER))
+        label = _practice_label(hold_role, user, signs=False)
+        return move(who, label, user.role if user else hold_role, user.id if user else None, mine)
     queued = [e for e in snap.file_entries_by_claim.get(claim.id, []) if e.state is FileEntryState.QUEUED]
     if queued:
         return move(MoveWho.AGENTS, f"In the {queued[-1].file_time:%-I:%M %p} {payer} file")

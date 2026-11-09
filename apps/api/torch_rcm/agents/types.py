@@ -223,6 +223,7 @@ class RuleView(Frozen):
     signed_by: str | None = None
     signed_at: datetime | None = None
     base_rate: BaseRate | None = None
+    situation_rates: dict[str, BaseRate] = Field(default_factory=dict)  # past cases by situation (`policy.confidence`)
     covers_agent_text: bool = False
 
 

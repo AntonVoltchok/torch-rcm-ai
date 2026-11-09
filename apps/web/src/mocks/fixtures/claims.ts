@@ -194,7 +194,7 @@ const PINS: Pin[] = [
   { number: 4796, patient: 'L. Ito', payer: 'guardian', status: 'pending', ageDays: 19, billed: 480, procs: 'D4341 UR, UL', provider: 'Dr. Lee' },
   { number: 4797, patient: 'A. Castillo', payer: 'guardian', status: 'pending', ageDays: 19, billed: 390, procs: 'D4341 LR, D4342 LL', provider: 'Dr. Lee' },
   { number: 4800, patient: 'S. Moreno', payer: 'aetna', status: 'pending', ageDays: 15, billed: 340, procs: 'D2393 #30 +1' },
-  { number: 3561, patient: 'G. Morris', payer: 'metlife', status: 'pending', ageDays: 363, billed: 1210, procs: 'D2740 #3 +1', reason: 'payer reprocessing after lost claim', provider: 'Dr. Morgan' },
+  { number: 3561, patient: 'G. Morris', payer: 'metlife', status: 'pending', ageDays: 363, billed: 1210, procs: 'D2740 #3 +1', reason: 'payer reprocessing after lost claim', provider: 'Dr. Lee' },
   { number: 4851, patient: 'I. Moreau', payer: 'cigna', status: 'rejected', ageDays: 2, billed: 395, procs: 'D0150 D0210 D1110', reason: 'subscriber ID', agent: { agent: 'claims', label: 'fix proposed · 84%' }, last: { at: at('2026-10-28', '07:02'), label: '277CA' } },
   { number: 4854, patient: 'Y. Haddad', payer: 'metlife', status: 'rejected', ageDays: 1, billed: 435, procs: 'D2392 #4 +1', reason: 'rendering NPI', queued: '10:45', agent: { agent: 'claims', label: 'NPI fixed · resend 10:45' }, last: { at: at('2026-10-28', '07:02'), label: 'resend' } },
   { number: 4772, patient: 'D. Foster', payer: 'cigna', status: 'partial', ageDays: 12, billed: 255, procs: 'D2392 #19', reason: 'underpaid $25.60 · PR-1', agent: { agent: 'posting', label: 'held from posting' }, last: { at: at('2026-10-28', '06:20'), label: 'ERA' } },

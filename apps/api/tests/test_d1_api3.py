@@ -84,8 +84,8 @@ def test_the_headline_reads_the_classifier_never_the_model(canonical: Snapshot) 
     ("k", "n", "basis"),
     [
         (23, 25, "23 of 25 paid within 30 days"),
-        (3, 4, "Only 4 past cases like this, too few for a track record yet."),
-        (1, 1, "Only 1 past case like this, too few for a track record yet."),
+        (3, 4, "3 of 4 paid within 30 days, too few for a rate"),
+        (1, 1, "1 of 1 paid within 30 days, too few for a rate"),
         (0, 0, "No past cases like this yet."),
     ],
 )

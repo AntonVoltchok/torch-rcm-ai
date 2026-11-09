@@ -16,6 +16,10 @@ export async function step10b(page: Page) {
     // D1: the path is the group's heading ("Next: formal appeal"), not a chip on each row.
     await expect(formal.getByRole('rowheader')).toContainText('Next: formal appeal')
     await expect(ito).toContainText('Dr. Lee signs')
+    // One signer per row: Dr. Lee treated Morris too, so the move and the signer line agree (finding 3).
+    const morris = formal.locator('tr[data-claim-number="3561"]')
+    await expect(morris).toContainText('Dr. Lee signs')
+    await expect(morris).not.toContainText('Dr. Morgan')
     await expect(ito).toContainText('patient authorization required (ERISA)')
     await expect(ito).toContainText('patient cannot be billed')
     await expect(page.getByRole('complementary', { name: 'Payer × reason' })).toBeVisible()

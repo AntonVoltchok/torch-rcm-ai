@@ -62,6 +62,7 @@ from torch_rcm.domain.routing import patient_billable_if_lost, route_denial
 from torch_rcm.readmodels import activity as A
 from torch_rcm.readmodels import cash as C
 from torch_rcm.readmodels.claims import AGE_BUCKETS, age_bucket, patient_ref, payer_ref, strip, summarize
+from torch_rcm.readmodels.moves import claim_signer, signer
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.world.calendar import FILE_TIMES, is_business_day, next_file_time
 from torch_rcm.world.sim import EDIT_LOCK
@@ -367,6 +368,15 @@ def _add_months(d: date, months: int) -> date:
 # ── Denials ────────────────────────────────────────────────────────────────────────────────────────────────
 
 
+def _denial_signer(snap: Snapshot, claim: Claim, role: str | None, items: list[InboxItem]) -> str | None:
+    """Who signs the route's next step: the open item's named signer, else the route's own (`moves.claim_signer`:
+    the treating dentist attests a formal appeal, the owner signs the rest), so the row says what the Inbox says."""
+    named = next((u for i in items if (u := signer(snap, i)) is not None), None)
+    if named is None and role is not None:
+        named = claim_signer(snap, claim, clinical=role == "rendering_dentist")
+    return named.name if named else None
+
+
 def denials(ctx: Ctx) -> DenialsOut:
     snap = ctx.snapshot()
     items_by_claim = snap.open_items_by_claim
@@ -387,12 +397,8 @@ def denials(ctx: Ctx) -> DenialsOut:
             payer=claim.payer_key,
             self_funded=cov.self_funded,
         )
-        signer = None
-        if route.signer_role == "rendering_dentist":
-            signer = snap.providers[claim.provider_id].name
-        elif route.signer_role == "owner":
-            signer = "Dr. Morgan"
         items = items_by_claim.get(claim.id, [])
+        signer = _denial_signer(snap, claim, route.signer_role, items)
         groups.setdefault(route.next_action, []).append(
             DenialRow(
                 claim=summarize(snap, claim, ctx.user.id),

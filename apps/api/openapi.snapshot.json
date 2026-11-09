@@ -6948,6 +6948,17 @@
             ],
             "title": "Signer Note"
           },
+          "signer_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer User Id"
+          },
           "lands": {
             "anyOf": [
               {
@@ -7039,6 +7050,7 @@
           "action_label",
           "touches",
           "signer_note",
+          "signer_user_id",
           "lands",
           "learnable",
           "plan_steps",
@@ -7352,6 +7364,17 @@
             ],
             "title": "Signer Note"
           },
+          "signer_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer User Id"
+          },
           "lands": {
             "anyOf": [
               {
@@ -7403,6 +7426,7 @@
           "action_label",
           "touches",
           "signer_note",
+          "signer_user_id",
           "lands",
           "learnable"
         ],
@@ -9116,6 +9140,13 @@
           },
           "base_rate": {
             "$ref": "#/components/schemas/BaseRate"
+          },
+          "situation_rates": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BaseRate"
+            },
+            "type": "object",
+            "title": "Situation Rates"
           },
           "sort": {
             "type": "integer",

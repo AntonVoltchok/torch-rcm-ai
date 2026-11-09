@@ -478,7 +478,10 @@ class Rule(Entity):
     signed_at: datetime | None = None
     changed_by: str
     changed_at: datetime
-    base_rate: BaseRate = Field(default_factory=lambda: BaseRate(n=0, k=0))
+    base_rate: BaseRate = Field(default_factory=lambda: BaseRate(n=0, k=0))  # every past case in scope (Rules screen)
+    # Past cases by classifier situation: an item's track record counts its own situation only, never the rule's
+    # whole scope (Castillo's CO-16 · M127 is not the records-request rule's 91 of 97).
+    situation_rates: dict[str, BaseRate] = Field(default_factory=dict)
     sort: int = 0
     description: str = ""
 

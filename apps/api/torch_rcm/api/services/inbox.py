@@ -20,13 +20,20 @@ from torch_rcm.domain.enums import (
     Role,
     RunStatus,
     RunTrigger,
-    Tier,
 )
 from torch_rcm.domain.values import ProposalEvidence
 from torch_rcm.readmodels.changes import strip_changes
 from torch_rcm.readmodels.claims import strip
 from torch_rcm.readmodels.inbox import item_detail, item_learnable, item_out, list_inbox
-from torch_rcm.readmodels.moves import AGENTS_PAUSED, AGENTS_WORKING, TIER3_APPROVERS, active_runs, all_paused
+from torch_rcm.readmodels.moves import (
+    AGENTS_PAUSED,
+    AGENTS_WORKING,
+    active_runs,
+    all_paused,
+    approver_roles,
+    can_approve,
+    signer,
+)
 from torch_rcm.readmodels.wording import action_label
 from torch_rcm.scheduler import kinds as K
 from torch_rcm.world.sim import HoldWindowClosedError
@@ -140,20 +147,19 @@ def _check_not_busy(ctx: Ctx, items: list[InboxItem]) -> None:
 
 
 def _check_authority(ctx: Ctx, item: InboxItem) -> None:
-    if item.tier is Tier.THREE:
-        action = item.proposed_action.action.value if item.proposed_action else ""
-        allowed = TIER3_APPROVERS.get(action, (Role.OWNER,))
-        if ctx.user.role not in allowed or (
-            item.assignee_user_id and item.assignee_user_id != ctx.user.id and ctx.user.role is not Role.OWNER
-        ):
-            raise forbidden(
-                "tier_requires_owner",
-                "Tier 3 commits the practice: only the owner (or the rendering dentist for a formal appeal) "
-                "may approve it.",
-                required_roles=[r.value for r in allowed],
-            )
+    """`moves.can_approve`: an item that needs a signature is approved by the person it names, or by the owner."""
     if item.kind is InboxItemKind.OWNER_SIGNOFF:
         ctx.require_role(Role.OWNER, code="tier_requires_owner", message="Only the owner signs tier-2 rules.")
+    snap = ctx.snapshot()
+    if not can_approve(snap, ctx.user, item):
+        named = signer(snap, item)
+        roles = approver_roles(item) or ()
+        raise forbidden(
+            "tier_requires_owner",
+            f"{named.name if named else 'The owner'} signs this one; only they or the owner may approve it.",
+            required_roles=[r.value for r in roles],
+            signer_id=named.id if named else None,
+        )
 
 
 def approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None, *, idempotency_key: str | None = None) -> ApproveOut:

@@ -21,7 +21,8 @@ function landsWord(lands: InboxItem['lands'], payer: string): string | null {
 
 function Item({ it, payer }: { it: InboxItem; payer: string }) {
   const approve = useClaimApprove()
-  const signer = it.signer_note ? USERS.find((u) => u.role === it.required_role) : undefined
+  // The server names the signer (`signer_user_id`); the client never guesses one from a role.
+  const signer = it.signer_note ? USERS.find((u) => u.id === it.signer_user_id) : undefined
   const lands = landsWord(it.lands, payer)
   return (
     <li className="flex flex-wrap items-start gap-x-6 gap-y-3 rounded-[7px] border border-practice-line bg-practice-bg px-4 py-3" data-item-kind={it.kind}>

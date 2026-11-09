@@ -55,7 +55,7 @@ def build(rt: Runtime, registry: Registry) -> dict[str, Any]:
     ctx = Ctx.for_user(rt, DANA)
     inbox = list_inbox(seed, DANA, group=True)
     morgan = {i.id: i for i in list_inbox(seed, "usr_morgan").items}
-    words = ("action_label", "touches", "lands", "signer_note", "headline", "learnable", "confidence")
+    words = ("action_label", "touches", "lands", "signer_note", "signer_user_id", "headline", "learnable", "confidence")
     out: dict[str, Any] = {
         "seed": {
             "moves": _moves(seed),

@@ -26,7 +26,7 @@ from torch_rcm.api.schemas import (
 )
 from torch_rcm.domain.entities import Claim, InboxItem, Patient, Remittance, User
 from torch_rcm.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, MoveWho, RemitStatus, Role
-from torch_rcm.readmodels.moves import approver_roles, can_act, claim_move, sees
+from torch_rcm.readmodels.moves import approver_roles, can_act, claim_move, sees, signer
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.world.fees import plain_procedures
 
@@ -128,24 +128,27 @@ def visible_inbox(snap: Snapshot, user_id: str | None) -> list[InboxItem]:
     user = snap.users.get(user_id or "")
     if user is None:
         return [i for i in snap.open_items if i.assignee_user_id is None]
-    return [i for i in snap.open_items if sees(user, i)]
+    return [i for i in snap.open_items if sees(snap, user, i)]
 
 
 def split_inbox(
     snap: Snapshot, user_id: str | None, items: Iterable[InboxItem]
 ) -> tuple[list[InboxItem], list[InboxWaitingGroup]]:
-    """The items the viewer can act on, and the rest grouped by who can (`moves.can_act`, the same predicate as the
-    403 on approve). Waiting rows keep first-seen order; each names the users who have that item in their own
-    `inbox_open`. No user reads as billing, as in `visible_inbox`."""
+    """The items the viewer can act on, and the rest grouped by who can (`moves.can_act`). Waiting rows come in the
+    order of their oldest item (the longest wait first); each names the users who have that item in their own
+    `inbox_open`: an item's named signer (`moves.signer`) when it has one, so the row says the same person as its
+    move and its signer note. No user reads as billing, as in `visible_inbox`."""
     viewer = snap.users.get(user_id or "")
     users = sorted(snap.of(User), key=lambda u: u.id)
     yours: list[InboxItem] = []
     waiting: dict[tuple[str, ...], list[InboxItem]] = {}
-    for item in items:
-        if _yours(viewer, item):
+    for item in sorted(items, key=lambda i: (i.created_at, i.id)):
+        if _yours(snap, viewer, item):
             yours.append(item)
         else:
-            waiting.setdefault(tuple(u.id for u in users if can_act(u, item)), []).append(item)
+            named = signer(snap, item)
+            ids = (named.id,) if named else tuple(u.id for u in users if can_act(snap, u, item))
+            waiting.setdefault(ids, []).append(item)
     rows = [
         InboxWaitingGroup(
             signer_ids=list(ids),
@@ -164,9 +167,9 @@ def actionable_inbox(snap: Snapshot, user_id: str | None) -> list[InboxItem]:
     return split_inbox(snap, user_id, visible_inbox(snap, user_id))[0]
 
 
-def _yours(viewer: User | None, item: InboxItem) -> bool:
+def _yours(snap: Snapshot, viewer: User | None, item: InboxItem) -> bool:
     if viewer is not None:
-        return can_act(viewer, item)
+        return can_act(snap, viewer, item)
     roles = approver_roles(item)
     return item.assignee_user_id is None and (roles is None or Role.BILLING in roles)
 

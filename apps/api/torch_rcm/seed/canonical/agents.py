@@ -256,6 +256,7 @@ class AgentSeed:
                 {
                     "outcome_metric": OutcomeMetric.NONE,
                     "base_rate": BaseRate(n=142, k=139),
+                    "situation_rates": {"pending:status_due": BaseRate(n=142, k=139)},
                     "description": "Portal → IVR → 276 status inquiry on accepted claims.",
                 },
             ),
@@ -271,6 +272,8 @@ class AgentSeed:
                     "confidence_floor": 0.9,
                     "outcome_metric": OutcomeMetric.PAID_30D,
                     "base_rate": BaseRate(n=97, k=91),
+                    # Guardian CO-16 · M127, every root cause: 6 of 7 paid once the right chart went (red team)
+                    "situation_rates": {"denied:CO-16:M127:records_request": BaseRate(n=7, k=6)},
                     "changed_at": dt(date(2026, 5, 22), "10:00"),
                 },
             ),
@@ -285,6 +288,7 @@ class AgentSeed:
                     "scope": RuleScope(payer_key=delta, item_type=DELTA_PA_SLICE),
                     "outcome_metric": OutcomeMetric.PAID_30D,
                     "base_rate": BaseRate(n=25, k=23),
+                    "situation_rates": {DELTA_PA_SLICE: BaseRate(n=25, k=23)},
                     "changed_at": dt(date(2026, 10, 26), "10:02"),
                 },
             ),
@@ -298,6 +302,7 @@ class AgentSeed:
                 {
                     "outcome_metric": OutcomeMetric.PAID_30D,
                     "base_rate": BaseRate(n=25, k=22),
+                    "situation_rates": {"pending:prompt_pay_eligible": BaseRate(n=25, k=22)},
                     "changed_at": dt(date(2026, 7, 1), "09:00"),
                 },
             ),
@@ -308,7 +313,11 @@ class AgentSeed:
                 AG.POSTING,
                 A.REQUEST_835,
                 RuleMode.AUTO,
-                {"outcome_metric": OutcomeMetric.NONE, "base_rate": BaseRate(n=14, k=14)},
+                {
+                    "outcome_metric": OutcomeMetric.NONE,
+                    "base_rate": BaseRate(n=14, k=14),
+                    "situation_rates": {"pending:adjudicated_no_835": BaseRate(n=14, k=14)},
+                },
             ),
             (
                 "rule_t1_send_claim",
@@ -321,6 +330,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.ACCEPTED,
                     "reverses_in": ReversesIn.UNTIL_FILE_LEAVES,
                     "base_rate": BaseRate(n=388, k=376),
+                    "situation_rates": {"checkout:clean": BaseRate(n=388, k=376)},
                     "version": 3,
                     "changed_at": dt(date(2026, 10, 26), "10:02"),
                 },
@@ -338,6 +348,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.ACCEPTED,
                     "reverses_in": ReversesIn.UNTIL_FILE_LEAVES,
                     "base_rate": BaseRate(n=19, k=16),
+                    "situation_rates": {"rejected:A7:164": BaseRate(n=19, k=16)},
                     "changed_at": dt(date(2026, 5, 14), "11:00"),
                 },
             ),
@@ -377,6 +388,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.BALANCED,
                     "reverses_in": ReversesIn.UNTIL_DAY_CLOSE,
                     "base_rate": BaseRate(n=92, k=90),
+                    "situation_rates": {"variance:deductible_misapplied": BaseRate(n=3, k=3)},
                     "changed_at": dt(date(2026, 6, 11), "16:00"),
                 },
             ),
@@ -394,6 +406,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.NONE,
                     "reverses_in": ReversesIn.UNTIL_DAY_CLOSE,
                     "base_rate": BaseRate(n=212, k=211),
+                    "situation_rates": {"eligibility:verify": BaseRate(n=212, k=211)},
                 },
             ),
             (
@@ -435,7 +448,11 @@ class AgentSeed:
                 AG.POSTING,
                 A.PATIENT_TRANSFER,
                 RuleMode.ASK,
-                {"outcome_metric": OutcomeMetric.NONE},
+                {
+                    "outcome_metric": OutcomeMetric.NONE,
+                    "base_rate": BaseRate(n=4, k=4),
+                    "situation_rates": {"variance:alternate_benefit": BaseRate(n=4, k=4)},
+                },
             ),
             (
                 "rule_t2_send_statement",

@@ -113,15 +113,17 @@ UNNAMED_LEARN_REASON = "TorchRCM couldn't match this to a known situation, so th
 
 
 def confidence(rule: RuleView | None, situation: str | None = None) -> Confidence | None:
-    """The rule's base rate, never a model number (`domain.values.track_record`: no percent under five cases).
+    """This situation's past cases under the rule, never a model number and never the rule's whole scope
+    (`domain.values.track_record`: no percent under five cases). A rule covers many situations; its `base_rate`
+    sums them for the Rules screen, and an item shows only the cases of its own situation (`situation_rates`).
 
-    A situation the classifier couldn't name has no base rate of its own. The rule it falls to (an `all` rule)
+    A situation the classifier couldn't name has no past cases of its own. The rule it falls to (an `all` rule)
     still gates the action, but its track record counts other situations, so it is never shown as this one's."""
     if rule is None:
         return None
     if situation == UNKNOWN:
         return Confidence(pct=None, k=0, n=0, outcome=metric_phrase(rule.outcome_metric), basis=UNNAMED_BASIS)
-    rate = rule.base_rate
+    rate = rule.situation_rates.get(situation or "")
     record = track_record(rate.k if rate else 0, rate.n if rate else 0, metric_phrase(rule.outcome_metric))
     return Confidence(**record.model_dump())
 
@@ -414,8 +416,8 @@ class Policy:
     def decide(self, ctx: PolicyCtx, action: ProposedAction) -> Decision:
         return decide(ctx.model_copy(update={"rules": self.rules}), action)
 
-    def confidence(self, rule: RuleView | None) -> Confidence | None:
-        return confidence(rule)
+    def confidence(self, rule: RuleView | None, situation: str | None = None) -> Confidence | None:
+        return confidence(rule, situation)
 
     def assert_invariants(self, rules: list[RuleView]) -> None:
         assert_invariants(rules)

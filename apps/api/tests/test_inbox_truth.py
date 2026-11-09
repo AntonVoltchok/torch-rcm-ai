@@ -82,13 +82,16 @@ def test_waiting_names_people_who_have_it_in_their_own_count(moments: dict[str, 
                 yours = {i.id for i in theirs.items} - {i for w in theirs.waiting for i in w.item_ids}
                 assert set(row.item_ids) <= yours, (uid, signer)
             for item_id in row.item_ids:
-                assert item_out(s, items[item_id], uid).signer_note, (uid, item_id)
+                out = item_out(s, items[item_id], uid)
+                # rt-signer: the owner sees Dr. Lee's appeals waiting on Dr. Lee and may sign in his place (no note)
+                assert out.signer_note or out.signer_user_id in row.signer_ids, (uid, item_id)
 
 
 def test_dana_waits_on_dr_morgan(moments: dict[str, Snapshot]) -> None:
     seed, night = strip(moments["seed"], DANA), strip(moments["overnight"], DANA)
     assert (seed.inbox_open, [(w.label, w.count) for w in seed.inbox_waiting]) == (11, [("Dr. Morgan", 1)])
-    assert [(w.label, w.count) for w in night.inbox_waiting] == [("Dr. Morgan", 3)]  # + the Ito and Morris appeals
+    # rt-signer: Dr. Lee treated Ito and Morris, so their appeals wait on him; Diaz still waits on Dr. Morgan
+    assert [(w.label, w.count) for w in night.inbox_waiting] == [("Dr. Morgan", 1), ("Dr. Lee", 2)]
 
 
 @pytest.mark.parametrize("moment", ["seed", "triaged", "overnight"])

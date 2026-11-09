@@ -77,7 +77,7 @@ describe('mock ↔ API parity on the canonical seed', () => {
     const words = Object.fromEntries(
       inbox.items.map((i) => [
         i.id,
-        { action_label: i.action_label, touches: i.touches, lands: i.lands, signer_note: i.signer_note, headline: i.headline, learnable: i.learnable, confidence: i.confidence },
+        { action_label: i.action_label, touches: i.touches, lands: i.lands, signer_note: i.signer_note, signer_user_id: i.signer_user_id, headline: i.headline, learnable: i.learnable, confidence: i.confidence },
       ]),
     )
     expect(words).toEqual(parity.seed.items)

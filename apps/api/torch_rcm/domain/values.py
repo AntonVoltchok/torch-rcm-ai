@@ -127,12 +127,12 @@ def metric_phrase(metric: str | None) -> str:
 
 
 def track_record(k: int, n: int, outcome: str) -> Confidence:
-    """k of n past cases ended `outcome`. Under five cases there is no percent, and the basis says why in words."""
+    """k of n past cases ended `outcome`. Under five cases there is no percent, and the basis says so after the count
+    ("3 of 4 paid within 30 days, too few for a rate"): what counted as success stays visible."""
     if n == 0:
         return Confidence(pct=None, k=0, n=0, outcome=outcome, basis="No past cases like this yet.")
     if n < MIN_BASE_RATE_N:
-        cases = "case" if n == 1 else "cases"
-        basis = f"Only {n} past {cases} like this, too few for a track record yet."
+        basis = f"{k} of {n} {outcome}, too few for a rate"
         return Confidence(pct=None, k=k, n=n, outcome=outcome, basis=basis)
     return Confidence(pct=base_rate_pct(k, n), k=k, n=n, outcome=outcome, basis=f"{k} of {n} {outcome}")
 

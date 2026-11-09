@@ -20,6 +20,8 @@ export type MockInboxItem = Pick<Row, Always> & Partial<Omit<Row, Always>> & {
   payload?: Record<string, unknown>
   /** The classifier's situation key (the API reads it from the item's scripted run); feeds `headline`. */
   situation?: string
+  /** Who rendered the item's claim (the API reads the claim's provider): signs a clinical sign-off (`signerOf`). */
+  treating_user_id?: string | null
 }
 
 export const GROUP_DELTA_PA = 'delta_ny:resubmit_with_attachment'

@@ -301,7 +301,10 @@ class InboxItemOut(Schema):
     suspicious_evidence: bool = False
     action_label: str | None  # `ActionSpec.phrase(params)`: what Approve runs ("Send 3 x-rays and resubmit")
     touches: list[str]  # recipe step labels (+ hold window) of that action: "What this does"
-    signer_note: str | None  # why someone else signs, when `required_role` isn't the viewer's
+    signer_note: str | None  # why someone else signs, when the viewer can't approve it
+    # who signs it (`moves.signer`): the treating dentist for a clinical sign-off, the owner for an owner-only act;
+    # None when anyone who sees it may approve. The owner may approve in the signer's place without a note.
+    signer_user_id: str | None
     lands: MoveWho | None  # where the claim's move goes if this is approved; None for claimless items
     learnable: Learnable
 

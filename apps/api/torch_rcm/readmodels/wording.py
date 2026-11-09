@@ -12,9 +12,9 @@ from collections.abc import Sequence
 from torch_rcm.agents.catalog.actions import follow_up
 from torch_rcm.agents.catalog.phrases import PhraseCtx, phrase, touches
 from torch_rcm.agents.types import PayerView
-from torch_rcm.domain.entities import InboxItem, User
+from torch_rcm.domain.entities import InboxItem
 from torch_rcm.domain.enums import InboxItemKind, MoveWho, RuleAction, Tier
-from torch_rcm.readmodels.moves import FILING_ACTIONS, MoveBasis, approver_roles, can_approve, claim_move
+from torch_rcm.readmodels.moves import FILING_ACTIONS, MoveBasis, approver_roles, can_approve, claim_move, signer
 from torch_rcm.readmodels.snapshot import Snapshot
 
 ELIGIBILITY_LABEL = "Note it for the front desk"
@@ -23,7 +23,7 @@ SIGNOFF_LABEL = "Sign the rule change"
 PAYER_REQUESTS = frozenset({RuleAction.REPROCESSING_REQUEST, RuleAction.RECORDS_REQUEST})  # answered by the payer
 SIGNER_WHY = {
     "write_off": "Writing off money commits the practice",
-    "formal_appeal": "A formal appeal goes out over the dentist's signature",
+    "formal_appeal": "A formal appeal goes out over the treating dentist's signature",
     "void_claim": "Voiding a claim commits the practice",
     "discretionary_refund": "A refund the practice chooses to give commits it",
     "collections_referral": "Sending a patient to collections commits the practice",
@@ -74,20 +74,16 @@ def item_touches(snap: Snapshot, items: Sequence[InboxItem]) -> list[str]:
 
 
 def signer_note(snap: Snapshot, item: InboxItem, viewer_id: str | None) -> str | None:
-    """Why someone else signs, when the viewer can't approve this. Names the users who can."""
+    """Why someone else signs, when the viewer can't approve this. Names the one signer `moves.signer` names (the
+    owner's override is not offered: billing walks an item to its signer, not to whoever is free)."""
     viewer = snap.users.get(viewer_id or "")
-    roles = approver_roles(item)
-    if roles is None or can_approve(viewer, item):
+    if approver_roles(item) is None or can_approve(snap, viewer, item):
         return None
-    names = [
-        u.name
-        for u in sorted(snap.of(User), key=lambda u: (roles.index(u.role) if u.role in roles else 9, u.id))
-        if u.role in roles
-    ]
-    who = " or ".join(names) if names else "the owner"
+    named = signer(snap, item)
+    who = named.name if named else "the owner"
     action = item.proposed_action.action.value if item.proposed_action else ""
     why = SIGNER_WHY.get(action, "A rule change needs the owner's signature" if item.tier is not Tier.THREE else "")
-    return f"{why}, so only {who} can sign this." if why else f"Only {who} can sign this."
+    return f"{why}, so {who} signs this." if why else f"{who} signs this."
 
 
 def lands(snap: Snapshot, item: InboxItem) -> MoveWho | None:

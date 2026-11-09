@@ -193,9 +193,10 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     expect(strip.tiles.map((t) => `${t.status} ${t.count}`)).toEqual(['ready 3', 'sent 1', 'rejected 1', 'accepted 8', 'pending 71', 'denied 9', 'partial 5', 'paid 124', 'appealed 3'])
     expect(strip.nav_badges).toEqual({ payments: 7, eligibility: 3, activity: 41 })
     // A queue of 17: 10 after step 3b + the four overnight denials + the three status-check proposals; no built or
-    // held-ERA items. Three of them (Diaz, and the Ito and Morris appeals) wait on Dr. Morgan, so 14 need Dana.
+    // held-ERA items. Three of them wait on their signer: Diaz on Dr. Morgan (owner), and the Ito and Morris appeals
+    // on Dr. Lee, who treated both. So 14 need Dana.
     expect(strip.inbox_open).toBe(14)
-    expect(strip.inbox_waiting.map((w) => [w.label, w.count])).toEqual([['Dr. Morgan', 3]])
+    expect(strip.inbox_waiting.map((w) => [w.label, w.count, w.signer_ids])).toEqual([['Dr. Morgan', 1, ['usr_morgan']], ['Dr. Lee', 2, ['usr_lee']]])
     expect(
       db
         .inbox({})
@@ -214,6 +215,20 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     const denials = db.denials('usr_dana')
     const ito = denials.groups.find((g) => g.next_action === 'formal_appeal')?.rows.find((r) => r.claim.number === 4796)
     expect(ito).toMatchObject({ signer: 'Dr. Lee', erisa: true, checklist: ['rendering dentist signs the attestation', 'patient authorization required (ERISA)'] })
+    // rt-signer: one signer per item on every screen (the API's tests/test_signer.py)
+    const lee = db.inbox({}, 'usr_lee')
+    for (const id of ['itm_4796', 'itm_3561']) {
+      const item = db.inbox({}).items.find((i) => i.id === id)
+      expect(item).toMatchObject({ signer_user_id: 'usr_lee', signer_note: "A formal appeal goes out over the treating dentist's signature, so Dr. Lee signs this." })
+      expect(item?.claim?.move).toMatchObject({ label: 'Dr. Lee signs', holder_user_id: 'usr_lee' })
+      const row = denials.groups.flatMap((g) => g.rows).find((r) => r.claim.id === item?.claim?.id)
+      expect(row?.signer).toBe('Dr. Lee')
+      expect(lee.items.some((i) => i.id === id && i.signer_note === null)).toBe(true)
+      expect(() => db.approve(id, 'usr_dana')).toThrow(/Dr. Lee signs this one/)
+    }
+    expect(db.strip(undefined, 'usr_morgan').inbox_waiting.map((w) => [w.label, w.count])).toEqual([['Dr. Lee', 2]])
+    // rt-signer: Castillo shows its own situation's record, never the records-request rule's 91 of 97
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4797')?.confidence).toMatchObject({ pct: 86, k: 6, n: 7, basis: '6 of 7 paid within 30 days' })
     expect(denials.in_flight.map((c) => c.number).sort()).toEqual([4821, 4836, 4840])
     expect(db.ledger()).toMatchObject({ date: '2026-10-29', sent: [], leaving_next_file: [] })
     invariants(db)

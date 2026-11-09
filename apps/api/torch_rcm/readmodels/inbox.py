@@ -13,6 +13,7 @@ from torch_rcm.domain.entities import FileEntry, InboxItem, Run
 from torch_rcm.domain.enums import FileEntryState, InboxItemKind, InboxItemState, RootCause, RuleMode, Tier
 from torch_rcm.readmodels.claims import patient_ref, split_inbox, summarize, visible_inbox
 from torch_rcm.readmodels.headline import group_headline, headline, situation
+from torch_rcm.readmodels.moves import signer
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.readmodels.wording import action_label, item_touches, lands, signer_note
 
@@ -110,6 +111,7 @@ def item_out(snap: Snapshot, item: InboxItem, viewer_id: str | None = None) -> I
         action_label=action_label(snap, item),
         touches=item_touches(snap, [item]),
         signer_note=signer_note(snap, item, viewer_id),
+        signer_user_id=named.id if (named := signer(snap, item)) else None,
         lands=lands(snap, item),
         learnable=item_learnable(snap, item),
     )
@@ -122,13 +124,15 @@ def item_learnable(snap: Snapshot, item: InboxItem) -> Learnable:
     claim = snap.claims.get(item.claim_id or "")
     now = snap.root_cause_now(claim.id) if claim and snap.root_cause_now else None
     stated = item.payload.get("root_cause")
+    named = situation(snap, item)
+    record = rule.situation_rates.get(named or "") if rule else None  # this situation's past cases, not the rule's
     answer = learnable(
         tier=item.tier.value if item.tier is not None else None,
         rule_label=rule.label if rule else None,
         outcome_metric=rule.outcome_metric.value if rule else None,
-        n=rule.base_rate.n if rule else 0,
+        n=record.n if record else 0,
         drafted=item.kind is InboxItemKind.REVIEW_DRAFT,
-        unnamed=situation(snap, item) == UNKNOWN,
+        unnamed=named == UNKNOWN,
         causes=(
             stated if isinstance(stated, str) else None,
             claim.denial.root_cause.value if claim and claim.denial else None,

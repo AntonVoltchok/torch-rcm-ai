@@ -36,7 +36,6 @@ import type {
   NextAction,
   PolicyVerdict,
   Preview,
-  Role,
   Rule,
   RuleChange,
   RuleMode,
@@ -56,6 +55,7 @@ import { CLAIM_STATUSES, Evidence as EvidenceSchema } from '@/api/schema'
 import type { ClaimMove, ClaimStatus as Status, Learnable, MoveWho } from '@/api/schema'
 import {
   byHolder,
+  canApprove,
   changeNote,
   claimHeadline,
   claimMove,
@@ -73,7 +73,9 @@ import {
   predictedFileTime,
   procedureNoun,
   RUN_FAILED_HEADLINE,
+  sees,
   signerNote,
+  signerOf,
   SIGNOFF_LABEL,
   splitInbox,
   UNKNOWN,
@@ -81,6 +83,7 @@ import {
   stripChanges,
   touches,
   trackRecord,
+  treatingDentist,
   metricPhrase,
   USER_NAME,
   USER_ROLE,
@@ -386,6 +389,7 @@ export class MockDb {
       action_label: this.actionLabel(item),
       touches: this.itemTouches([item]),
       signer_note: signerNote(item, viewer),
+      signer_user_id: signerOf(item),
       lands: claim ? lands(item, () => this.moveOf(claim, viewer, { closedItem: item.id, excludeRun: item.run_id ?? undefined })) : null,
       learnable: this.learnable(item),
     }
@@ -495,17 +499,11 @@ export class MockDb {
 
   /**
    * The viewer's open queue, as the API's `visible_inbox`: billing and the owner see the shared queue plus
-   * items assigned to them; the front desk sees eligibility flags; a dentist sees only items assigned to them.
+   * items assigned to them; the front desk sees eligibility flags; a dentist sees items assigned to them and the
+   * ones they sign (`d1.sees`).
    */
   visibleItems(user: UserId = 'usr_dana'): MockInboxItem[] {
-    const role = USER_ROLE[user]
-    return this.openItems().filter((i) => {
-      const mine = i.assignee_user_id === user
-      const shared = !i.assignee_user_id
-      if (role === 'billing' || role === 'owner') return shared || mine
-      if (role === 'front_desk') return mine || (shared && i.kind === 'eligibility_flag')
-      return mine
-    })
+    return this.openItems().filter((i) => sees(user, i))
   }
 
   /** `meta.counts` for the acting user. */
@@ -879,7 +877,10 @@ export class MockDb {
   private failures = new Map<string, { step: string; message: string }>()
 
   private approveItem(item: MockInboxItem, user: UserId, label?: string): { item: MockInboxItem; run: RunView } {
-    if (item.tier === 3 && !isOwner(user)) throw new MockError(403, 'tier_requires_owner', 'Tier 3 commits the practice: Dr. Morgan acts on this one.')
+    if (!canApprove(user, item)) {
+      const signer = signerOf(item)
+      throw new MockError(403, 'tier_requires_owner', `${signer ? USER_NAME[signer] : 'The owner'} signs this one; only they or the owner may approve it.`)
+    }
     this.assertNotBusy([item])
     const params = item.proposed_action?.params ?? {}
     const fileLeft = typeof params.file_departed_at === 'string'
@@ -1182,7 +1183,7 @@ export class MockDb {
       c.reason_text = `${d.carc}${d.rarc ? ` · ${d.rarc}` : ''}`
       c.agent_note = d.item.tier === 3 ? 'appeal drafted · person signs' : d.root_cause === 'ours' ? 'held · root cause ours' : 'fix proposed'
       this.pushTimelineAt(c, at('2026-10-29', '05:40'), { lane: 'payer', title: `Denied ${c.reason_text} · ${d.decoded}` })
-      this.addItem({ id: `itm_${d.number}`, kind: d.item.tier === 3 ? 'review_draft' : 'approve_action', claim: c, agent: d.item.agent, tier: d.item.tier, title: d.item.title, recommendation: d.item.recommendation, summary: d.item.summary, action: d.item.action, ruleId: d.item.rule_id, rootCause: d.root_cause, created: at('2026-10-29', '06:05'), requiredRole: d.item.required_role ?? null })
+      this.addItem({ id: `itm_${d.number}`, kind: d.item.tier === 3 ? 'review_draft' : 'approve_action', claim: c, agent: d.item.agent, tier: d.item.tier, title: d.item.title, recommendation: d.item.recommendation, summary: d.item.summary, action: d.item.action, ruleId: d.item.rule_id, situation: d.item.situation, rootCause: d.root_cause, created: at('2026-10-29', '06:05') })
       out.push(this.event('claim_denied', `#${c.number} ${c.patient_name} denied ${c.reason_text}`, { claim_id: c.id, carc: d.carc, rarc: d.rarc }))
     }
     // Six paid on contract.
@@ -1213,7 +1214,7 @@ export class MockDb {
       const c = this.s.claims.find((x) => x.number === k.number)
       if (!c) continue
       const payer = PAYER_REF[c.payer_key].short_name
-      this.addItem({ id: `itm_${c.number}`, kind: 'approve_action', claim: c, agent: 'followup', tier: 1, title: `#${c.number} · ${c.patient_name} · ${payer} · status check due`, recommendation: `Check #${c.number} with ${payer} (portal, then IVR). The Status check rule is Ask, so nothing contacts the payer until you approve.`, summary: `Day ${c.age_days ?? 30} with no 835: the status-check cadence came due at 07:00.`, action: 'status_check', ruleId: 'rule_t1_status_check', rootCause: 'unknown', created: at('2026-10-29', '07:00') })
+      this.addItem({ id: `itm_${c.number}`, kind: 'approve_action', claim: c, agent: 'followup', tier: 1, title: `#${c.number} · ${c.patient_name} · ${payer} · status check due`, recommendation: `Check #${c.number} with ${payer} (portal, then IVR). The Status check rule is Ask, so nothing contacts the payer until you approve.`, summary: `Day ${c.age_days ?? 30} with no 835: the status-check cadence came due at 07:00.`, action: 'status_check', ruleId: 'rule_t1_status_check', situation: 'pending:status_due', rootCause: 'unknown', created: at('2026-10-29', '07:00') })
       out.push(this.event('run.followup', `#${c.number} status check due · proposed → Inbox`, { claim_id: c.id }))
     }
     return out
@@ -1224,7 +1225,7 @@ export class MockDb {
     c.last_activity = { at: when, label: e.title.slice(0, 40) }
   }
 
-  private addItem(p: { id: string; kind: MockInboxItem['kind']; claim: MockClaim; agent: AgentKind; tier: Tier; title: string; recommendation: string; summary: string; action: NonNullable<MockInboxItem['proposed_action']>['action']; ruleId: string | null; rootCause: MockInboxItem['root_cause']; created: string; requiredRole?: Role | null; cents?: number }) {
+  private addItem(p: { id: string; kind: MockInboxItem['kind']; claim: MockClaim; agent: AgentKind; tier: Tier; title: string; recommendation: string; summary: string; action: NonNullable<MockInboxItem['proposed_action']>['action']; ruleId: string | null; situation: string; rootCause: MockInboxItem['root_cause']; created: string; cents?: number }) {
     if (this.s.items.some((i) => i.id === p.id)) return
     const item: MockInboxItem = {
       id: p.id,
@@ -1237,13 +1238,15 @@ export class MockDb {
       summary: p.summary,
       recommendation: p.recommendation,
       plan_steps: [],
-      confidence: null,
+      confidence: this.situationRecord(p.ruleId, p.situation),
       evidence_ids: [],
       proposed_action: { action: p.action, params: {}, cents: p.cents ?? p.claim.billed_cents, requires_hold_window: false },
+      situation: p.situation,
+      treating_user_id: treatingDentist(p.claim),
       tier: p.tier,
       cents: p.cents ?? p.claim.billed_cents,
       created_at: p.created,
-      required_role: p.requiredRole ?? null,
+      required_role: null,
       root_cause: p.rootCause,
       audit_note: p.rootCause === 'ours' ? 'root cause: ours — never learned into auto-run' : null,
     }
@@ -1252,6 +1255,14 @@ export class MockDb {
       ...this.s.week,
       weekRow({ run_id: this.id('run'), at: p.created, agent: p.agent, action_kind: p.action, action: p.summary, subject: `#${p.claim.number} · ${p.claim.patient_name}`, claim_id: p.claim.id, outcome: 'Awaiting you', inbox_item_id: item.id, rule_id: p.ruleId, tier: p.tier, root_cause: p.rootCause, cents: item.cents, decision: true, ran: false }),
     ]
+  }
+
+  /** The API's `policy.confidence`: this situation's past cases under the rule, never the rule's whole scope. */
+  private situationRecord(ruleId: string | null, situation: string) {
+    const rule = this.s.rules.find((r) => r.id === ruleId)
+    if (!rule) return null
+    const { n, k } = rule.situation_rates?.[situation] ?? { n: 0, k: 0 }
+    return trackRecord(k, n, metricPhrase(rule.outcome_metric))
   }
 
   // ── Settings › Agents ──────────────────────────────────────────────────────
@@ -1660,7 +1671,11 @@ export class MockDb {
       if (c.status !== 'denied' || !c.denial || c.closed_reason) continue
       if (c.in_flight) inFlight.push(this.summary(c))
       const route = routeDenial(c.denial.carc, c.denial.rarc, c.payer_key, SELF_FUNDED_CLAIMS.has(c.id))
-      const signer = route.signer_role === 'rendering_dentist' ? (c.provider_name ?? 'the rendering dentist') : route.signer_role === 'owner' ? 'Dr. Morgan' : null
+      // the API's `_denial_signer`: the open item's named signer, else the route's (treating dentist or owner)
+      const itemSigner = open.filter((i) => i.claim_id === c.id).map(signerOf).find((u) => u !== null)
+      const routeSigner = route.signer_role === 'rendering_dentist' ? (treatingDentist(c) ?? 'usr_morgan') : route.signer_role === 'owner' ? 'usr_morgan' : null
+      const signerId = itemSigner ?? routeSigner
+      const signer = signerId ? USER_NAME[signerId] : null
       const rows = groups.get(route.next_action) ?? []
       rows.push({
         claim: this.summary(c),

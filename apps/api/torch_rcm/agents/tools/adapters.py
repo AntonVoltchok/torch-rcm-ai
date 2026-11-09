@@ -1147,5 +1147,6 @@ def rule_view(r: Rule) -> RuleView:
         signed_by=r.signed_by,
         signed_at=r.signed_at,
         base_rate=BaseRate(n=r.base_rate.n, k=r.base_rate.k),
+        situation_rates={key: BaseRate(n=v.n, k=v.k) for key, v in r.situation_rates.items()},
         covers_agent_text=r.action.value == "send_claim_agent_text",
     )

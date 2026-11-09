@@ -154,6 +154,7 @@ const InboxItemOut = z
     action_label: z.union([z.string(), z.null()]),
     touches: z.array(z.string()),
     signer_note: z.union([z.string(), z.null()]),
+    signer_user_id: z.union([z.string(), z.null()]),
     lands: z.union([MoveWho, z.null()]),
     learnable: Learnable,
   })
@@ -281,6 +282,7 @@ const InboxItemDetail = z
     action_label: z.union([z.string(), z.null()]),
     touches: z.array(z.string()),
     signer_note: z.union([z.string(), z.null()]),
+    signer_user_id: z.union([z.string(), z.null()]),
     lands: z.union([MoveWho, z.null()]),
     learnable: Learnable,
     plan_steps: z.array(z.string()),
@@ -398,6 +400,7 @@ const Rule = z
     changed_by: z.string(),
     changed_at: z.string().datetime({ offset: true }),
     base_rate: BaseRate.optional(),
+    situation_rates: z.record(BaseRate).optional(),
     sort: z.number().int().optional().default(0),
     description: z.string().optional().default(''),
   })

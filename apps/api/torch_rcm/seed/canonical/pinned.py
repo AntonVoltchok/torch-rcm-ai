@@ -650,7 +650,13 @@ class PinnedBuilder:
         )
 
         morris = self.make(
-            3561, "morris_g", date(2025, 10, 30), [("D2740", "3"), ("D2950", "3")], S.PENDING, at="10:00"
+            3561,
+            "morris_g",
+            date(2025, 10, 30),
+            [("D2740", "3"), ("D2950", "3")],
+            S.PENDING,
+            provider=PRV_LEE,  # Dr. Lee treated Morris, so Dr. Lee signs the overnight appeal (rt-signer)
+            at="10:00",
         )
         self.sent(morris, dt(date(2025, 11, 3), "08:15"), dt(date(2025, 11, 4), "06:41"), "ML2511040118")
         morris.reason_text = "payer reprocessing after lost claim"

@@ -10,7 +10,7 @@ import { nav, switchUser } from './shared'
 export async function step8(page: Page) {
   const badge = page.getByTestId('badge-inbox')
   const strip = page.getByRole('region', { name: 'Claim pipeline' })
-  await test.step('8 · ⏭ Skip to Thu 7:10 AM: async progress, then 14 need Dana and 3 wait on Dr. Morgan, the strip, the nav badges', async () => {
+  await test.step('8 · ⏭ Skip to Thu 7:10 AM: async progress, then 14 need Dana, 1 waits on Dr. Morgan and 2 on Dr. Lee, the strip, the nav badges', async () => {
     const clock = page.getByTestId('clock-control')
     await clock.getByRole('button', { name: /Skip to Thu 7:10 AM/ }).click()
     await expect(clock.getByRole('button', { name: /Skip to/ })).toBeDisabled()
@@ -19,10 +19,12 @@ export async function step8(page: Page) {
     await expect(clock).toContainText('Thu Oct 29 · 7:10 AM')
     await switchUser(page, 'usr_dana')
     await nav(page, /Inbox/).click()
-    // A queue of 17 (9 + Diaz after step 3b, 4 overnight denials, 3 status-check proposals): the Ito and Morris
-    // formal appeals join Diaz in waiting on Dr. Morgan.
+    // A queue of 17 (9 + Diaz after step 3b, 4 overnight denials, 3 status-check proposals): Diaz still waits on
+    // Dr. Morgan (owner), and the Ito and Morris formal appeals wait on Dr. Lee, the dentist who treated both.
     await expect(badge).toHaveText('14')
-    await expect(page.getByText(/^14 items need you: .* · 3 waiting on Dr\. Morgan$/)).toBeVisible()
+    await expect(page.getByText(/^14 items need you: .* · 1 waiting on Dr\. Morgan · 2 waiting on Dr\. Lee$/)).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Waiting on Dr. Lee' })).toContainText('#4796')
+    await expect(page.getByRole('region', { name: 'Waiting on Dr. Lee' })).toContainText('#3561')
     for (const label of ['Ready 3', 'Sent 1', 'Rejected 1', 'Accepted 8', 'Pending 71', 'Denied 9', 'Partial 5', 'Appealed 3', 'Paid · Oct 124']) {
       await expect(strip.getByRole('link', { name: label, exact: true })).toBeVisible()
     }
@@ -34,5 +36,9 @@ export async function step8(page: Page) {
     await page.getByRole('list', { name: 'Inbox items' }).getByRole('button', { name: /P\. Hale #4744/ }).click()
     await expect(page.getByTestId('track-record')).toContainText('No track record. TorchRCM couldn')
     await expect(page.getByTestId('track-record')).not.toContainText('%')
+    // Castillo's situation has a name: its own record (Guardian CO-16 · M127), not the rule's 91 of 97.
+    await page.getByRole('list', { name: 'Inbox items' }).getByRole('button', { name: /A\. Castillo #4797/ }).click()
+    await expect(page.getByTestId('track-record')).toContainText('6 of 7 paid within 30 days')
+    await expect(page.getByTestId('track-record')).not.toContainText('91')
   })
 }

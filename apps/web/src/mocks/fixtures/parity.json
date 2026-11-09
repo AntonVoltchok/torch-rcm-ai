@@ -342,7 +342,7 @@
    },
    "4611": {
     "holder_role": "owner",
-    "holder_user_id": null,
+    "holder_user_id": "usr_morgan",
     "label": "Dr. Morgan signs",
     "mine": false,
     "who": "practice"
@@ -1139,7 +1139,8 @@
      "ok": false,
      "reason": "A person always does this one. It never runs on its own."
     },
-    "signer_note": "Writing off money commits the practice, so only Dr. Morgan can sign this.",
+    "signer_note": "Writing off money commits the practice, so Dr. Morgan signs this.",
+    "signer_user_id": "usr_morgan",
     "touches": [
      "Signed decision recorded on the claim",
      "$228 write-off to post in the PMS",
@@ -1163,6 +1164,7 @@
      "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "1 prompt-pay request sent to MetLife",
      "Cannot be recalled once sent"
@@ -1185,6 +1187,7 @@
      "reason": "The agents wrote this text, so a person reads it before it goes out."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "1 note sent to Delta",
      "Delta EOB \u00b7 03/2022 enclosed",
@@ -1194,7 +1197,7 @@
    "itm_4748": {
     "action_label": "Move $38 to patient",
     "confidence": {
-     "basis": "Only 4 past cases like this, too few for a track record yet.",
+     "basis": "4 of 4 alternate-benefit transfers balanced, too few for a rate",
      "k": 4,
      "n": 4,
      "outcome": "alternate-benefit transfers balanced",
@@ -1208,6 +1211,7 @@
      "reason": "The owner sets this rule. It isn't learned from approvals."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "$38 moved to patient balance",
      "Can be undone until day close"
@@ -1216,7 +1220,7 @@
    "itm_4772": {
     "action_label": "Post Cigna's payment, ask Cigna to reprocess $25.60",
     "confidence": {
-     "basis": "Only 3 past cases like this, too few for a track record yet.",
+     "basis": "3 of 3 deductible corrections balanced, too few for a rate",
      "k": 3,
      "n": 3,
      "outcome": "deductible corrections balanced",
@@ -1230,6 +1234,7 @@
      "reason": "The owner sets this rule. It isn't learned from approvals."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "Cigna payment posted, patient share only",
      "$33.60 moved to patient balance",
@@ -1256,6 +1261,7 @@
      "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "1 x-ray uploaded to NEA",
      "1 claim in the 11:15 AM Delta file",
@@ -1279,6 +1285,7 @@
      "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "1 x-ray uploaded to NEA",
      "1 claim in the 11:15 AM Delta file",
@@ -1302,6 +1309,7 @@
      "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "1 x-ray uploaded to NEA",
      "1 claim in the 11:15 AM Delta file",
@@ -1325,6 +1333,7 @@
      "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "Subscriber ID on this claim changed",
      "1 claim in the 10:45 AM Cigna file",
@@ -1348,6 +1357,7 @@
      "reason": "No rule covers this, so a person decides each time."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "Note added for the front desk"
     ]
@@ -1369,6 +1379,7 @@
      "reason": "No rule covers this, so a person decides each time."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "Note added for the front desk"
     ]
@@ -1390,6 +1401,7 @@
      "reason": "No rule covers this, so a person decides each time."
     },
     "signer_note": null,
+    "signer_user_id": null,
     "touches": [
      "Note added for the front desk"
     ]

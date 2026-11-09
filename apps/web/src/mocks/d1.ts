@@ -43,12 +43,31 @@ export function approverRoles(item: MockInboxItem): Role[] | null {
   return null
 }
 
+const OWNER: UserId = 'usr_morgan'
+const PROVIDER_USER: Record<string, UserId> = { 'Dr. Morgan': 'usr_morgan', 'Dr. Lee': 'usr_lee' }
+const CLINICAL_HOLDS = new Set(['note_unsigned', 'procs_not_in_note', 'rendering_mismatch'])
+
+/** The API's `moves.treating_dentist`: the user who rendered the claim (none for a hygienist). */
+export const treatingDentist = (claim: MockClaim | undefined): UserId | null => PROVIDER_USER[claim?.provider_name ?? ''] ?? null
+const CLINICAL_SIGNOFFS = new Set(['formal_appeal'])
+const isUser = (id: string | null | undefined): id is UserId => Boolean(id && id in USER_NAME)
+
+/**
+ * The API's `moves.signer`: the one person an item that needs a signature names (its assignee, else the treating
+ * dentist for a clinical sign-off, else the owner); null when anyone who sees it may approve.
+ */
+export function signerOf(item: MockInboxItem): UserId | null {
+  if (!approverRoles(item)) return null
+  if (isUser(item.assignee_user_id)) return item.assignee_user_id
+  if (CLINICAL_SIGNOFFS.has(item.proposed_action?.action ?? '') && isUser(item.treating_user_id)) return item.treating_user_id
+  return OWNER
+}
+
+/** The named signer, or the owner in their place. */
 export function canApprove(user: UserId | null, item: MockInboxItem): boolean {
   if (!user) return false
-  const roles = approverRoles(item)
-  if (roles && !roles.includes(USER_ROLE[user])) return false
-  if (roles && item.assignee_user_id && item.assignee_user_id !== user) return USER_ROLE[user] === 'owner'
-  return true
+  if (!approverRoles(item)) return true
+  return USER_ROLE[user] === 'owner' || signerOf(item) === user
 }
 
 export function sees(user: UserId, item: MockInboxItem): boolean {
@@ -57,25 +76,32 @@ export function sees(user: UserId, item: MockInboxItem): boolean {
   const shared = !item.assignee_user_id
   if (role === 'billing' || role === 'owner') return shared || mine
   if (role === 'front_desk') return mine || (shared && item.kind === 'eligibility_flag')
-  return mine
+  return mine || signerOf(item) === user
 }
 
-const canAct = (user: UserId | null, item: MockInboxItem) => user !== null && sees(user, item) && canApprove(user, item)
+/** In the user's queue and theirs to sign: an item naming someone else waits on them, even for the owner. */
+function canAct(user: UserId | null, item: MockInboxItem): boolean {
+  if (user === null || !sees(user, item) || !canApprove(user, item)) return false
+  const signer = signerOf(item)
+  return signer === null || signer === user
+}
 
 /**
  * The API's `claims.split_inbox`: what the viewer can act on ("N items need you"), and the rest by who can, each
- * row naming the users who have it in their own count. Users in id order, rows in first-seen order.
+ * row naming its signer, or the users who have it in their own count. Rows in the order of their oldest item.
  */
 export function splitInbox(items: readonly MockInboxItem[], viewer: UserId): { yours: MockInboxItem[]; waiting: InboxWaitingGroup[] } {
   const yours: MockInboxItem[] = []
   const rows = new Map<string, InboxWaitingGroup>()
   const ids = [...USERS].sort()
-  for (const item of items) {
+  const byAge = [...items].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+  for (const item of byAge) {
     if (canAct(viewer, item)) {
       yours.push(item)
       continue
     }
-    const signers = ids.filter((u) => canAct(u, item))
+    const signer = signerOf(item)
+    const signers = signer ? [signer] : ids.filter((u) => canAct(u, item))
     const key = signers.join(',')
     const row = rows.get(key) ?? { signer_ids: signers, label: signers.map((u) => USER_NAME[u]).join(' or ') || 'the owner', count: 0, cents: 0, item_ids: [] }
     rows.set(key, row)
@@ -85,14 +111,13 @@ export function splitInbox(items: readonly MockInboxItem[], viewer: UserId): { y
   }
   return { yours, waiting: [...rows.values()] }
 }
-const holderRole = (item: MockInboxItem): Role => item.required_role ?? approverRoles(item)?.[0] ?? 'billing'
-const sole = (role: Role) => {
-  const holders = USERS.filter((u) => USER_ROLE[u] === role)
-  return holders.length === 1 ? holders[0] : null
+function holderRole(item: MockInboxItem): Role {
+  const signer = signerOf(item)
+  return item.required_role ?? (signer ? USER_ROLE[signer] : (approverRoles(item)?.[0] ?? 'billing'))
 }
 
 function practiceLabel(role: Role, userId: string | null | undefined, signs: boolean): string {
-  const user = (userId && userId in USER_NAME ? (userId as UserId) : null) ?? (signs ? sole(role) : null)
+  const user = isUser(userId) ? userId : null
   if (signs) return user ? `${USER_NAME[user]} signs` : `${ROLE_WORD[role][0]?.toUpperCase()}${ROLE_WORD[role].slice(1)} signs`
   return `Waiting on ${user ? USER_NAME[user] : ROLE_WORD[role]}`
 }
@@ -140,16 +165,18 @@ export function claimMove(f: MoveFacts): ClaimMove {
   if (f.items.length) {
     const item = holderItem(f.items, viewer)
     const role = holderRole(item)
-    const userId = item.assignee_user_id ?? null
-    return move('practice', practiceLabel(role, userId, approverRoles(item) !== null), role, userId, canAct(viewer, item))
+    const signer = signerOf(item)
+    const userId = signer ?? item.assignee_user_id ?? null
+    return move('practice', practiceLabel(role, userId, signer !== null), role, userId, canAct(viewer, item))
   }
   const hold = claim.hold && !claim.hold.cleared_at ? claim.hold : null
   if (hold) {
     const [who, role] = HOLD_HOLDER[hold.reason] ?? ['practice', 'billing']
     if (who === 'payer' || !role) return move('payer', hold.reason === 'awaiting_primary_eob' ? "Waiting on the primary payer's EOB" : `Waiting on ${f.payerShort}`)
-    const userId = hold.owner_user_id ?? null
+    const userId = hold.owner_user_id ?? (CLINICAL_HOLDS.has(hold.reason) ? (treatingDentist(claim) ?? OWNER) : null)
     const mine = viewer !== null && (userId ? viewer === userId : [role, 'owner'].includes(USER_ROLE[viewer]))
-    return move(who, practiceLabel(role, userId, false), role, userId, mine)
+    const holder = isUser(userId) ? USER_ROLE[userId] : role
+    return move(who, practiceLabel(role, userId, false), holder, userId, mine)
   }
   if (claim.queued_file) return move('agents', `In the ${clockOf(claim.queued_file.at)} ${f.payerShort} file`)
   switch (claim.status) {
@@ -413,22 +440,20 @@ export function followUp(action: string, params: Record<string, unknown>): [stri
 
 const SIGNER_WHY: Record<string, string> = {
   write_off: 'Writing off money commits the practice',
-  formal_appeal: "A formal appeal goes out over the dentist's signature",
+  formal_appeal: "A formal appeal goes out over the treating dentist's signature",
   void_claim: 'Voiding a claim commits the practice',
   discretionary_refund: 'A refund the practice chooses to give commits it',
   collections_referral: 'Sending a patient to collections commits the practice',
   waiver: 'Waiving a balance commits the practice',
 }
 
+/** The API's `wording.signer_note`: names the one signer, never the owner's override. */
 export function signerNote(item: MockInboxItem, viewer: UserId | null): string | null {
-  const roles = approverRoles(item)
-  if (!roles || canApprove(viewer, item)) return null
-  const names = USERS.filter((u) => roles.includes(USER_ROLE[u]))
-    .sort((a, b) => roles.indexOf(USER_ROLE[a]) - roles.indexOf(USER_ROLE[b]) || a.localeCompare(b))
-    .map((u) => USER_NAME[u])
-  const who = names.length ? names.join(' or ') : 'the owner'
+  if (!approverRoles(item) || canApprove(viewer, item)) return null
+  const signer = signerOf(item)
+  const who = signer ? USER_NAME[signer] : 'the owner'
   const why = SIGNER_WHY[item.proposed_action?.action ?? ''] ?? (item.tier !== 3 ? "A rule change needs the owner's signature" : '')
-  return why ? `${why}, so only ${who} can sign this.` : `Only ${who} can sign this.`
+  return why ? `${why}, so ${who} signs this.` : `${who} signs this.`
 }
 
 /** Where the claim's move goes once the approval has run (the API's `wording.lands`). */
@@ -506,9 +531,7 @@ export function metricPhrase(metric: string | null | undefined): string {
 
 export function trackRecord(k: number, n: number, outcome: string): Confidence {
   if (n === 0) return { pct: null, k: 0, n: 0, outcome, basis: 'No past cases like this yet.' }
-  if (n < MIN_BASE_RATE_N) {
-    return { pct: null, k, n, outcome, basis: `Only ${n} past ${n === 1 ? 'case' : 'cases'} like this, too few for a track record yet.` }
-  }
+  if (n < MIN_BASE_RATE_N) return { pct: null, k, n, outcome, basis: `${k} of ${n} ${outcome}, too few for a rate` }
   return { pct: Math.round((100 * k) / n), k, n, outcome, basis: `${k} of ${n} ${outcome}` }
 }
 
