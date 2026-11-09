@@ -5,7 +5,7 @@ import { ageTone, dateTime, money, shortDate } from '@/lib/format'
 import { PAYER_NAME } from '@/lib/payers'
 import { cn } from '@/lib/cn'
 import { AgentChip } from '@/components/AgentChip'
-import { Baton, batonProps, PARTY_TEXT } from '@/components/Baton'
+import { MoveCell } from '@/components/MoveCell'
 import { FlagPill } from '@/components/FlagPill'
 import { StatusChip } from '@/components/StatusChip'
 
@@ -52,15 +52,7 @@ export const claimColumns = [
     id: 'move',
     header: 'Whose move',
     meta: { width: '210px' },
-    cell: ({ row }) => {
-      const m = row.original.move
-      return (
-        <span className="flex w-full min-w-0 items-center gap-2">
-          <Baton {...batonProps(m)} decorative />
-          <span className={cn('min-w-0 truncate', PARTY_TEXT[m.who])}>{m.label}</span>
-        </span>
-      )
-    },
+    cell: ({ row }) => <MoveCell move={row.original.move} />,
   }),
   col.display({
     id: 'agent',
