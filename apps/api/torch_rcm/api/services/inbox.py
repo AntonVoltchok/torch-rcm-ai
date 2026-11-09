@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from torch_rcm.api.errors import conflict, forbidden, not_found, unprocessable
-from torch_rcm.api.schemas import ApproveOut, GroupApproveOut, InboxItemDetail, InboxList, ItemOut, ProposalOut
+from torch_rcm.api.schemas import ApproveOut, GroupApproveOut, InboxItemDetail, InboxList, ItemOut, Meta, ProposalOut
 from torch_rcm.api.services.context import Ctx
 from torch_rcm.api.services.idempotency import idempotent
 from torch_rcm.api.services.rules import apply_rule_change, guard_learning
@@ -23,15 +23,12 @@ from torch_rcm.domain.enums import (
     Tier,
 )
 from torch_rcm.domain.values import ProposalEvidence
+from torch_rcm.readmodels.changes import strip_changes
+from torch_rcm.readmodels.claims import strip
 from torch_rcm.readmodels.inbox import item_detail, item_out, list_inbox
+from torch_rcm.readmodels.moves import TIER3_APPROVERS
 from torch_rcm.scheduler import kinds as K
 from torch_rcm.world.sim import HoldWindowClosedError
-
-TIER3_ROLES = {
-    "write_off": (Role.OWNER,),
-    "formal_appeal": (Role.DENTIST, Role.OWNER),
-    "void_claim": (Role.OWNER,),
-}
 
 
 def get_inbox(ctx: Ctx, state: str, kind: str | None, agent: str | None, group: bool) -> InboxList:
@@ -43,7 +40,7 @@ def get_item(ctx: Ctx, item_id: str) -> InboxItemDetail:
     item = next((i for i in snap.of(InboxItem) if i.id == item_id), None)
     if item is None:
         raise not_found("inbox item", item_id)
-    return item_detail(snap, item)
+    return item_detail(snap, item, ctx.user.id)
 
 
 def _require_item(ctx: Ctx, item_id: str) -> InboxItem:
@@ -111,7 +108,7 @@ def _check_can_approve(ctx: Ctx, item: InboxItem) -> None:
 def _check_authority(ctx: Ctx, item: InboxItem) -> None:
     if item.tier is Tier.THREE:
         action = item.proposed_action.action.value if item.proposed_action else ""
-        allowed = TIER3_ROLES.get(action, (Role.OWNER,))
+        allowed = TIER3_APPROVERS.get(action, (Role.OWNER,))
         if ctx.user.role not in allowed or (
             item.assignee_user_id and item.assignee_user_id != ctx.user.id and ctx.user.role is not Role.OWNER
         ):
@@ -126,7 +123,6 @@ def _check_authority(ctx: Ctx, item: InboxItem) -> None:
 
 
 def approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None, *, idempotency_key: str | None = None) -> ApproveOut:
-    # `changes` (strip before/after in this transaction) is a phase-1 stub: always [].
     scope = f"POST /inbox/{item_id}:approve"
     return idempotent(
         ctx, idempotency_key, scope, edits, ApproveOut, lambda: _approve(ctx, item_id, edits), status_code=202
@@ -134,19 +130,30 @@ def approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None, *, idempotency
 
 
 def _approve(ctx: Ctx, item_id: str, edits: dict[str, Any] | None) -> ApproveOut:
-    item = _require_item(ctx, item_id)
-    _check_can_approve(ctx, item)
-    replay = item.state in (InboxItemState.APPROVED, InboxItemState.EDITED)
-    if item.kind is InboxItemKind.OWNER_SIGNOFF:
-        return _signoff_replay(ctx, item) if replay else _approve_signoff(ctx, item)
-    if item.kind is InboxItemKind.ELIGIBILITY_FLAG:
-        _resolve(ctx, item, InboxItemState.DONE, "flagged to the front desk")
-        return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, changes=[], meta=ctx.meta())
-    run = _approval_run(ctx, item, edits)
-    if not replay:
-        item.run_id = run.id
-        _resolve(ctx, item, InboxItemState.EDITED if edits else InboxItemState.APPROVED, "approved", edits=edits)
-    return ApproveOut(item=item_out(ctx.snapshot(), item), run=run, changes=[], meta=ctx.meta())
+    """One write transaction around the strip before, the approval and the strip after, so `changes` is exactly
+    this approval's effect (no advance can land in between) and its `after` column is `meta.counts`."""
+    with ctx.rt.store.tx():
+        before = ctx.snapshot()
+        item = _require_item(ctx, item_id)
+        _check_can_approve(ctx, item)
+        replay = item.state in (InboxItemState.APPROVED, InboxItemState.EDITED)
+        if item.kind is InboxItemKind.OWNER_SIGNOFF:
+            out = _signoff_replay(ctx, item) if replay else _approve_signoff(ctx, item)
+        elif item.kind is InboxItemKind.ELIGIBILITY_FLAG:
+            _resolve(ctx, item, InboxItemState.DONE, "flagged to the front desk")
+            out = ApproveOut(item=item_out(ctx.snapshot(), item, ctx.user.id), run=None, changes=[], meta=ctx.meta())
+        else:
+            run = _approval_run(ctx, item, edits)
+            if not replay:
+                item.run_id = run.id
+                _resolve(
+                    ctx, item, InboxItemState.EDITED if edits else InboxItemState.APPROVED, "approved", edits=edits
+                )
+            out = ApproveOut(item=item_out(ctx.snapshot(), item, ctx.user.id), run=run, changes=[], meta=ctx.meta())
+        after = ctx.snapshot()
+        counts = strip(after, ctx.user.id)
+        changes = strip_changes(before, after, ctx.user.id, [item])
+    return out.model_copy(update={"changes": changes, "meta": Meta(counts=counts)})
 
 
 def _approve_signoff(ctx: Ctx, item: InboxItem) -> ApproveOut:
@@ -165,13 +172,17 @@ def _approve_signoff(ctx: Ctx, item: InboxItem) -> ApproveOut:
             )
         rule, _ = apply_rule_change(ctx, rule, item.payload.get("change", {}), sign=True)
         _resolve(ctx, item, InboxItemState.APPROVED, "signed")
-    return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, changes=[], meta=ctx.meta())
+    return ApproveOut(
+        item=item_out(ctx.snapshot(), item, ctx.user.id), run=None, rule=rule, changes=[], meta=ctx.meta()
+    )
 
 
 def _signoff_replay(ctx: Ctx, item: InboxItem) -> ApproveOut:
     """Already signed: answer with the rule as it stands. Re-applying would undo any change made since."""
     rule = ctx.rt.store.get(Rule, item.rule_id or "")
-    return ApproveOut(item=item_out(ctx.snapshot(), item), run=None, rule=rule, changes=[], meta=ctx.meta())
+    return ApproveOut(
+        item=item_out(ctx.snapshot(), item, ctx.user.id), run=None, rule=rule, changes=[], meta=ctx.meta()
+    )
 
 
 def _resolve(
@@ -213,20 +224,31 @@ def approve_group(ctx: Ctx, group_key: str, *, idempotency_key: str | None = Non
 
 
 def _approve_group(ctx: Ctx, group_key: str) -> GroupApproveOut:
-    items = ctx.rt.store.find(InboxItem, {"group_key": group_key, "state": InboxItemState.OPEN}, order_by="created_at")
-    if not items:
-        raise not_found("open group", group_key)
-    for item in items:
-        _check_can_approve(ctx, item)
-    runs = []
-    for item in items:
-        run = _approval_run(ctx, item, None)
-        item.run_id = run.id
-        _resolve(ctx, item, InboxItemState.APPROVED, "approved (group)")
-        runs.append(run)
-    snap = ctx.snapshot()
-    fresh = {i.id: i for i in snap.of(InboxItem)}
-    return GroupApproveOut(items=[item_out(snap, fresh[i.id]) for i in items], runs=runs, changes=[], meta=ctx.meta())
+    """As `_approve`: one transaction, one combined `changes` list for the whole group."""
+    with ctx.rt.store.tx():
+        before = ctx.snapshot()
+        items = ctx.rt.store.find(
+            InboxItem, {"group_key": group_key, "state": InboxItemState.OPEN}, order_by="created_at"
+        )
+        if not items:
+            raise not_found("open group", group_key)
+        for item in items:
+            _check_can_approve(ctx, item)
+        runs = []
+        for item in items:
+            run = _approval_run(ctx, item, None)
+            item.run_id = run.id
+            _resolve(ctx, item, InboxItemState.APPROVED, "approved (group)")
+            runs.append(run)
+        snap = ctx.snapshot()
+        fresh = {i.id: i for i in snap.of(InboxItem)}
+        changes = strip_changes(before, snap, ctx.user.id, items)
+        return GroupApproveOut(
+            items=[item_out(snap, fresh[i.id], ctx.user.id) for i in items],
+            runs=runs,
+            changes=changes,
+            meta=Meta(counts=strip(snap, ctx.user.id)),
+        )
 
 
 def reject(ctx: Ctx, item_id: str, reason: str, *, idempotency_key: str | None = None) -> ItemOut:
@@ -239,7 +261,7 @@ def _reject(ctx: Ctx, item_id: str, reason: str) -> ItemOut:
     if item.state is not InboxItemState.OPEN:
         raise conflict("already_resolved", f"{item.title} is {item.state.value}")
     _resolve(ctx, item, InboxItemState.REJECTED, "rejected", note=reason)
-    return ItemOut(item=item_out(ctx.snapshot(), item), meta=ctx.meta())
+    return ItemOut(item=item_out(ctx.snapshot(), item, ctx.user.id), meta=ctx.meta())
 
 
 def snooze(ctx: Ctx, item_id: str, until: datetime, *, idempotency_key: str | None = None) -> ItemOut:
@@ -261,7 +283,7 @@ def _snooze(ctx: Ctx, item_id: str, until: datetime) -> ItemOut:
             K.SNOOZE_WAKE, until, {"item_id": item.id}, f"snooze_wake:{item.id}:{until.isoformat()}"
         )
         ctx.audit("inbox.snooze", "inbox_item", item.id, f"{ctx.user.name} snoozed until {until:%a %m/%d %H:%M}")
-    return ItemOut(item=item_out(ctx.snapshot(), item), meta=ctx.meta())
+    return ItemOut(item=item_out(ctx.snapshot(), item, ctx.user.id), meta=ctx.meta())
 
 
 def reopen(ctx: Ctx, item_id: str) -> ItemOut:
@@ -273,7 +295,7 @@ def reopen(ctx: Ctx, item_id: str) -> ItemOut:
     with ctx.rt.store.tx():
         ctx.rt.store.update(item)
         ctx.audit("inbox.reopen", "inbox_item", item.id, f"{ctx.user.name} reopened {item.title}")
-    return ItemOut(item=item_out(ctx.snapshot(), item), meta=ctx.meta())
+    return ItemOut(item=item_out(ctx.snapshot(), item, ctx.user.id), meta=ctx.meta())
 
 
 def always_auto_run(ctx: Ctx, item_id: str) -> ProposalOut:

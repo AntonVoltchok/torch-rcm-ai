@@ -65,7 +65,7 @@ def stopped_by(snap: Snapshot, item: InboxItem) -> str:
     return f"Outside the rule \u201c{rule.label}\u201d.{detail}"
 
 
-def item_out(snap: Snapshot, item: InboxItem) -> InboxItemOut:
+def item_out(snap: Snapshot, item: InboxItem, viewer_id: str | None = None) -> InboxItemOut:
     claim = snap.claims.get(item.claim_id or "")
     patient = snap.patients.get(item.patient_id or "")
     evidence = [snap.evidence[e] for e in item.evidence if e in snap.evidence]
@@ -83,7 +83,7 @@ def item_out(snap: Snapshot, item: InboxItem) -> InboxItemOut:
         confidence=item.confidence,
         group_key=item.group_key,
         group_title=item.group_title,
-        claim=summarize(snap, claim) if claim else None,
+        claim=summarize(snap, claim, viewer_id) if claim else None,
         patient=patient_ref(patient) if patient else None,
         appointment_id=item.appointment_id,
         remittance_id=item.remittance_id,
@@ -127,8 +127,8 @@ def hold_window(snap: Snapshot, item: InboxItem) -> HoldWindow | None:
     )
 
 
-def item_detail(snap: Snapshot, item: InboxItem) -> InboxItemDetail:
-    base = item_out(snap, item)
+def item_detail(snap: Snapshot, item: InboxItem, viewer_id: str | None = None) -> InboxItemDetail:
+    base = item_out(snap, item, viewer_id)
     return InboxItemDetail(
         **base.model_dump(),
         plan_steps=item.plan_steps,
@@ -158,7 +158,7 @@ def list_inbox(
         items = [i for i in items if i.kind.value == kind]
     if agent:
         items = [i for i in items if i.agent is not None and i.agent.value == agent]
-    outs = sorted((item_out(snap, i) for i in items), key=lambda o: (-o.priority, o.created_at, o.id))
+    outs = sorted((item_out(snap, i, user_id) for i in items), key=lambda o: (-o.priority, o.created_at, o.id))
     groups = _groups(outs) if group else None
     return InboxList(items=outs, total=len(outs), total_cents=sum(o.cents for o in outs), groups=groups)
 

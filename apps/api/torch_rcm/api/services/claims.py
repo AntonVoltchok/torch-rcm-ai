@@ -55,7 +55,7 @@ TIMELINE_PAGE = 100
 
 
 def list_claims(ctx: Ctx, q: ClaimQuery) -> ClaimList:
-    return query_claims(ctx.snapshot(), q)
+    return query_claims(ctx.snapshot(), q, ctx.user.id)
 
 
 def coverage_out(cov: Coverage) -> CoverageOut:
@@ -121,7 +121,7 @@ def claim_detail(ctx: Ctx, claim_id: str) -> ClaimDetail:
     page = entries[-TIMELINE_PAGE:]
     provider = snap.providers[claim.provider_id]
     return ClaimDetail(
-        claim=summarize(snap, claim),
+        claim=summarize(snap, claim, ctx.user.id),
         provider_name=provider.name,
         location_name=snap.locations[claim.location_id].name,
         coverage=coverage_out(cov),
@@ -136,7 +136,7 @@ def claim_detail(ctx: Ctx, claim_id: str) -> ClaimDetail:
         money=money(claim, cov, ctx.rt.world.payers[claim.payer_key].schedules),
         timeline=page,
         timeline_next_cursor=encode_cursor(len(entries) - len(page)) if len(entries) > len(page) else None,
-        open_inbox_items=[item_out(snap, i) for i in snap.open_items_by_claim.get(claim.id, [])],
+        open_inbox_items=[item_out(snap, i, ctx.user.id) for i in snap.open_items_by_claim.get(claim.id, [])],
         holds=snap.holds_by_subject.get(claim.id, []),
         file_entries=snap.file_entries_by_claim.get(claim.id, []),
         parent_claim_id=claim.parent_claim_id,
@@ -181,7 +181,7 @@ def void_claim(ctx: Ctx, claim_id: str, reason: str) -> ClaimMutationOut:
         claim.closed_reason, claim.closed_at, claim.frequency_code = closed, ctx.now, 8
         ctx.rt.store.update(claim)
         ctx.audit("claim.void", "claim", claim.id, f"{ctx.user.name} voided #{claim.number} (frequency 8): {reason}")
-    return ClaimMutationOut(claim=summarize(ctx.snapshot(), claim), meta=ctx.meta())
+    return ClaimMutationOut(claim=summarize(ctx.snapshot(), claim, ctx.user.id), meta=ctx.meta())
 
 
 def corrected_claim(ctx: Ctx, claim_id: str, changes: dict[str, Any]) -> ClaimMutationOut:
@@ -247,7 +247,9 @@ def corrected_claim(ctx: Ctx, claim_id: str, changes: dict[str, Any]) -> ClaimMu
             f"{ctx.user.name} sent corrected claim #{number} replacing #{original.number}",
             claim_id=new.id,
         )
-    return ClaimMutationOut(claim=summarize(ctx.snapshot(), ctx.rt.store.require(Claim, new.id)), meta=ctx.meta())
+    return ClaimMutationOut(
+        claim=summarize(ctx.snapshot(), ctx.rt.store.require(Claim, new.id), ctx.user.id), meta=ctx.meta()
+    )
 
 
 def triage(ctx: Ctx, claim_id: str, agent: str | None) -> TriageOut:

@@ -81,23 +81,23 @@ def ledger_today(ctx: Ctx) -> LedgerToday:
     for claim in sorted(built_today, key=lambda c: c.built_at):
         holds = snap.holds_by_subject.get(claim.id, [])
         if holds:
-            held.append(_held(snap, claim, holds[0]))
+            held.append(_held(snap, claim, holds[0], ctx.user.id))
         elif claim.status is S.READY or any(
             e.state is FileEntryState.QUEUED for e in snap.file_entries_by_claim.get(claim.id, [])
         ):
-            leaving.append(_ledger_row(snap, claim))
+            leaving.append(_ledger_row(snap, claim, ctx.user.id))
         else:
-            sent.append(_ledger_row(snap, claim))
+            sent.append(_ledger_row(snap, claim, ctx.user.id))
     for claim in snap.of(Claim):
         if claim.built_at.date() < today and claim.closed_reason is None:
             holds = snap.holds_by_subject.get(claim.id, [])
             if holds:
-                held.append(_held(snap, claim, holds[0]))
+                held.append(_held(snap, claim, holds[0], ctx.user.id))
             elif any(
                 e.state is FileEntryState.QUEUED and e.file_time.date() == today
                 for e in snap.file_entries_by_claim.get(claim.id, [])
             ):
-                leaving.append(_ledger_row(snap, claim))
+                leaving.append(_ledger_row(snap, claim, ctx.user.id))
     billed_lines = {line.procedure_line_id for c in snap.of(Claim) for line in c.lines}
     not_billable = []
     for proc in snap.of(ProcedureLine):
@@ -132,12 +132,12 @@ def _entries(snap: Snapshot) -> list:  # type: ignore[type-arg]
     return [e for rows in snap.file_entries_by_claim.values() for e in rows]
 
 
-def _ledger_row(snap: Snapshot, claim: Claim) -> LedgerRow:
+def _ledger_row(snap: Snapshot, claim: Claim, viewer_id: str | None) -> LedgerRow:
     queued = [e for e in snap.file_entries_by_claim.get(claim.id, []) if e.state is FileEntryState.QUEUED]
     file_time = queued[0].file_time if queued else claim.file_time
     checks = claim.readiness or []
     return LedgerRow(
-        claim=summarize(snap, claim),
+        claim=summarize(snap, claim, viewer_id),
         built_at=claim.built_at,
         file_time=file_time,
         editable_until=queued[0].file_time - EDIT_LOCK if queued else None,
@@ -150,11 +150,11 @@ def _ledger_row(snap: Snapshot, claim: Claim) -> LedgerRow:
     )
 
 
-def _held(snap: Snapshot, claim: Claim, hold) -> HeldRow:  # type: ignore[no-untyped-def]
+def _held(snap: Snapshot, claim: Claim, hold, viewer_id: str | None) -> HeldRow:  # type: ignore[no-untyped-def]
     owner = snap.users.get(hold.owner_user_id or "")
     left = (hold.timely_due - snap.today).days if hold.timely_due else None
     return HeldRow(
-        claim=summarize(snap, claim),
+        claim=summarize(snap, claim, viewer_id),
         hold=hold,
         timely_days_left=left,
         owner_name=owner.name if owner else None,
@@ -296,7 +296,7 @@ def denials(ctx: Ctx) -> DenialsOut:
         if claim.status is not S.DENIED:
             continue
         if claim.in_flight:
-            in_flight.append(summarize(snap, claim))
+            in_flight.append(summarize(snap, claim, ctx.user.id))
         cov = snap.coverages[claim.coverage_id]
         route = route_denial(
             claim.denial.carc,
@@ -313,7 +313,7 @@ def denials(ctx: Ctx) -> DenialsOut:
         items = items_by_claim.get(claim.id, [])
         groups.setdefault(route.next_action, []).append(
             DenialRow(
-                claim=summarize(snap, claim),
+                claim=summarize(snap, claim, ctx.user.id),
                 carc=claim.denial.carc,
                 rarc=claim.denial.rarc,
                 decoded=claim.denial.decoded,

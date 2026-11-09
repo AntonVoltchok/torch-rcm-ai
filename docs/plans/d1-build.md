@@ -61,3 +61,48 @@ Judgment calls met while writing the schema-only change. Lean first; red-teamed 
   - `InboxGroup.action_label` / `touches`
 - Not added: "paid claims still in your Inbox" (drop that D1 tooltip) and plain procedure names. d1-api decides the second and may add the field, since it owns codegen. Recommendation to the coordinator: route later contract gaps through d1-api or a coordinator contract commit, not the browser.
 - 7: changed to A. `e2e/demo.spec.ts` is one test that calls per-step functions in `e2e/demo/NN-*.ts`, split by step with an owner table in `e2e/demo/README.md`, and step 10 is split into Cash and Denials. Not adopted: a `goto` plus "inherited state" assertion at the start of each step. It would change what is asserted, which phase 0 must not do. Owners may add it.
+
+## Phase 1 (api) notes (`d1-api`)
+
+Judgment calls met while filling the stubs. Lean first; red-teamed below.
+
+1. **Whose move, claim by claim** (`readmodels/moves.py`, one function; `summarize(snap, claim, viewer_id)`). First match wins:
+   1. closed claim → `nobody`;
+   2. a queued, running or paused run on the claim → `agents` ("With the agents");
+   3. an open inbox item on the claim → `practice`. Holder = the item the viewer can act on, else the top-priority item. `holder_role` = the item's `required_role`, else the tier-3 role, else `billing` (the shared queue); `holder_user_id` = its assignee. `mine` = the viewer can see *and* approve it (same rule as `visible_inbox` + `_check_authority`). Label: "Waiting on you" / "Dr. Morgan signs" (tier 3, sole role holder) / "Waiting on Dana S." / "Waiting on billing";
+   4. a claim hold → by `HoldReason`: unsigned note, procedures not in note, rendering mismatch → `practice` (dentist); missing image, bad subscriber ID, other → `practice` (billing); awaiting primary EOB, reprocessing requested → `payer`;
+   5. a queued (not departed) file entry → `agents` ("In the 11:15 AM Delta file");
+   6. by status: `ready` → `agents`; `sent`, `accepted`, `pending`, `appealed`, `denied`, `rejected` → `payer` ("Waiting on Delta"); `partial` → `payer`; `paid` → `nobody` ("Finished").
+   D1's prototype put `sent` with the agents; **lean `payer`**: the file has left, and the next event is the payer's 999/277CA. `partial` with no open item: **lean `payer`** (an underpaid line is still being adjudicated or reprocessed; the patient share is billed by posting, not a whose-move party).
+2. **`lands`** is a catalog property, not a guess: `ActionSpec.lands(params, claim_status)`: queue-for-file actions (resubmit, fix and resend, send claim, corrected claim) → `agents`; payer-contact actions (reprocessing, records, appeal, rep call, status check) → `payer`; `post_era_line` → `payer` when it queues a reprocessing request, else by the claim's status; `patient_transfer` → `nobody` on a paid claim, else `payer`; `write_off` → `nobody`. Claimless items (eligibility flags, sign-offs) → `null`. Test: on the canonical seed, every approvable item's `lands` equals its run's `claim_outcome.move_to`.
+3. **`action_label`** = `ActionSpec.phrase(params, payer_short, n, drafted)`, one phrase function per action in `catalog/phrases.py`, sentence case, active, naming what happens; matches `copy.json` for the canonical items where params allow ("Send x-ray and resubmit", "Send 3 x-rays and resubmit", "Send this note to Delta" for a drafted reprocessing request, "Send prompt-pay request", "Update ID and resend", "Move $38 to patient", "Hold for reprocessing", "Sign write-off and bill patient"). Eligibility flags are not catalog actions: "Note it for the front desk" (what approve does). `Run.action_label` uses the same phrase.
+4. **`touches`**: each `RecipeStep` gains an optional `effect` (what it changes outside TorchRCM, counted: "x-ray uploaded to NEA"); `touches` = the effects of the steps that will run, counted across a group ("3 x-rays uploaded to NEA", "3 claims resubmitted"), then one reversibility line from `reverses_in` + the hold window ("Next Delta file, 11:15 AM", "Cannot be recalled after 11:15 AM" / "Cannot be recalled once sent" / "Can be undone until day close"). Tier 3 has no recipe, so its touches come from the amount params ("$228 written off", "$1,012 moved to patient balance"); the run records the signer's decision. Alternative rejected: touches = the step labels verbatim, which repeats the run pane and says what is done, not what changes.
+5. **Recipe step labels become plain sentence case** ("Fetch the PA x-ray from imaging", "Upload to NEA", "Write the NEA# on the claim", "Queue for the 11:15 AM Delta file"), because phase 2 shows `RunStep.label` directly. Names stay (seed history and eval key on names).
+6. **`signer_note`** when the viewer can't approve: from `TIER3_ROLES` + the action's tier ("Writing off money commits the practice, so only Dr. Morgan can sign this."). Null when the viewer can approve.
+7. **`changes`**: `strip(viewer)` before and after, inside the approve transaction. Rows: `inbox`, `inbox_claims`, the tile of each approved claim's status (always, so "Denied stays 5" is a row with equal before/after), then every `move.<who>` row that changed. `note` only on an unchanged tile: "Stays denied until Delta replies".
+8. **`claim_outcome`**: `status_from`/`move_from` read when the run first starts, with the run itself excluded and, for an approval run, its item counted as still open (so an approval reads `practice → …`); `status_to`/`move_to` at the terminal status, with the run excluded. Cancel sets it too. Added to `RunShape`.
+9. **`TimelineEntry.who`**: built → `agents`; file queued → `agents`, departed → `payer`; payer acks → `payer`; a run → `agents` while active, then its `claim_outcome.move_to`, or `practice` if it opened an item; a paid remittance → `nobody` when the claim is paid; a human approve → `agents`; anything else `null` (unchanged).
+10. **Plain procedure names**: add `ClaimSummary.procedures_plain` ("Crown, tooth 30 + 1 more") from a short-name column added to the CDT catalog (`world/fees.py`). No CDT dictionary in the browser.
+
+**Red-team result, adopted** (`docs/design/red-team/challenge-d1-api-2026-11-08.md`, dental billing lead persona). The one reason that carried: name a payer only on evidence the payer owes a response, because unworked A/R must not hide behind "Waiting on Delta".
+
+- 1, whose move, changed:
+  - A paused run stays `agents` ("Agents paused"). Payer outages fail runs; they don't pause them.
+  - Awaiting a primary EOB → `payer` ("Waiting on the primary payer's EOB").
+  - `ready` → `agents` only while the send-claim rule is Auto, else `practice` ("Ready to send").
+  - `sent` → `payer` ("Sent 10/27, no reply yet"), or `practice` ("No reply from Delta since 10/27") after 2 business days with no payer acknowledgment.
+  - `rejected` → `practice` ("Rejected, not resent"). The payer never adjudicated it.
+  - `denied` and `partial` → `payer` only if something left after the last remittance (a departed file entry, a filing run that succeeded, or `in_flight`). Otherwise `practice` ("Denied, nothing filed" / "Underpaid, nothing filed").
+  - `label` stays viewer-neutral, as the schema says. `mine` carries the viewer.
+- 2, `lands`, changed: it isn't a per-action table. Filing actions (anything queued for a payer file) → `agents`; payer requests that expect an answer (reprocessing, records, appeal) → `payer`; everything else → the whose-move rules with the item resolved. `post_era_line`'s `then` is not executed by any recipe, so it does not move the baton. Test: `lands == claim_outcome.move_to` for every approvable canonical item.
+- 3, `action_label`, changed. "Post Cigna's payment, dispute $32". Tier 3 has no recipe: nothing posts a write-off, so the label is "Sign $228 write-off, $1,012 to patient" and the touches say what is left to post. "Send this note to Delta" only for a `review_draft` item.
+  - **Not adopted here:** a new tier-2 `reprocessing_letter` action. It would change the catalog, the tool enums and so the cassettes. Recorded for the coordinator.
+  - **Partly adopted:** `ReprocessingParams.attach` is now passed to the payer submit.
+- 4, `touches`: adopted with reversibility per effect ("3 x-rays uploaded to NEA", "3 claims in the 11:15 AM Delta file", "Can be pulled from the file until 11:15 AM"; "Cannot be recalled once sent"). The file time is predicted at read time, the same way the recipe predicts it.
+- 5, step labels: adopted, including "Write the NEA# and original ICN in the claim remarks". Only steps a recipe runs.
+- 6, `signer_note`: adopted, built from the users who hold the approver roles.
+- 7, `changes`: adopted. No `move.*` rows: at approve time they only say "agents +N", and the landing comes from the post-run `move` (decision 4). An unchanged tile gets a note: "Stays denied until Delta processes the resubmission" / "…until Delta replies".
+- 8, `claim_outcome`: adopted.
+- 9, `TimelineEntry.who` = the actor, always: human → `practice`; agent → `agents`; payer and clearinghouse acks and remittances → `payer`; a visit → `practice`; file entries → `agents`.
+- 10: `procedures_plain` = "D2740 Crown, tooth 30 + 1 more" (code kept; billing staff work by code).
+- Not adopted: counting `inbox_claims` over `move.mine`. It is defined as the claims behind the viewer's Inbox items, and #4611 is in Dana's Inbox. The KPI copy should say so.
