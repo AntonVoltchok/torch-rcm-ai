@@ -30,12 +30,16 @@ function rollback(qc: QueryClient, snapshot: Snapshot | undefined) {
   snapshot?.forEach(([key, data]) => qc.setQueryData(key, data))
 }
 
-function settle(qc: QueryClient, claimIds: (string | null | undefined)[]) {
+/** After any Inbox decision: every server view the decision can move. */
+export function settle(qc: QueryClient, claimIds: (string | null | undefined)[]) {
   void qc.invalidateQueries({ queryKey: qk.inbox.all })
   void qc.invalidateQueries({ queryKey: qk.claims.all })
   void qc.invalidateQueries({ queryKey: qk.activityAll })
   void qc.invalidateQueries({ queryKey: qk.preview })
   void qc.invalidateQueries({ queryKey: qk.agents })
+  // A decision moves a rule's `waiting` count and the Denials rows (item, whose move); both are server numbers.
+  void qc.invalidateQueries({ queryKey: qk.rules })
+  void qc.invalidateQueries({ queryKey: qk.denials })
   for (const id of claimIds) if (id) void qc.invalidateQueries({ queryKey: qk.claim(id) })
 }
 
