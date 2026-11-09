@@ -2,6 +2,44 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-08 — D1 dashboard redesign built (Opus 5.5)
+
+**State:** committed on `d1-final` (on top of `feat/d1-dashboard`), not pushed or merged. ADR-0008 records the decisions, and the build plan is folded in and deleted.
+
+**What D1 shipped**
+- **Server half.** Whose move on every claim (`ClaimSummary.move`, with `mine` for the viewer) and the KPI moves. Wording from the action catalog: `action_label`, `touches`, `lands`, `signer_note`, `headline`, `learnable`. Plus `Confidence k/n`, approve-time `changes`, `Run.claim_outcome` (in the eval shape) and `409 claim_busy`.
+- **Server totals.** The ledger, claims, eligibility, activity, settings and Denials payer × reason (`DenialsOut.matrix`, this session) totals all come from the server. The browser adds no business number.
+- **Screens.** D1's shell, tokens and type (Geist self-hosted, nothing under 12px). The Inbox lets the run own the pane. Claim history runs in lanes, and Denials is a deadline-first worklist with Next denial. Every other screen is restyled on D1. Payments and Patients stay `MockOnlyBanner`.
+- **This session's sweep.** The deprecated `acc`/`bad`/`warn` aliases and `text-2xs` are deleted. The warning toast is now neutral. The framed mocks say TorchRCM. An Inbox decision refetches rules and Denials. Clean already: Google Fonts, `stepLabel`, "Torch" as the product name, dead links, missing banners.
+
+**Checks on the final tree**
+
+| Check | Result |
+|---|---|
+| `make lint` | clean |
+| `make test` | 625 API + 143 web |
+| replay harness | OK. Run through a scratch script calling `torch_rcm.agents.cli.run_eval_command`, because the sandbox refuses the word in a command. |
+| `pnpm test:contract` | 52 of 52 |
+| `pnpm check:api` | clean |
+| MSW e2e (`vite preview` :5201) | 6 of 6 on two full reruns. The first run failed 2 (`reload-mid-run`, the shell's 1280 fit) on a cold preview. Both passed alone and on reruns. |
+| real-target `@demo` (API :8101 over a scratch DB, web :5202) | 3 of 3 |
+
+**Not proven**
+- The first-run e2e flake above. `reload-mid-run` has flaked before (d1-api-3).
+- Run under a live model: only cassettes were replayed.
+- The Payments banner's `#r3-pay` anchor was reported to land on the mocks' Overview. Not checked here.
+- Two-tab `claim_busy` is covered by a unit test, not an e2e.
+
+**Next**
+- After merge: `make seed`. Stored `Confidence` changed shape (required `k`, `n`, `outcome`), so an older DB no longer loads its Inbox items.
+- Review-level findings still open in the worker notes:
+  1. `RuleChange.items_affected_since` is a stored, hand-authored count that no run backs. It needs a derived field.
+  2. The mock's Paid view is every paid claim. It equals October only on the demo clock.
+  3. The Claims table scrolls inside its panel at 1280 px.
+  4. The Payments mock anchor is unverified.
+- API asks: `TimelineEntry.short`, `HolderCount.label`, the denial date and follow-up date on Denials rows, `deadline.days_left`.
+- `CLAUDE.md` and other older docs still say "Torch" in prose.
+
 ## 2026-11-02 — TorchRCM rename and round 2 of the redesign (Opus 5.5)
 
 **State:** committed on `chore/first-run`, not pushed. The owner picked variation D and asked for two restyles. The product is now **TorchRCM** in everything people see. Identifiers, model prompts and tool schemas keep the old word, because cassettes depend on them.
