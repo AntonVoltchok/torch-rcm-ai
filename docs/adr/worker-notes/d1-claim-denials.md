@@ -37,7 +37,7 @@ Branch `claude/nostalgic-kowalevski-b60020`, on `feat/d1-dashboard` @ 8db4937. N
 
 ## Approve seam
 
-`features/claim/useClaimApprove.ts` is the one call site (used by `OpenItemsPanel`). Today it wraps `useApprove` + `?launch=` and renders `ProgressPanel` under the open item. After d1-inbox merges, replace its body with `useActiveLaunch`. Callers only use `{ approve, isPending, isBlocked }`.
+`features/claim/useClaimApprove.ts` is the one call site (used by `OpenItemsPanel`). Today it wraps `useApprove` + `?launch=` and renders `ProgressPanel` under the open item. After d1-inbox merges, replace its body with `useActiveLaunch` (on `feat/d1-inbox` @ f8ac24a): `isBlocked: (item) => Boolean(item.claim && active.isLocked(item.claim.id))`, and have `ClaimDetailPage` show `active.launchFor(claimId)` in `ProgressPanel` instead of reading `?launch=` itself. Callers only use `{ approve, isPending, isBlocked }`.
 
 ## Checks
 

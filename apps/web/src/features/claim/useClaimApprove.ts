@@ -4,6 +4,10 @@
  * Today it wraps the existing `useApprove` and shows the run with `?launch=` on this page. After d1-inbox merges,
  * the coordinator replaces the body with the shared `useActiveLaunch` hook (the run owns the pane; Approve is
  * disabled for items on claims under a running launch). Callers use only `{ approve, isPending, isBlocked }`.
+ *
+ * The swap (feat/d1-inbox @ f8ac24a, `hooks/useActiveLaunch.ts`): `const active = useActiveLaunch()`;
+ * `isBlocked: (item) => Boolean(item.claim && active.isLocked(item.claim.id))`; the page shows
+ * `active.launchFor(claimId)` in `ProgressPanel` instead of reading `?launch=` itself.
  */
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import type { InboxItem } from '@/api/schema'
