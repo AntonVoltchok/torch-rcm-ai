@@ -52,10 +52,10 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-4 p-5">
       <div className="flex flex-wrap items-start gap-3">
         <PreviewPanel target={target} ruleLabel={targetRow?.rule.label} currentMode={targetRow?.rule.mode} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-xs text-mid">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm text-mid">
           <span>Most specific wins: payer + item type beats “All” · row order never matters</span>
           <PracticeCapEditor cents={data.practice_cap_cents} canEdit={user.role === 'owner'} />
           {selectedRow && selectedRow.rule.tier !== 3 && canChange && (
@@ -76,10 +76,10 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
       </div>
 
       <table aria-label="Agent rules" className="w-full border-collapse text-base">
-        <thead className="sticky top-0 z-[1] bg-fill">
+        <thead className="sticky top-0 z-[1] bg-paper">
           <tr>
             {COLS.map((c) => (
-              <th key={c} className={cn('h-8 border-b border-line px-2 text-left text-2xs font-extrabold uppercase tracking-[.05em] text-soft', c.startsWith('Ran') && 'text-right')}>
+              <th key={c} className={cn('h-8 whitespace-nowrap border-b border-line px-2 text-left text-xs font-medium text-soft', c.startsWith('Ran') && 'text-right')}>
                 {c}
               </th>
             ))}
@@ -91,9 +91,9 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
               <th colSpan={COLS.length} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left font-normal">
                 <span className="inline-flex flex-wrap items-center gap-2">
                   <TierBadge tier={t.tier} compact />
-                  <b className="text-sm text-ink">{t.label}</b>
-                  <span className="text-xs text-mid">{t.summary}</span>
-                  <span className="text-xs text-soft">{t.description}</span>
+                  <b className="text-sm font-semibold text-ink">{t.label}</b>
+                  <span className="text-sm text-mid">{t.summary}</span>
+                  <span className="text-sm text-soft">{t.description}</span>
                 </span>
               </th>
             </tr>
@@ -103,16 +103,16 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                 data-rule-id={r.id}
                 aria-selected={r.id === selectedId}
                 onClick={() => select(r.id)}
-                className={cn('h-10 cursor-pointer border-b border-light align-middle hover:bg-fill', r.id === selectedId && 'bg-acc-bg/50', r.learned && 'shadow-[inset_3px_0_0_var(--color-ok)]')}
+                className={cn('h-10 cursor-pointer border-b border-line align-middle', r.id === selectedId ? 'bg-act-bg' : 'hover:bg-hover', r.learned && 'shadow-[inset_3px_0_0_var(--color-ok)]')}
               >
-                <td className="px-2">
-                  <div className="font-semibold">{r.label}</div>
-                  <div className="text-2xs text-soft">
+                <td className="min-w-60 px-2 py-1.5">
+                  <div className="font-medium">{r.label}</div>
+                  <div className="text-xs text-soft">
                     ✦ {AGENT_NAME[r.agent]}
                     {r.learned && <Chip tone="ok" className="ml-1">learned</Chip>}
                   </div>
                 </td>
-                <td className="px-2 text-sm text-mid">{r.scope}</td>
+                <td className="min-w-28 px-2 text-sm text-mid">{r.scope}</td>
                 <td className="px-2" onClick={(e) => e.stopPropagation()}>
                   <ModeControl
                     row={r}
@@ -124,7 +124,7 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                     }}
                   />
                 </td>
-                <td className={cn('px-2 text-sm', r.floor.tone === 'warn' ? 'font-semibold text-warn' : r.floor.tone === 'muted' ? 'text-soft' : 'text-ink')}>{r.floor.text}</td>
+                <td className={cn('px-2 text-sm', r.floor.tone === 'warn' ? 'font-semibold text-ink' : r.floor.tone === 'muted' ? 'text-soft' : 'text-ink')}>{r.floor.text}</td>
                 <td className="px-2 text-sm text-mid">{r.outcome}</td>
                 <td className="px-2 text-sm text-mid">{r.reverses}</td>
                 <td
@@ -141,7 +141,7 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                   <span className="text-soft"> · {count(r.waiting)} waiting</span>
                 </td>
                 <td className="px-2 text-sm text-mid">{r.changed}</td>
-                <td className={cn('px-2 text-sm', r.signoff.tone === 'ok' ? 'text-ok' : r.signoff.tone === 'warn' ? 'font-semibold text-warn' : 'text-soft')}>{r.signoff.text}</td>
+                <td className={cn('px-2 text-sm', r.signoff.tone === 'ok' ? 'text-ok' : r.signoff.tone === 'warn' ? 'font-semibold text-ink' : 'text-soft')}>{r.signoff.text}</td>
               </tr>
             ))}
           </tbody>
