@@ -231,3 +231,50 @@ Server gaps (for the API session; nothing computed in the browser to cover them 
 - `EligibilityOut.by_day[{date, verified, issue, unverified, checking}]`: the per-day tallies are still counted from rows.
 - `RulesOut.rules_count`: the Rules tab count adds tier rows; Proposals falls back to filtering open items when `proposals_open` is missing.
 - `ActivityRow.move` (or `claim.move`): Activity rows can't show a baton.
+
+## Phase 4b notes (`d1-api-4`)
+
+Close the phase-3 server gaps so no screen in ledger, claims, cash, eligibility, activity or settings adds rows into a number. Found while reading: the API already month-scopes Paid. `GET /claims?status=paid` returns only claims paid this month (118 on the seed, the strip's `Paid · Oct`), and the unfiltered list is open claims plus claims paid this month (225). The hidden `include_paid_all` flag is never exposed. So the Claims quick view's title "Every paid claim, all time" is wrong on the real API. The mock lists every paid claim, but all its paid claims are October, so its numbers happen to agree.
+
+Judgment calls (options → lean):
+
+1. **Paid quick view and "All".**
+   - (a) Make the month explicit: label `Paid · {paid_month_label}`, count `paid_month_count`, title "Paid in {month}, the strip's Paid tile". `Strip.all_count` is what an unfiltered `GET /claims` returns (open plus paid this month), titled to say so. One predicate (`_matches`) computes both the list and the count.
+   - (b) "All" means every claim ever. Expose `paid=all|month`, keep Paid all-time, and add `Strip.paid_all_count`. The strip and the list would then tell two stories: 118 paid in the strip, 418 in the list.
+   - (c) No count on "All".
+   - Lean (a). The strip and the list agree on one number per view, and a billing lead's work list is open work plus this month's cash, not two months of closed claims.
+2. **Ledger file groups.**
+   - (a) `LedgerToday.files[{file_time, count, cents, claim_ids}]`; the client picks rows by id.
+   - (b) Nest the rows in the groups and drop `leaving_next_file`.
+   - Lean (a). It is additive, mocks and e2e keep `leaving_next_file`, and picking rows by id isn't counting. Totals: `LedgerToday.totals{on_ledger, sent, leaving, held, not_billable}`, each `{count, cents}` (not billable in fee cents).
+3. **Settings sums beyond the brief.**
+   - Tier header "9 rules · ran 29 · 5 waiting": `TierGroup.count / ran_without_review_7d / waiting`.
+   - Preview "41 → 44" and "3 more would have run": `PreviewOut.held_total`, `in_scope` (= would_run + held_total) and `gained` (= in_scope − baseline).
+   - Owner digest: `RuleChangeList.digest{changes, items_run, awaiting_signoff, since}` over the 7 days before the frozen clock.
+   - Lean: all server-side. The alternative is to leave them as named selectors. They are small, but they are exactly the "number the server didn't compute" rule.
+4. **Activity.**
+   - `ActivityRow.move: ClaimMove | null` is the claim's move *now*, for the viewer. It is not the move at the time of the run, which the row's outcome already says. The column is headed "Whose move now".
+   - Day header "N shown": `ActivityOut.by_day[{date, count}]` over the filtered rows.
+   - Lean: both.
+5. **Eligibility.**
+   - `EligibilityOut.by_day[{date, count, verified, issue, unverified, checking}]` keyed by practice-local date, plus `EligibilityOut.total` for the "N appts" summary.
+   - The client still groups rows by `practiceDay(start)` and reads each header from `by_day`. A day with rows but no `by_day` entry is a contract bug, caught by a test.
+6. **Out of reach (other owners' folders), listed rather than fixed:**
+   - inbox `withoutItems` (an optimistic projection, replaced on refetch);
+   - `DraftText` sentence counts (payload structure);
+   - `RelayTable count={members.length}`;
+   - denials payer × reason matrix;
+   - claim `legs.fold` "+N earlier";
+   - "Next denial (i of n)".
+
+Invariant tests:
+- ledger totals equal the rows, and the files partition `leaving_next_file`;
+- `all_count` equals the unfiltered `GET /claims` total, and `paid_month_count` equals `?status=paid`;
+- `by_day` sums equal the rows (eligibility and activity);
+- `rules_count` equals the sum of tier rows;
+- preview `in_scope` = would_run + Σheld;
+- each digest number equals its definition.
+
+The mock mirrors every field, and the web unit tests hold it to the same equalities.
+
+Adopted after the red team (`docs/design/red-team/challenge-d1-api-4-2026-11-08.md`): (a) on 1, with `Strip.all_count` and the Paid tile both going through `_matches`, the labels "Open + Paid · Oct" and "Paid · Oct" with tooltips, and a search (`q`) that reaches older paid claims. (a) on 2, with "Not yet filed" for a null file time. On 3, `before_holds`, `held_total` and `net_change`, with no `gained`: the "N more / N fewer" line reads `net_change`. The digest covers the Mon-start week, and `items_run` adds this week's "Items run since" column so it agrees with the table. On 4, the column is "Now with" ("—" without a claim), the day header reads "N entries", and `by_day` is practice-local and taken after the filters. On 5, `by_day` lists every business day in the window, zeros included, plus any day with rows, and the page renders from it. The words are Needs attention and Not verified. Not adopted: a month-rollover mock case (no mock claim carries a paid month), and renaming the `_7d` fields. Hand-over: `docs/adr/worker-notes/d1-api-4.md`.
