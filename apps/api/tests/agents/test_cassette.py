@@ -1,10 +1,10 @@
-"""Cassettes: record/replay roundtrip, strict keys, and the canonical (synthetic) cassettes (07 §4.3)."""
+"""Cassettes: record/replay roundtrip, strict keys, and the canonical API recordings (07 §4.3)."""
 
 from __future__ import annotations
 
 import asyncio
 import json
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -24,13 +24,13 @@ from torch_rcm.agents.llm.cassette import (
 from torch_rcm.agents.llm.client import CallMeta, LlmClient, build_request
 from torch_rcm.agents.planner.base import EvidenceSet, PlannerFallback
 from torch_rcm.agents.planner.live import LivePlanner, registry_reader
-from torch_rcm.agents.planner.scripted import RecordedPlanPlanner
+from torch_rcm.agents.planner.scripted import RecordedPlanPlanner, ScriptedPlanner
 from torch_rcm.agents.testing.fakes import READ_IMAGES, FakeTransport, response, submit, thinking
 from torch_rcm.agents.testing.fakes import FakeReader as Reader
 from torch_rcm.agents.testing.fakes import fake_case as make_case
 from torch_rcm.agents.tools.adapters import SimWorld, StoreDomain
 from torch_rcm.agents.tools.registry import ToolRegistry
-from torch_rcm.agents.types import ClaimLineView, ClaimView, DenialView, Evidence, Plan, ProposedAction, Subject
+from torch_rcm.agents.types import Plan, Subject
 from torch_rcm.runtime import Runtime
 
 NOW = datetime.fromisoformat("2026-10-28T10:40:00-04:00")
@@ -99,12 +99,12 @@ def test_request_drift_is_a_miss(tmp_path: Path) -> None:
         asyncio.run(LivePlanner(client=CassetteClient(path.parent)).plan(case, Reader(), EvidenceSet(case.evidence)))
 
 
-def test_canonical_cassettes_are_synthetic_and_keyed_to_current_prompts() -> None:
+def test_canonical_cassettes_are_recordings_keyed_to_current_prompts() -> None:
     names = sorted(p.stem for p in CANON.glob("*.jsonl"))
     assert names == sorted(c.name for c in CANONICAL)
     for spec in CANONICAL:
         cas = Cassette.load(CANON / f"{spec.name}.jsonl")
-        assert cas.synthetic and cas.hash_mode == "structure" and cas.header["recorded_at"]
+        assert not cas.synthetic and cas.hash_mode == "full" and cas.header["recorded_at"]
         role = "draft" if spec.purpose == "draft" else "exec"
         meta = CallMeta(
             run_id="r",
@@ -116,7 +116,7 @@ def test_canonical_cassettes_are_synthetic_and_keyed_to_current_prompts() -> Non
             role=role,
         )
         want = cassette_key(meta, build_request(spec.agent, [], model_role=role))
-        assert cas.key == want, f"{spec.name} is stale: restamp_synthetic() after a deliberate prompt edit"
+        assert cas.key == want, f"{spec.name} is stale: re-record with `torch cassette record` after a prompt edit"
         assert {c["subject_id"] for c in cas.calls} == set(spec.subject_ids)
 
 
@@ -152,81 +152,30 @@ def test_canonical_followup_cassettes_replay_against_the_seeded_world(rt: Runtim
             assert a.action == "resubmit_with_attachment" and a.params["image_id"] == images[claim_id]
             assert {"era_line", "pms_record", "portal_screenshot"} <= cited
             continue
-        # the three seeded unknowns: within the reviewed plan (planner/recorded/<claim>.plan.json)
+        # the three seeded unknowns: the recorded model plan stays inside the reviewed envelope
+        # (planner/recorded/<claim>.plan.json); it need not equal the hand-written plan
         rec = RecordedPlanPlanner.load(claim_id)
-        assert plan.situation_key == "unknown" and plan.situation_description == rec["situation_description"]
-        assert [(a.action, a.params) for a in plan.actions] == [(r["action"], r["params"]) for r in rec["actions"]]
-        assert [(r.tool, r.args) for r in plan.reads] == [(r["tool"], r["args"]) for r in rec["reads"]]
+        assert {a.action for a in plan.actions} <= set(rec["envelope"])
+        assert all(a.params.get("claim_id", claim_id) == claim_id for a in plan.actions)
         assert cited and all(
             e.gathered_by == "agent" for a in plan.actions for e in evidence.items if e.id in a.evidence_ids
         )
 
 
-def test_canonical_appeal_draft_replays_and_passes_the_text_guard() -> None:
-    denial = DenialView(
-        group="CO",
-        carc="50",
-        rarc="N10",
-        line_id="cl_4796_1",
-        remittance_id="rem_guardian_1029",
-        decoded="Not deemed medically necessary after consultant review",
-        denied_on=date(2026, 10, 29),
-    )
-    claim = ClaimView(
-        id="clm_4796",
-        number=4796,
-        patient_id="pat_ito_l",
-        visit_id="vis_1009_ito",
-        coverage_id="cov_ito_l_1",
-        payer_key="guardian",
-        status="denied",
-        dos=date(2026, 10, 9),
-        billed_cents=48_000,
-        denial=denial,
-        lines=(
-            ClaimLineView(id="cl_4796_1", cdt="D4341", surface="UR", fee_cents=24_000),
-            ClaimLineView(id="cl_4796_2", cdt="D4341", surface="UL", fee_cents=24_000),
-        ),
-    )
+def test_canonical_appeal_draft_replays_and_passes_the_text_guard(rt: Runtime) -> None:
+    """The case is built from the seeded world at Fri 07:10, as `torch cassette record` builds it."""
     at = datetime.fromisoformat("2026-10-30T07:10:00-04:00")
-    ev = (
-        Evidence(
-            id="ev_a1",
-            kind="era_line",
-            title="Guardian 835 · 10/29",
-            excerpt="CO-50 N10 both D4341 lines",
-            captured_at=at,
-        ),
-        Evidence(
-            id="ev_a2",
-            kind="note_excerpt",
-            title="Clinical note 10/09",
-            excerpt="Pockets UR/UL, BOP.",
-            captured_at=at,
-            untrusted=True,
-        ),
+    asyncio.run(rt.scheduler.run_due(at))
+    sim = SimWorld(rt.world)
+    run_id = "run_cassette_clm_4796"
+    case = build_case(
+        StoreDomain(rt.store, sim), run_id=run_id, agent="appeals", subject=Subject(kind="claim", id="clm_4796"), now=at
     )
-    case = make_case("appeals", "denied:CO-50:N10:formal_appeal").model_copy(
-        update={
-            "claim": claim,
-            "denial": denial,
-            "evidence": ev,
-            "subject": Subject(kind="claim", id="clm_4796"),
-            "now": at,
-        }
-    )
-    plan = Plan(
-        situation_key=case.classifier_situation,
-        reviewer_summary="Formal appeal with the chart.",
-        planner="scripted",
-        actions=(
-            ProposedAction(
-                action="formal_appeal", params={"claim_id": "clm_4796", "level": 1}, evidence_ids=("ev_a1", "ev_a2")
-            ),
-        ),
-    )
+    evidence = EvidenceSet(case.evidence)
+    reader = registry_reader(ToolRegistry(sim), case, run_id=run_id)
+    plan = asyncio.run(ScriptedPlanner().plan(case, reader, evidence))
     planner = LivePlanner(client=CassetteClient(CANON))
-    draft = asyncio.run(planner.draft(case, plan, "appeal_letter", EvidenceSet(ev)))
+    draft = asyncio.run(planner.draft(case, plan, "appeal_letter", evidence))
     assert draft is not None and draft.source == "agent" and draft.kind == "appeal_letter"
-    assert any(s.fact_type == "clinical" and s.evidence_ids for s in draft.segments)
+    assert all(s.evidence_ids for s in draft.segments if s.fact_type in ("clinical", "financial"))
     assert draft.human_must_complete and planner.pin and planner.pin.model == "claude-opus-5-5"
