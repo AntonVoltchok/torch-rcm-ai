@@ -11,7 +11,7 @@ services:
     dockerfilePath: ./infra/api.Dockerfile
     healthCheckPath: /api/v1/clock
     domains:
-      - torch-api.antonvolt.com
+      - rcm-ai-api.antonvolt.com
     disk:
       name: torch-data
       mountPath: /data
@@ -24,4 +24,4 @@ services:
       - key: TORCH_DB_URL
         value: sqlite:////data/torch.db
       - key: TORCH_CORS_ORIGINS
-        value: '["https://torch.antonvolt.com"]'
+        value: '["https://rcm-ai.antonvolt.com"]'

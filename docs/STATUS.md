@@ -2,6 +2,17 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Deployed: rcm-ai.antonvolt.com (Opus 5.5)
+
+**State:** live. ADR-0011. `main` deploys both services on push.
+
+- **Web:** Vercel project `torch-rcm-ai` (Hobby team), root `apps/web`, `VITE_API_BASE=https://rcm-ai-api.antonvolt.com/api/v1` (baked in at build; redeploy after changing it). `apps/web/vercel.json` rewrites deep links to `index.html`.
+- **API:** Render Blueprint `torch-rcm-ai` → web service `torch-rcm-api` (Starter, 1 GB disk at `/data`, deterministic mode, health check `/api/v1/clock`), workspace AdsUp. Seeds itself on an empty disk.
+- **DNS:** Cloudflare CNAMEs `rcm-ai` (Vercel) and `rcm-ai-api` (Render), DNS only. CORS allows only `https://rcm-ai.antonvolt.com`, so Vercel preview URLs cannot call the API.
+- Shared state: every visitor sees one world; "Reset demo to Wed 10:40" restores the seed.
+
+**Next:** decide whether a nightly reseed is worth it; live mode on the deployed API would need `ANTHROPIC_API_KEY` in Render and a cost cap.
+
 ## 2026-11-09 — Live mode works; the canonical cassettes are real recordings (Opus 5.5)
 
 **State:** committed on `feat/d1-dashboard`, not pushed. ADR-0010; tour decision D21. Run `make seed` (the #4709 visit note is new).
