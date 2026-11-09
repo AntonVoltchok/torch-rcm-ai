@@ -74,3 +74,14 @@ Judgment calls met while building the shell. Lean first; red-teamed below.
 6. **Outage.** Today a full-width banner over every screen. D1 moves it to one muted line in the sidebar foot. **Lean:** D1's line, `role="status"`, full sentence in its title and as visually hidden text, plus the payer's name, so a reader learns it once per screen without a banner pushing the page down.
 7. **Type scale on the existing names.** `text-2xs`/`xs` → 12, `sm` → 13, `base` → 14 (body), plus `text-md` 16, `text-title` 22, `text-kpi` 34. Nothing under 12. Arbitrary `text-[Npx]` in files I own are replaced; the rest are left to their phase owners, listed in the hand-over.
 8. **Colour tokens.** Existing names keep their roles with D1 values (`ink`, `mid`=ink2, `soft`=ink3, `line`, `fill`=sunk, `acc`=act cobalt, `bad`=risk red, `warn` takes D1's amber ink). New: `canvas`, `hover`, `track`, `line-strong`, party triples `practice|agents|payer` (`-ink`, `-bg`, `-line`), `act` (+`-hover`, `-bg`, `-line`), `risk` (+`-ink`, `-bg`, `-line`). `acc` and `act` are the same value; `act` is the name new code uses.
+
+**Red-team result, adopted** (`docs/design/red-team/challenge-d1-shell-2026-11-08.md`, hiring Director of Engineering persona):
+
+- 1 + 2: one typed switch, `staticData.chrome = { header: 'full'|'slim'|'none', panel }` read from the leaf match (`features/shell/chrome.ts`); default `{ slim, panel }`. The panel is the scroll container. `/inbox` sets `header: 'full'` (one line in `routes/inbox.tsx`). The active pipeline cell comes from `useMatch('/claims/')` search, with `aria-current`.
+- 3: as leaned; every big number prints its unit; payer sub says "billed"; no "these add up" tooltip.
+- 4: kept, from `strip.flagged_count`, in ink (red is for money at risk and "ours" only).
+- 5: native select; option text is name · role ("Dr. Morgan · Owner"); "(demo)" stays visible.
+- 6: hybrid. The sidebar line is the global indicator (full sentence in text, not a tooltip). A per-item "came back because the Cigna portal is down" note is phase 2 (d1-inbox / d1-claim-denials).
+- 7: line-heights set with each size; all ten routes checked at 1280×800 (`e2e/shell.spec.ts` asserts no horizontal scroll).
+- 8: `acc*` are aliases of `act*` (deprecated; d1-rest replaces them). `warn*` is neutral (ink on grey), so amber only ever means "yours". `bad*` aliases `risk*`; every `text-bad` use is the phase owner's to check (list in the hand-over).
+- Missed, done here: the pipeline renders `open_count`, `ar_cents`, `flagged_count` (no client sums); KPI batons and legend marks are `aria-hidden`; the bar has a label with its counts; skip link; global reduced-motion rule. Left for d1-rest: `openTotals`/`arTotals`/`flaggedTotal`/`tileFor`'s zero tile in `lib/strip.ts` (still used by Claims).

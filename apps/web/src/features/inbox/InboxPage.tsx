@@ -17,7 +17,6 @@ import { navBadge } from '@/lib/strip'
 import { cn } from '@/lib/cn'
 import { useLaunches, type Launch } from '@/state/launches'
 import { PageHeader } from '@/components/PageHeader'
-import { PipelineStrip } from '@/components/PipelineStrip'
 import { ProgressPanel } from '@/components/ProgressPanel'
 import { EmptyState } from '@/components/EmptyState'
 import { QueryError } from '@/components/QueryError'
@@ -130,17 +129,6 @@ export function InboxPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title="Inbox" sub={inboxOpen !== null ? `${plural(inboxOpen, 'item')} need you${items.length > 0 ? ` · ${inboxMix(items)}` : ''}` : undefined} />
-      <div className="flex flex-none items-center gap-3.5 border-b border-line bg-fill px-[18px] py-2 text-sm text-mid">
-        {ranAlone !== null && inboxOpen !== null && (
-          <span>
-            This week agents ran <b className="text-ink">{count(ranAlone)}</b> items without you; <b className="text-ink">{count(inboxOpen)}</b> came to you
-          </span>
-        )}
-        <Link to="/activity" className="font-semibold text-acc no-underline hover:underline">
-          See what they did → Activity
-        </Link>
-      </div>
-      <PipelineStrip />
       <div className="flex min-h-0 flex-1">
         <div className="flex w-[430px] flex-none flex-col border-r border-line">
           <div role="tablist" aria-label="Filter" className="flex gap-1 border-b border-line px-2.5 py-2 text-sm text-mid">
