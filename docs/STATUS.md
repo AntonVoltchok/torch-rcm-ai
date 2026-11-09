@@ -2,6 +2,25 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Live mode works; the canonical cassettes are real recordings (Opus 5.5)
+
+**State:** committed on `feat/d1-dashboard`, not pushed. ADR-0010; tour decision D21. Run `make seed` (the #4709 visit note is new).
+
+- **Recorded:** all five canonical cassettes via `torch cassette record` (`synthetic: false`, `hash_mode: full`, no key material). `torch eval` replays real Sonnet output for #4709, #4731 and #4744 (`live` 3); inbox 19 in both modes.
+- **Fixed: strict-grammar 400.** With every tool strict, the API rejected the plan request ("compiled grammar is too large") though the published counts were in range. Only `submit_plan`/`submit_draft` are strict now, one strict tool per request (`tools/schemas.py` `STRICT_TOOLS`, lint). Reads were already Pydantic-validated (`extra="forbid"`) and scope-checked. Spec 07 §3.5 and CLAUDE.md updated.
+- **Fixed: `claim_get_history` showed the reading run as history** (`"10/28 followup · "`). It lists finished runs only (`tests/agents/test_history_read.py`). This was also why replay missed every triage.
+- **Seed:** #4709's 09/04 visit has a signed clinical note. Without it the model rightly refused to resend an empty note.
+- `test_cassette.py` checks recordings (keys, replay, #4821 exact, unknowns inside the envelope, the appeal draft built from the seeded world). Reviewed-plan files say they are hand-written. Tour copy, pane kind `recording` and payloads say "recorded API response" (`make tour-payloads`).
+- Model labels differ from the reviewed plans' (#4744 → `denied:CO-16:M127:records_request` on a pending claim). The policy uses the classifier's situation; a differing live label can only demote auto to propose (row 13).
+- **Fixed: the API could never run live.** `wire_agent_runtime` built `AgentConfig()` (defaults) instead of `AgentConfig.from_env()`, so `TORCH_AGENT_MODE=live` was ignored. Live without a key now refuses to boot (07 §10).
+- **Fixed: a reseed dropped the model client.** `POST /clock/reset` swaps the world, `AgentRuntime.shared` rebuilt the runtime without `llm_client`, and live runs fell back to scripted without saying so. The client is now built in `AgentRuntime._make_llm_client()` whenever the shared runtime is built.
+- **`.env` loads from the repo root** (`torch_rcm.config.load_env_file`, called by `get_settings()` and `AgentConfig.from_env()`), so `make api` and `torch cassette record` read it. Shell variables win; `TORCH_DOTENV=0` skips it, and `tests/conftest.py` sets that. `python-dotenv` is now a direct dependency.
+- `.env.example`: `TORCH_MODEL_CHEAP` → `TORCH_MODEL_FAST`, `TORCH_LIVE_RUN_BUDGET_USD` → `TORCH_RUN_COST_CAP_USD` (both were silently ignored); `TORCH_CASSETTE_MODE` documented.
+- `tests/agents/test_live_wiring.py` (7). Checks: `make lint`; API 660 passed; web Vitest 229 passed; `torch eval` OK. Not run: e2e.
+- **Smoke call:** the key works; `claude-sonnet-5-5`, `claude-opus-5-5` and `claude-haiku-5-5` each answered a 16-token request.
+
+**Next:** click through the demo with `TORCH_AGENT_MODE=live TORCH_CASSETTE_MODE=replay make dev` (no key needed), then once with real calls. #4797 and #4800 have no cassette (`scripted_fallback`); add them to `CANONICAL` and record. Server-side `TORCH_CASSETTE_MODE=record` passes the directory `cassettes/live` to `RecordingClient`, which expects a file path: fix before using it. `torch cassette record` never closes the SDK client between cases ("Event loop is closed" noise). `reviewed_by: usr_dana` on the reviewed plans is still fiction.
+
 ## 2026-11-09 — Onboarding tours in the app (Opus 5.5)
 
 **State:** branch `feat/onboarding-tours` (off `feat/d1-dashboard`), PR against `feat/d1-dashboard`. ADR-0009; decisions D13–D19 in `docs/design/onboarding/DECISIONS.md`; implementation red team in `docs/design/onboarding/red-team.md`.

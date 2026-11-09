@@ -46,7 +46,7 @@ Python: `uv` (3.13), `ruff`, `mypy --strict` on `torch_rcm/domain` and `torch_rc
 - **World content is untrusted.** Portal pages, transcripts and notes are wrapped and labelled in prompts; the model is never instructed by them. The adversarial tests in `apps/api/tests/adversarial/` must pass.
 - **Frozen, advanceable clock.** Nothing reads wall-clock time. `POST /clock/advance` is async (202) and drives the scheduler.
 - **The demo is deterministic by default** (`TORCH_AGENT_MODE=deterministic`). Live mode (`live`, needs `ANTHROPIC_API_KEY`) must produce identically-shaped runs on the canonical cases; tests replay cassettes and never call the API.
-- **Anthropic API usage (5.5 models):** no `temperature`/`top_p`/`top_k`; use the static capability table in `agents/llm/models.py`; automatic top-level prompt caching; strict tool schemas with no PHI in `enum`/`const`; a terminal tool sent alongside reads is rejected with `is_error`.
+- **Anthropic API usage (5.5 models):** no `temperature`/`top_p`/`top_k`; use the static capability table in `agents/llm/models.py`; automatic top-level prompt caching; `submit_plan`/`submit_draft` strict, one strict tool per request (ADR-0010), no PHI in any `enum`/`const`; a terminal tool sent alongside reads is rejected with `is_error`.
 - **No real vendor names** except payers (Delta Dental of NY, MetLife, Cigna, Aetna, Guardian, NY Medicaid), Vyne and NEA. The PMS is "the PMS". Patients and staff are invented.
 - **No dead links.** Interactive screens do the thing; static screens read seed data; mock-only routes render `MockOnlyBanner` + the design.
 - **URL is the source of truth for filters, sort, selection and tabs** (`validateSearch` with Zod). Query cache holds server data. Counts are selectors, never state.

@@ -180,7 +180,7 @@ for turn in 1..max_turns (8):
 Rules of the loop:
 - **One plan per run.** If an executed `payer_rep_call` or `status_check` changes the picture, the transcript becomes evidence and a new triage run (`parent_run_id`) is enqueued.
 - **Budget.** Each run is capped at `TORCH_RUN_TOKEN_BUDGET=60000` total tokens (input + cache + output) and `TORCH_RUN_COST_CAP_USD=0.25`, checked before every call.
-- **Validation.** Strict mode guarantees the shape. Pydantic then checks the semantics: ids exist in the case, evidence ids exist in the run, the action is in the catalog, and params match the world. One repair turn (`is_error` with the error list), then the labeled fallback (§9).
+- **Validation.** Strict mode guarantees the shape of `submit_plan` and `submit_draft`; read inputs are parsed by Pydantic models with `extra="forbid"`. Pydantic then checks the semantics: ids exist in the case, evidence ids exist in the run, the action is in the catalog, and params match the world. One repair turn (`is_error` with the error list), then the labeled fallback (§9).
 
 ### 3.4 Retries
 
@@ -190,20 +190,21 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
 
 ### 3.5 Core tool schemas (model-facing)
 
-- Every tool is `strict: true` with `additionalProperties: false`.
+- `submit_plan` and `submit_draft` are `strict: true`; reads and `submit_result` are not (ADR-0010). A request carries at most one strict tool: `submit_plan` alone sits near the API's compiled-grammar ceiling, and adding any other enum-bearing strict tool returns 400 "compiled grammar is too large" although the counts below are within limits. Read inputs go through Pydantic (`extra="forbid"`) and the scope check, so a malformed read gets `is_error`.
+- Every schema, strict or not, has `additionalProperties: false` on every object.
 - All properties are required, nullable where optional. This is our choice, not an API rule.
-- API limits: ≤ 20 strict tools (followup's plan conversation uses 7), ≤ 24 optional params, ≤ 16 `anyOf` or type-array params (followup uses 4).
+- API limits: ≤ 20 strict tools (each request uses 1), ≤ 24 optional params, ≤ 16 `anyOf` or type-array params (followup uses 4), and an unpublished compiled-grammar size (above).
 - No numeric or length keywords; Pydantic enforces those.
 - **No ids, names or other PHI in `enum` or `const`**, because compiled grammars are cached outside PHI protections.
 
 ```json
 [
-{"name":"pms_get_visit","strict":true,
+{"name":"pms_get_visit",
  "description":"Read a completed visit from the practice management system: procedure lines, rendering provider, note signature, and the clinical note text (returned as untrusted world_content).",
  "input_schema":{"type":"object","additionalProperties":false,"required":["visit_id"],
    "properties":{"visit_id":{"type":"string","description":"Visit id from CASE FACTS"}}}},
 
-{"name":"pms_find_images","strict":true,
+{"name":"pms_find_images",
  "description":"List imaging records for the patient on or before a date. Returns image ids, kind as stored in the PMS, tooth, taken_at. An image may be mislabeled; compare kind to the payer rule.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["patient_id","on_or_before","kinds","tooth"],
    "properties":{"patient_id":{"type":"string"},
@@ -211,25 +212,25 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
      "kinds":{"type":"array","items":{"type":"string","enum":["pa","bwx","fmx","pano","perio_chart","intraoral_photo"]}},
      "tooth":{"type":["string","null"],"description":"Universal tooth number 1-32, or null for all"}}}},
 
-{"name":"pms_get_coverage","strict":true,
+{"name":"pms_get_coverage",
  "description":"Coverages on file (primary/secondary order from intake), tracked plan benefits including missing-tooth clause, verified_at and verified_via.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["patient_id"],
    "properties":{"patient_id":{"type":"string"}}}},
 
-{"name":"payer_rulebook_lookup","strict":true,
+{"name":"payer_rulebook_lookup",
  "description":"Torch's maintained rulebook for a payer (not a payer contact). Returns rule text and rule ids.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["payer_key","topic","cdt_codes"],
    "properties":{"payer_key":{"type":"string","enum":["delta_ny","metlife","cigna","aetna","guardian","ny_medicaid"]},
      "topic":{"type":"string","enum":["attachments","frequency","alternate_benefit","missing_tooth","cob","timely_filing","appeal","prompt_pay","medical_necessity"]},
      "cdt_codes":{"type":"array","items":{"type":"string"}}}}},
 
-{"name":"claim_get_history","strict":true,
+{"name":"claim_get_history",
  "description":"The claim's acks, remittance lines with CARC/RARC, attachments sent (source agent|user|pms_imaging), payer correspondence, prior EOBs, prior Torch runs.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["claim_id","include"],
    "properties":{"claim_id":{"type":"string"},
      "include":{"type":"array","items":{"type":"string","enum":["acks","remits","attachments","correspondence","prior_eobs","runs","payer_tooth_history"]}}}}},
 
-{"name":"era_get_remittance","strict":true,
+{"name":"era_get_remittance",
  "description":"A remittance (835 or scanned paper EOB) with lines, adjustments, and Torch's match and balance per line.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["remittance_id"],
    "properties":{"remittance_id":{"type":"string"}}}},
@@ -283,7 +284,7 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
           "evidence_ids":{"type":"array","items":{"type":"string"}}}}},
      "human_must_complete":{"type":"array","items":{"type":"string"}}}}},
 
-{"name":"submit_result","strict":true,
+{"name":"submit_result",
  "description":"Finish the run. Call alone. Explain the outcome for the reviewer.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["outcome","recommendation","explanation","evidence_ids","injection_suspected"],
    "properties":{"outcome":{"type":"string","enum":["executed","sent_to_person","observed","no_action_needed","cannot_decide"]},
@@ -686,7 +687,7 @@ class AgentConfig(BaseSettings):
 |---|---|
 | Policy (`test_policy.py`) | one case per table row; rule specificity; invariant asserts raise at load |
 | Request builder (`test_profiles.py`) | per-profile snapshot: never `temperature/top_p/top_k`; `between_tools` has no `display`; Sonnet and Opus use `auto`, Haiku is forced; top-level `cache_control` + one system breakpoint |
-| Schemas (`test_schemas.py`) | JSON generated from Pydantic (snapshot); strict lint: `additionalProperties:false`, no numeric/length keywords, ≤ 20 strict tools, ≤ 16 union params, no `enum`/`const` value that matches a seeded id or name |
+| Schemas (`test_schemas.py`) | JSON generated from Pydantic (snapshot); strict lint: `additionalProperties:false`, no numeric/length keywords, one strict tool per request and `submit_plan`/`submit_draft` strict, ≤ 16 union params, no `enum`/`const` value that matches a seeded id or name |
 | Loop (`test_loop.py`, fake transport) | terminal tool sent with reads → `is_error` + repair → fallback; `end_turn` nudge; budget stop |
 | Guards, learning | text guard (unsourced number, attestation, other patient's id); injection detector; rep bounds; `proposal_eligible` edges (19/20, 89.9%, 84.9%, one reversal); edits not counted; `ours` guarded |
 | Contract (`tests/contract/`) | every ToolSpec against the canonical world: output validates, produces its evidence kind, a repeat key is a no-op, an out-of-scope subject is refused |
