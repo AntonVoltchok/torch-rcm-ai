@@ -9,15 +9,16 @@ export function TierBadge({ tier, mode, compact = false }: { tier: Tier; mode?: 
     <span
       title={`Tier ${tier}: ${TIER_LABEL[tier]}`}
       className={cn(
-        'inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 text-2xs font-bold leading-[17px]',
-        tier === 1 && 'border-acc-line bg-acc-bg text-acc',
-        tier === 2 && 'border-warn-line bg-warn-bg text-warn',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-xs font-semibold leading-[18px]',
+        // Weight, not hue: cobalt is for actions and amber is "yours". T1 quiet, T2 outlined, T3 solid.
+        tier === 1 && 'border-transparent bg-light text-mid',
+        tier === 2 && 'border-line-strong bg-paper text-ink',
         tier === 3 && 'border-ink bg-ink text-white',
       )}
     >
       T{tier}
-      {!compact && <span className="font-semibold">· {TIER_LABEL[tier]}</span>}
-      {mode && <span className="font-semibold">· {MODE_LABEL[mode]}</span>}
+      {!compact && <span className="font-medium">· {TIER_LABEL[tier]}</span>}
+      {mode && <span className="font-medium">· {MODE_LABEL[mode]}</span>}
     </span>
   )
 }

@@ -7,13 +7,14 @@ export function ConfidenceMeter({ pct, basis, compact = false }: { pct: number |
       </span>
     )
   }
-  const tone = pct >= 85 ? 'bg-ok' : 'bg-[#c88a00]'
+  // Not amber: amber means "yours". Below 85% the bar is grey, and the number and basis say the rest.
+  const tone = pct >= 85 ? 'bg-ok' : 'bg-nobody'
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-mid" title={basis}>
-      <span className="relative inline-block h-1.5 w-14 overflow-hidden rounded bg-light">
+      <span className="relative inline-block h-1.5 w-14 overflow-hidden rounded-full bg-track">
         <span className={`absolute inset-y-0 left-0 ${tone}`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
       </span>
-      <b className="text-ink">{Math.round(pct)}%</b>
+      <b className="font-semibold text-ink">{Math.round(pct)}%</b>
       {!compact && basis && <span>— {basis}</span>}
     </span>
   )

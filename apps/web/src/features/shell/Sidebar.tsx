@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useStrip } from '@/hooks/useStrip'
 import { navBadge } from '@/lib/strip'
@@ -6,47 +7,77 @@ import { cn } from '@/lib/cn'
 import { useCurrentUser } from '@/state/session'
 import { AgentsIndicator } from './AgentsIndicator'
 import { ClockControl } from './ClockControl'
+import { OutageLine } from './OutageLine'
 import { UserSwitcher } from './UserSwitcher'
+import { NavIcon } from './NavIcon'
 import { navFor } from './nav'
 
+/**
+ * D1's white sidebar: the brand, the two work queues, a rule, the records; then the demo's own controls kept in
+ * one tidy foot (agents, outage, clock, who is signed in), each one click away. The Inbox count is the server's
+ * `strip.inbox_open`, the same number as the "Yours" card.
+ */
 export function Sidebar() {
   const user = useCurrentUser()
   const strip = useStrip()
+  const items = navFor(user.role)
   return (
-    <aside className="flex w-[184px] flex-none flex-col gap-0.5 border-r border-line bg-fill px-2.5 py-3.5">
-      <div className="flex items-center gap-2 px-2 pb-3.5 text-[17px] font-extrabold">
-        <i aria-hidden className="inline-block h-[18px] w-[18px] rounded-[5px_5px_9px_9px] bg-ink" />
-        TorchRCM
+    <aside className="flex w-[208px] flex-none flex-col overflow-y-auto border-r border-line bg-paper px-3 pb-3.5 pt-4">
+      <div className="flex items-center gap-2.5 px-1.5 pb-4">
+        <BrandMark />
+        <span className="flex flex-col">
+          <span className="text-md font-semibold tracking-[-0.012em]">TorchRCM</span>
+          <span className="text-xs text-soft">Harbor Dental</span>
+        </span>
       </div>
-      <nav aria-label="Main" className="flex flex-col gap-0.5">
-        {navFor(user.role).map((n) => {
+      <nav aria-label="Main" className="flex flex-col gap-px">
+        {items.map((n, i) => {
           const badge = n.badge ? navBadge(strip.data, n.badge) : null
+          const rule = i > 0 && items[i - 1]?.group === 'work' && n.group === 'records'
           return (
-            <Link
-              key={n.to}
-              to={n.to}
-              className="flex items-center rounded-md border border-transparent px-2 py-[7px] text-[13.5px] text-mid no-underline hover:text-ink"
-              activeProps={{ className: 'border-line! bg-white font-bold text-ink!' }}
-            >
-              {n.label}
-              {badge !== null && badge > 0 && (
-                <span
-                  data-testid={`badge-${n.badge ?? ''}`}
-                  className={cn('ml-auto rounded-[9px] px-[7px] text-2xs font-bold', n.badge === 'inbox' ? 'bg-acc text-white' : 'bg-light text-mid')}
-                >
-                  {count(badge)}
-                </span>
-              )}
-            </Link>
+            <Fragment key={n.to}>
+              {rule && <span aria-hidden className="mx-2 my-2 h-px bg-line" />}
+              <Link
+                to={n.to}
+                className="flex h-[34px] items-center gap-2.5 rounded-[7px] px-2 text-base text-mid no-underline hover:bg-hover hover:text-ink"
+                activeProps={{ className: 'bg-hover font-medium text-ink!' }}
+              >
+                <NavIcon to={n.to} />
+                {n.label}
+                {badge !== null && badge > 0 && (
+                  <span
+                    data-testid={`badge-${n.badge ?? ''}`}
+                    className={cn(
+                      'ml-auto min-w-[22px] rounded-full px-1.5 text-center text-xs font-semibold leading-5',
+                      n.badge === 'inbox' ? 'bg-practice-bg text-practice-ink' : 'bg-light text-mid',
+                    )}
+                  >
+                    {count(badge)}
+                  </span>
+                )}
+              </Link>
+            </Fragment>
           )
         })}
       </nav>
-      <div className="flex-1" />
-      <div className="flex flex-col gap-2 border-t border-line pt-2.5 text-xs text-mid">
+      <div className="mt-auto flex flex-col gap-3 px-1.5 pt-5 text-sm text-mid">
         <AgentsIndicator />
-        <UserSwitcher />
-        <ClockControl />
+        <OutageLine />
+        <div className="flex flex-col gap-2.5 border-t border-line pt-3">
+          <ClockControl />
+          <UserSwitcher />
+        </div>
       </div>
     </aside>
+  )
+}
+
+/** A rounded square holding a baton at the practice stop: the product's one idea, at 24px. */
+function BrandMark() {
+  return (
+    <span aria-hidden className="relative inline-block h-6 w-6 rounded-md bg-ink">
+      <span className="absolute inset-x-[5px] top-[11px] h-0.5 bg-[#6c7586]" />
+      <span className="absolute left-[5px] top-[8.5px] h-[7px] w-2 rounded-full bg-practice" />
+    </span>
   )
 }

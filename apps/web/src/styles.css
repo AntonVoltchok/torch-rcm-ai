@@ -1,33 +1,76 @@
+/* Geist, self-hosted from npm (no third-party font request). One variable file covers 400–600. */
+@import '@fontsource-variable/geist';
 /* Scan src/ only: public/design/mocks.html would otherwise flood the build with its class names. */
 @import 'tailwindcss' source('../src');
 
-/* Palette and type from docs/design/mocks.html: neutral grays, one accent, semantic green/amber/red. */
+/*
+ * D1 "Dashboard" tokens (docs/design/variations/round-2/variants/d1.js, docs/plans/d1-build.md decision 6).
+ * The old names keep their roles with D1 values, so every feature restyles without edits:
+ *   ink / mid / soft   text, strongest to quietest (D1 ink, ink2, ink3; all AA on white and on the canvas)
+ *   line / light / fill / paper   soft border, neutral chip fill, sunk well, panel surface
+ *   acc*   the action colour (aliases of act, deprecated); bad* (= risk); warn* neutral; ok* green for paid and done
+ * New names:
+ *   canvas, hover, track, line-strong   the grey page behind panels, row hover, baton track, control borders
+ *   practice / agents / payer   whose move. `-ink` is the AA text shade, `-bg` and `-line` a tinted panel.
+ *     Shape backs hue everywhere a party is drawn (see components/Baton.tsx): practice pill, agents block, payer leaf.
+ *   act   cobalt, the only action colour: primary buttons, focus, the selected row
+ *   risk  red, money at risk and "root cause: ours" only
+ */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
 
-  --color-ink: #1d1f23;
-  --color-mid: #5b6068;
-  --color-soft: #8b9098;
-  --color-line: #d5d8dc;
-  --color-light: #ebedef;
-  --color-fill: #f5f6f7;
+  --color-ink: #161a22;
+  --color-mid: #4b5364;
+  --color-soft: #5c6577;
+  --color-line: #e7e9ee;
+  --color-line-strong: #d8dce3;
+  --color-light: #eef0f4;
+  --color-fill: #f8f9fb;
   --color-paper: #ffffff;
+  --color-canvas: #f6f7f9;
+  --color-hover: #f2f4f7;
+  --color-track: #e6e9ef;
+  --color-nobody: #8a93a3;
 
-  --color-acc: #2f5bd8;
-  --color-acc-dark: #1a43b3;
-  --color-acc-bg: #edf2fe;
-  --color-acc-line: #c5d3f7;
+  --color-act: #2a55d6;
+  --color-act-hover: #2348bc;
+  --color-act-bg: #eff3fe;
+  --color-act-line: #cbd8f9;
+  --color-acc: var(--color-act);
+  --color-acc-dark: var(--color-act-hover);
+  --color-acc-bg: var(--color-act-bg);
+  --color-acc-line: var(--color-act-line);
 
-  --color-ok: #1b7f46;
+  --color-practice: #f2b01e;
+  --color-practice-ink: #8a5b00;
+  --color-practice-num: #9c6600;
+  --color-practice-bg: #fef5df;
+  --color-practice-line: #f7e2ae;
+  --color-agents: #0e929b;
+  --color-agents-ink: #0b7480;
+  --color-agents-bg: #e4f4f5;
+  --color-agents-line: #c6e6e8;
+  --color-payer: #8a3fbc;
+  --color-payer-ink: #7a32a8;
+  --color-payer-bg: #f5edfa;
+  --color-payer-line: #e4d0f1;
+
+  --color-risk: #bc2a22;
+  --color-risk-ink: #a8231c;
+  --color-risk-bg: #fdecea;
+  --color-risk-line: #f6cfcb;
+
+  --color-ok: #18703e;
   --color-ok-bg: #e6f4ec;
   --color-ok-line: #b9e0c8;
-  --color-warn: #9a6200;
-  --color-warn-bg: #fdf1d6;
-  --color-warn-line: #ecd49b;
-  --color-bad: #c0392b;
-  --color-bad-bg: #fce9e6;
-  --color-bad-line: #f2bdb6;
+  /* Neutral on purpose: amber means "yours", so a warning is ink on grey and says itself in words. */
+  --color-warn: var(--color-ink);
+  --color-warn-bg: var(--color-hover);
+  --color-warn-line: var(--color-line-strong);
+  --color-bad: var(--color-risk);
+  --color-bad-bg: var(--color-risk-bg);
+  --color-bad-line: var(--color-risk-line);
   --color-dark: #7a1f16;
 
   --color-age-ok: #2e9e5e;
@@ -35,10 +78,26 @@
   --color-age-bad: #d9534f;
   --color-age-dark: #7a1f16;
 
-  --text-2xs: 11px;
-  --text-xs: 11.5px;
-  --text-sm: 12.5px;
-  --text-base: 13px;
+  /* Scale 12 / 13 / 14 / 16 / 22 / 34. Nothing renders under 12px: the two old small steps both land on 12. */
+  --text-2xs: 12px;
+  --text-2xs--line-height: 16px;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-md: 16px;
+  --text-md--line-height: 22px;
+  --text-title: 22px;
+  --text-title--line-height: 28px;
+  --text-title--letter-spacing: -0.014em;
+  --text-kpi: 34px;
+  --text-kpi--line-height: 38px;
+  --text-kpi--letter-spacing: -0.022em;
+
+  --radius-panel: 10px;
+  --shadow-panel: 0 1px 2px rgb(22 26 34 / 0.04);
 }
 
 @layer base {
@@ -50,18 +109,37 @@
   body {
     margin: 0;
     min-width: 1280px;
-    background: var(--color-paper);
+    background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: var(--text-base);
-    line-height: 1.35;
+    line-height: 1.45;
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
   }
-  :focus-visible {
-    outline: 2px solid var(--color-acc);
-    outline-offset: 1px;
+  /* D1: weight 600 is the heaviest. Old 700/800 classes read as 600. */
+  b,
+  strong {
+    font-weight: 600;
   }
+  :focus-visible {
+    outline: 2px solid var(--color-act);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* A white panel on the canvas: the D1 card. */
+@utility panel {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Big numbers read as shapes, not columns. */
+@utility nums-proportional {
+  font-variant-numeric: proportional-nums;
 }
 
 @keyframes torch-spin {
@@ -74,9 +152,142 @@
     opacity: 0.45;
   }
 }
+@keyframes torch-agents-pulse {
+  50% {
+    box-shadow: 0 0 0 5px rgb(14 146 155 / 0.14);
+  }
+}
 .animate-torch-spin {
   animation: torch-spin 0.9s linear infinite;
 }
 .animate-torch-pulse {
   animation: torch-pulse 1.4s ease-in-out infinite;
+}
+.animate-torch-agents-pulse {
+  animation: torch-agents-pulse 1.1s ease infinite;
+}
+
+/*
+ * The baton (components/Baton.tsx): three stops, one rod. --p is the stop (0 practice, 1 agents, 2 payer);
+ * a change of holder glides the rod because the same element only changes --p.
+ */
+.baton {
+  --w: 20px;
+  --h: 9px;
+  --g: 23px;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: calc(var(--g) * 2 + var(--w));
+  height: var(--h);
+  vertical-align: middle;
+}
+.baton[data-size='md'] {
+  --w: 34px;
+  --h: 10px;
+  --g: 44px;
+}
+.baton[data-size='lg'] {
+  --w: 50px;
+  --h: 12px;
+  --g: 60px;
+}
+.baton > .baton-stop {
+  position: absolute;
+  top: 0;
+  left: calc(var(--i) * var(--g));
+  width: var(--w);
+  height: var(--h);
+  border-radius: 3px;
+  background: var(--color-track);
+}
+.baton > .baton-rod {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: var(--w);
+  height: var(--h);
+  transform: translateX(calc(var(--p) * var(--g)));
+  transition:
+    transform 500ms cubic-bezier(0.3, 0.75, 0.25, 1),
+    background-color 300ms ease,
+    border-radius 300ms ease;
+  font: 600 12px/16px var(--font-sans);
+  text-align: center;
+  color: var(--color-ink);
+}
+.baton > .baton-rod[data-count] {
+  top: calc(50% - 8px);
+  height: 16px;
+}
+.party-shape-practice {
+  background: var(--color-practice);
+  border-radius: 99px;
+  /* Amber on white is under 3:1; the ink ring carries the edge (WCAG 1.4.11). */
+  box-shadow: inset 0 0 0 1px var(--color-practice-ink);
+}
+.party-shape-agents {
+  background: var(--color-agents);
+  border-radius: 2px;
+}
+.party-shape-payer {
+  background: var(--color-payer);
+  border-radius: 0 7px 0 7px;
+}
+.party-shape-nobody {
+  background: var(--color-nobody);
+  border-radius: 2px;
+}
+.baton > .baton-rod[data-held='other'] {
+  background: repeating-linear-gradient(-45deg, var(--color-practice) 0 3px, #fff 3px 5.5px);
+}
+.baton > .baton-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--w);
+  height: var(--h);
+  transform: translateX(calc(var(--p) * var(--g)));
+  background: var(--color-paper);
+  border: 1.25px dashed var(--color-soft);
+  border-radius: 3px;
+}
+.baton > .baton-ghost[data-who='agents'] {
+  border-color: var(--color-agents-ink);
+}
+.baton > .baton-ghost[data-who='payer'] {
+  border-color: var(--color-payer-ink);
+}
+/* A mini rod: the legend swatch and the timeline marker. */
+.party-mark {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 9px;
+  vertical-align: baseline;
+}
+.party-mark.party-shape-payer {
+  border-radius: 0 5px 0 5px;
+}
+/* Pipeline tallies: one tick per claim, in its holder's shape. */
+.party-tick {
+  display: block;
+  width: 6px;
+  height: 12px;
+}
+.party-tick.party-shape-payer {
+  border-radius: 0 4px 0 4px;
+}
+.party-tick.party-shape-agents {
+  border-radius: 1.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

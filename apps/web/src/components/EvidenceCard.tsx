@@ -26,15 +26,15 @@ const isInternalId = (reference: string) => /^[a-z]+_[a-z0-9_]+$/i.test(referenc
 
 export function EvidenceCard({ evidence, className }: { evidence: Evidence; className?: string }) {
   return (
-    <figure data-evidence-kind={evidence.kind} className={cn('m-0 min-w-0 flex-1 rounded-[7px] border border-line bg-white p-[7px]', className)}>
-      <figcaption className="text-xs leading-[1.35]">
-        <b className="block text-sm text-ink">{evidence.title}</b>
+    <figure data-evidence-kind={evidence.kind} className={cn('m-0 min-w-0 flex-1 rounded-lg border border-line bg-fill px-3 py-2.5', className)}>
+      <figcaption className="text-sm leading-[1.45]">
+        <b className="block font-semibold text-ink">{evidence.title}</b>
         <span className="mt-0.5 block text-ink">{evidence.excerpt}</span>
-        <span className="mt-1 block text-mid">
+        <span className="mt-1 block text-xs leading-[1.35] text-soft">
           {KIND_LABEL[evidence.kind]} · {dateTime(evidence.captured_at)}
           {evidence.reference && !isInternalId(evidence.reference) ? ` · ${evidence.reference}` : ''}
         </span>
-        {evidence.suspicious && <span className="mt-0.5 block font-semibold text-warn">This page contained instructions; they were ignored.</span>}
+        {evidence.suspicious && <span className="mt-1 block text-xs font-semibold text-risk-ink">This page contained instructions; they were ignored.</span>}
       </figcaption>
     </figure>
   )
