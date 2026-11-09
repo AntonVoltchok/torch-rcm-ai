@@ -6,8 +6,9 @@
  *  - the main tour opens on load, and Esc gives the app back.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { createMockApi } from '@/mocks/node'
 import { renderApp, renderWithProviders } from '@/test/render'
 import { launchStore } from '@/state/launches'
@@ -16,6 +17,7 @@ import { TOURS } from './registry'
 import { AUTOOPEN, tourStore } from './store'
 import { anchorSelector } from './anchors'
 import type { Step, Tour } from './types'
+import { TourProvider, useTour } from './TourProvider'
 
 const api = createMockApi({ stepDelayMs: 5 })
 beforeAll(() => api.server.listen({ onUnhandledRequest: 'error' }))
@@ -76,8 +78,16 @@ describe('anchors', () => {
   })
 })
 
-/** Identifiers and codes, not counts: claim numbers, CARC/RARC, X12 transaction sets, HTTP statuses, tier numbers. */
-const LITERALS = new Set(['4821', '4744', '16', '29', '835', '999', '277', '202', '403', '409', '422', '1', '2', '3'])
+/** Identifiers and codes, not counts: claim numbers, CARC/RARC, X12 transaction sets, HTTP statuses. */
+const LITERALS = new Set(['4821', '4744', '16', '29', '835', '999', '277', '202', '403', '409', '422'])
+/** Tier names ("Tier 2", "tier-1", "T2") are the spec's three tiers, not counts. */
+const TIER = /\b(?:[Tt]ier[ -]|T)[123]\b/g
+/**
+ * Spelled-out numbers allowed in copy: "one"/"two" as wording ("one endpoint", "two screens cannot disagree"), and spec
+ * constants: nine statuses (CLAUDE.md), three tiers, lanes and acknowledgments. Any other number word fails.
+ */
+const WORDS = new Set(['one', 'two', 'three', 'nine'])
+const NUMBER_WORDS = /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|hundred)\b/gi
 
 describe('numbers in step copy', () => {
   const all = Object.values(TOURS).flatMap((t) => t.steps.map((s) => ({ t, s })))
@@ -90,8 +100,11 @@ describe('numbers in step copy', () => {
       await waitFor(() => expect([...container.querySelectorAll('[data-server-number]')].map((n) => n.textContent)).not.toContain('…'), { timeout: 4000 })
       const clone = container.cloneNode(true) as HTMLElement
       clone.querySelectorAll('[data-server-number]').forEach((n) => n.remove())
-      const stray = (clone.textContent ?? '').match(/\d+/g)?.filter((d) => !LITERALS.has(d)) ?? []
+      const text = (clone.textContent ?? '').replace(TIER, '')
+      const stray = text.match(/\d+/g)?.filter((d) => !LITERALS.has(d)) ?? []
       expect(stray, `digits outside <Num> in ${t.id}/${s.id}`).toEqual([])
+      const words = text.match(NUMBER_WORDS)?.filter((w) => !WORDS.has(w.toLowerCase())) ?? []
+      expect(words, `spelled-out numbers in ${t.id}/${s.id}`).toEqual([])
     })
   }
 })
@@ -141,5 +154,83 @@ describe('the tour in the app', () => {
     await user.keyboard('a')
     await user.keyboard('{Shift>}A{/Shift}')
     expect(approves).toEqual([])
+  })
+})
+
+describe('Try it and focus', () => {
+  beforeEach(() => localStorage.removeItem(AUTOOPEN))
+
+  it('lands focus on Next at every step, so the new card is announced', async () => {
+    const user = userEvent.setup()
+    renderApp('/inbox')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    await screen.findByRole('heading', { name: 'Where the data comes from' })
+    await waitFor(() => expect(within(screen.getByTestId('tour-card')).getByRole('button', { name: 'Next' })).toHaveFocus())
+    await user.keyboard('{ArrowRight}')
+    await screen.findByRole('heading', { name: 'The pipeline: nine statuses, one source' })
+    await waitFor(() => expect(within(screen.getByTestId('tour-card')).getByRole('button', { name: 'Next' })).toHaveFocus())
+  })
+
+  it('a refused approve ends the wait at once with the app’s own message, and Next works again', async () => {
+    api.server.use(http.post(/\/inbox:approve-group$/, () => HttpResponse.json({ error: { code: 'claim_busy', message: 'An agent is working this claim.' } }, { status: 409 })))
+    const user = userEvent.setup()
+    renderApp('/inbox?item=itm_4821')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    for (let i = 0; i < 6; i++) await user.keyboard('{ArrowRight}')
+    await screen.findByRole('heading', { name: 'Dana decides' })
+    const tryBtn = await screen.findByTestId('tour-try')
+    await waitFor(() => expect(tryBtn).toBeEnabled())
+    await user.click(tryBtn)
+    const alert = await screen.findByTestId('tour-try-error', {}, { timeout: 3000 })
+    expect(alert.textContent).not.toMatch(/did not open/)
+    expect(within(screen.getByTestId('tour-card')).getByRole('button', { name: 'Next' })).toBeEnabled()
+  })
+
+  it('Esc during a Try-it stops it before its next step', async () => {
+    let tour: ReturnType<typeof useTour> | null = null
+    const Grab = () => {
+      tour = useTour()
+      return null
+    }
+    // A probe inside a bare provider reads its API; the run below has no screen to press.
+    renderWithProviders(
+      <TourProvider>
+        <Grab />
+      </TourProvider>,
+    )
+    await waitFor(() => expect(tour).not.toBeNull())
+    const switched: string[] = []
+    const step: Step = {
+      id: 't',
+      title: 't',
+      body: () => null,
+      tryIt: {
+        label: 't',
+        busy: 't',
+        then: 'stay',
+        run: async (ctx) => {
+          await ctx.until(() => false, 5000, 'never')
+          await ctx.switchUser('usr_morgan')
+          switched.push('morgan')
+        },
+      },
+    }
+    let result: unknown
+    act(() => {
+      void tour?.runTry(step).then((r) => (result = r))
+    })
+    act(() => tour?.exit())
+    await waitFor(() => expect(result).toEqual({ aborted: true }))
+    expect(switched).toEqual([])
+    expect(session.get().userId).toBe('usr_dana')
+  })
+
+  it('a click on the shade explains why the app is paused instead of doing nothing', async () => {
+    const user = userEvent.setup()
+    renderApp('/inbox')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    await screen.findByTestId('tour-card')
+    await user.click(screen.getByTestId('tour-shield'))
+    expect(await screen.findByTestId('tour-nudge')).toHaveTextContent('The app is paused while the tour is open.')
   })
 })

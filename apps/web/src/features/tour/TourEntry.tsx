@@ -40,9 +40,13 @@ export function TourSidebarRow() {
     if (e.key === 'Escape') {
       e.preventDefault()
       close()
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    } else if (e.key === 'Tab') setOpen(false)
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus()
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      ;(e.key === 'Home' ? items[0] : items.at(-1))?.focus()
     }
   }
 
@@ -65,6 +69,7 @@ export function TourSidebarRow() {
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
+          aria-controls={open ? 'tour-menu' : undefined}
           aria-label="All tours"
           onClick={() => setOpen((o) => !o)}
           className="border-l border-act-line px-2 text-xs hover:bg-act hover:text-white"
@@ -74,28 +79,34 @@ export function TourSidebarRow() {
       </div>
       {open && (
         <div
+          id="tour-menu"
           role="menu"
           aria-label="Tours"
           onKeyDown={onMenuKey}
-          className="absolute bottom-full left-0 z-30 mb-1.5 flex w-[248px] flex-col rounded-lg border border-line bg-paper py-1 text-sm shadow-[0_12px_32px_rgb(22_26_34/0.18)]"
+          className="absolute bottom-full left-0 right-0 z-30 mb-1.5 flex flex-col rounded-lg border border-line bg-paper py-1 text-sm shadow-[0_12px_32px_rgb(22_26_34/0.18)]"
         >
           {ids.map((id) => (
             <button
               key={id}
               type="button"
               role="menuitem"
+              tabIndex={-1}
               onClick={() => {
                 setOpen(false)
-                start(id)
+                start(id, toggle.current)
               }}
-              className={cn('flex items-center gap-2 px-3 py-1.5 text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none', id === 'main' && 'border-b border-line pb-2 font-medium')}
+              className={cn('flex items-center gap-1.5 px-2.5 py-1.5 text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none', id === 'main' && 'border-b border-line pb-2 font-medium')}
             >
               <span aria-hidden className={cn('w-3 flex-none text-ok', !seen[id] && 'invisible')}>
                 ✓
               </span>
               <span className="flex-1">{TOURS[id].name}</span>
               {seen[id] && <span className="sr-only">(seen)</span>}
-              {id === screenTour && <span className="text-xs text-soft">this screen</span>}
+              {id === screenTour && (
+                <span className="text-xs text-soft" title="This screen">
+                  here
+                </span>
+              )}
             </button>
           ))}
         </div>

@@ -49,7 +49,7 @@ export function ClockControl() {
             </span>
           )}
           {progress.data?.done && progress.data.state === 'failed' && <span className="text-xs text-risk-ink">Advance failed{progress.data.error ? `: ${progress.data.error}` : ''}.</span>}
-          <button type="button" className="self-start text-xs text-soft underline underline-offset-2 hover:text-ink disabled:no-underline" onClick={() => reset.mutate(undefined, { onSuccess: () => advance.reset() })} disabled={reset.isPending || advancing}>
+          <button type="button" data-tour="reset-demo" className="self-start text-xs text-soft underline underline-offset-2 hover:text-ink disabled:no-underline" onClick={() => reset.mutate(undefined, { onSuccess: () => advance.reset() })} disabled={reset.isPending || advancing}>
             Reset demo to Wed 10:40
           </button>
         </>

@@ -2,7 +2,7 @@ import { count, money } from '@/lib/format'
 
 /**
  * A number in tour copy. Every count or amount the tour states goes through here, read from a server response by the
- * caller; `numbers.test.tsx` fails on any digit in step copy outside a `Num` that is not an allowlisted identifier.
+ * caller; `tour.test.tsx` ("numbers in step copy") fails on any digit in step copy outside a `Num` that is not an allowlisted identifier.
  * Until the response arrives it reads "…", never a guess.
  */
 export function Num({ v, as = 'count' }: { v: number | null | undefined; as?: 'count' | 'money' | 'raw' }) {

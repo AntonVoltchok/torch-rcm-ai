@@ -4,7 +4,8 @@ import { useLocation, useRouter } from '@tanstack/react-router'
 import { qk } from '@/api/queryKeys'
 import type { Clock } from '@/api/schema'
 import { useSwitchUser } from '@/features/shell/UserSwitcher'
-import { until } from './anchors'
+import { session, type DemoUser } from '@/state/session'
+import { press, TryFailed, unhover, until } from './anchors'
 import { TOURS } from './registry'
 import { tourForPath } from './screens'
 import { tourStore } from './store'
@@ -26,14 +27,21 @@ interface TourApi {
   active: Active | null
   step: Step | null
   screenTour: TourId | null
-  start: (id: TourId) => void
+  /** `opener`: where focus returns on exit (a menu passes its toggle, since its items unmount). */
+  start: (id: TourId, opener?: HTMLElement | null) => void
   exit: () => void
   go: (idx: number) => void
-  tryCtx: TryCtx
-  /** A "Try it" is running: steps hold still until the app answers (Esc still exits). */
+  /** Runs a step's "Try it". Resolves `aborted` when the tour was exited meanwhile, so the caller does nothing more. */
+  runTry: (step: Step) => Promise<{ ok: true } | { ok: false; message: string } | { aborted: true }>
+  /** A "Try it" is running: steps hold still until the app answers (Esc still exits, and stops it). */
   busy: boolean
-  setBusy: (b: boolean) => void
+  /** A Try-it changed the practice this load (approve, triage, the clock): the finish offers the reset. */
+  changed: boolean
+  setChanged: (c: boolean) => void
 }
+
+/** The persona the main tour's copy is written for. */
+const TOUR_PERSONA: DemoUser['id'] = 'usr_dana'
 
 const Ctx = createContext<TourApi | null>(null)
 
@@ -53,30 +61,54 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const pathname = useLocation({ select: (l) => l.pathname })
   const [active, setActive] = useState<Active | null>(null)
   const [busy, setBusy] = useState(false)
+  const [changed, setChanged] = useState(false)
+  const activeRef = useRef(active)
+  activeRef.current = active
   const opener = useRef<HTMLElement | null>(null)
+  /** The persona to give back on exit, when the main tour switched to Dana. */
+  const restoreUser = useRef<DemoUser['id'] | null>(null)
+  const tryAbort = useRef<AbortController | null>(null)
+  /** The step whose route has been reached; a pathname change after that is the user's own (Back), not the tour's. */
+  const settled = useRef<string | null>(null)
   const screenTour = tourForPath(pathname)
 
+  // `replace`: a tour's steps are not history entries, so Back leaves the tour instead of walking through it.
   const navigate = useCallback(
     async (to: string, search?: Record<string, unknown>) => {
-      await router.navigate({ to, ...(search ? { search } : {}) } as Parameters<typeof router.navigate>[0])
+      await router.navigate({ to, replace: true, ...(search ? { search } : {}) } as Parameters<typeof router.navigate>[0])
     },
     [router],
   )
 
-  const start = useCallback((id: TourId) => {
-    if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement
-    tourStore.markSeen(id)
-    setActive({ tour: TOURS[id], idx: 0 })
-  }, [])
+  const start = useCallback(
+    (id: TourId, from?: HTMLElement | null) => {
+      // A tour started from inside another (the finish modal) keeps the first opener.
+      if (!activeRef.current) opener.current = from ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+      tryAbort.current?.abort()
+      tryAbort.current = null
+      setBusy(false)
+      unhover()
+      tourStore.markSeen(id)
+      setActive({ tour: TOURS[id], idx: 0 })
+    },
+    [],
+  )
 
   const exit = useCallback(() => {
+    tryAbort.current?.abort()
+    tryAbort.current = null
+    unhover()
     setActive(null)
     setBusy(false)
+    settled.current = null
+    const restore = restoreUser.current
+    restoreUser.current = null
+    if (restore && session.get().userId !== restore) void switchUser(restore)
     const back = opener.current
     opener.current = null
-    // Back to whatever opened the tour, once the shell is interactive again.
-    if (back?.isConnected) requestAnimationFrame(() => back.focus())
-  }, [])
+    // Back to whatever opened the tour once the shell is interactive again, or to the screen if that is gone.
+    requestAnimationFrame(() => (back?.isConnected ? back : document.getElementById('main'))?.focus())
+  }, [switchUser])
 
   const go = useCallback((idx: number) => {
     setActive((a) => (a ? { ...a, idx: Math.max(0, Math.min(a.tour.steps.length - 1, idx)) } : a))
@@ -97,38 +129,113 @@ export function TourProvider({ children }: { children: ReactNode }) {
   }, [pathname, active, screenTour, start])
 
   const step = active ? (active.tour.steps[active.idx] ?? null) : null
+  const stepKey = active && step ? `${active.tour.id}:${step.id}` : null
+
+  // The main tour is written as Dana: past the welcome it signs in as her with the app's own switcher, and exit gives
+  // the viewer's persona back.
+  useEffect(() => {
+    if (!active || active.tour.id !== 'main' || active.idx === 0 || busy) return
+    const current = session.get().userId
+    if (current === TOUR_PERSONA || restoreUser.current) return
+    restoreUser.current = current
+    void switchUser(TOUR_PERSONA)
+  }, [active, busy, switchUser])
+
+  // Back (or any navigation the tour did not make) once a step has reached its route ends the tour.
+  useEffect(() => {
+    if (!active || !step || step.modal || busy || settled.current !== stepKey) return
+    const ok = step.route ? pathname === step.route.to : tourForPath(pathname) === active.tour.id
+    if (!ok) exit()
+  }, [pathname, active, step, stepKey, busy, exit])
 
   // Each step's route, URL first. A step without one uses its tour's screen, and keeps the user's filters there.
   useEffect(() => {
+    settled.current = null
     if (!active || !step || step.modal) return
     let live = true
     void (async () => {
+      // A step without its own route stays on any screen of its tour (the claim on screen, the user's filters).
+      if (!step.route && tourForPath(router.state.location.pathname) === active.tour.id) {
+        if (live) settled.current = `${active.tour.id}:${step.id}`
+        return
+      }
       const want = step.route ?? { to: active.tour.home }
       const extra = step.searchFrom ? await step.searchFrom(qc).catch(() => ({})) : {}
       const search = want.search || step.searchFrom ? { ...want.search, ...extra } : undefined
       const here = router.state.location
       const sameSearch = !search || Object.entries(search).every(([k, v]) => (here.search as Record<string, unknown>)[k] === v)
-      if (!live || (here.pathname === want.to && sameSearch)) return
-      await navigate(want.to, search)
+      if (!live) return
+      if (here.pathname !== want.to || !sameSearch) await navigate(want.to, search)
+      if (live) settled.current = `${active.tour.id}:${step.id}`
     })()
     return () => {
       live = false
     }
   }, [active, step, router, navigate, qc])
 
-  const tryCtx = useMemo<TryCtx>(
-    () => ({
-      navigate,
-      switchUser: async (id) => {
-        await switchUser(id)
-      },
-      until,
-      clockNow: () => qc.getQueryData<Clock>(qk.clock)?.now,
-      clockAdvancing: () => Boolean(qc.getQueryData<Clock>(qk.clock)?.advancing),
-    }),
+  // Every ctx call checks the signal, so Esc stops a Try-it between its steps (a request already sent still lands).
+  const runTry = useCallback<TourApi['runTry']>(
+    async (s) => {
+      if (!s.tryIt) return { ok: true }
+      tryAbort.current?.abort()
+      const ctrl = new AbortController()
+      tryAbort.current = ctrl
+      const { signal } = ctrl
+      // Mutations that existed before the press; anything else in the cache was started by it (GC-safe, unlike an index).
+      let before: Set<unknown> | null = null
+      const since = () => (before ? qc.getMutationCache().getAll().filter((m) => !before?.has(m)) : [])
+      const live = () => {
+        if (signal.aborted) throw new DOMException('Tour exited', 'AbortError')
+      }
+      const ctx: TryCtx = {
+        signal,
+        navigate: async (to, search) => {
+          live()
+          await navigate(to, search)
+        },
+        switchUser: async (id) => {
+          live()
+          await switchUser(id)
+        },
+        press: (name) => {
+          live()
+          before = new Set(qc.getMutationCache().getAll())
+          press(name)
+        },
+        pressSettled: () => {
+          const started = since()
+          return started.length > 0 && started.every((m) => m.state.status === 'success')
+        },
+        // A mutation the press started that failed ends the wait at once, with the app's own message.
+        until: (fn, ms, what) =>
+          until(
+            () => {
+              const failed = since().find((m) => m.state.status === 'error')
+              if (failed) throw new TryFailed(failed.state.error instanceof Error ? failed.state.error.message : 'The server refused it.')
+              return fn()
+            },
+            ms,
+            what,
+            signal,
+          ),
+        clockNow: () => qc.getQueryData<Clock>(qk.clock)?.now,
+        clockAdvancing: () => Boolean(qc.getQueryData<Clock>(qk.clock)?.advancing),
+      }
+      setBusy(true)
+      try {
+        await s.tryIt.run(ctx)
+        if (s.tryIt.mutates) setChanged(true)
+        return signal.aborted ? { aborted: true } : { ok: true }
+      } catch (e) {
+        return signal.aborted ? { aborted: true } : { ok: false, message: e instanceof Error ? e.message : 'That did not work.' }
+      } finally {
+        if (!signal.aborted) setBusy(false)
+        if (tryAbort.current === ctrl) tryAbort.current = null
+      }
+    },
     [navigate, switchUser, qc],
   )
 
-  const api = useMemo<TourApi>(() => ({ active, step, screenTour, start, exit, go, tryCtx, busy, setBusy }), [active, step, screenTour, start, exit, go, tryCtx, busy])
+  const api = useMemo<TourApi>(() => ({ active, step, screenTour, start, exit, go, runTry, busy, changed, setChanged }), [active, step, screenTour, start, exit, go, runTry, busy, changed])
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
 }

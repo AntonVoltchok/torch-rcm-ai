@@ -27,7 +27,7 @@ function Shell() {
   const touring = useTourOpen()
   return (
     <>
-    <div className="flex h-full min-w-[1280px] bg-canvas" inert={touring}>
+    <div id="app-shell" className="flex h-full min-w-[1280px] bg-canvas" inert={touring}>
       <a
         href="#main"
         className="sr-only z-50 rounded-md bg-act px-3 py-2 font-semibold text-white focus:not-sr-only focus:absolute focus:left-3 focus:top-3"

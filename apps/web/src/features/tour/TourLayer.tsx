@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type WheelEvent } from 'react'
 import { cn } from '@/lib/cn'
 import { useCurrentUser } from '@/state/session'
 import { CodePane } from './CodePane'
-import { TOURS } from './registry'
+import { RESET_DEMO, TOURS } from './registry'
 import { toursFor } from './screens'
 import { tourStore, useCodeOpen, useSeen } from './store'
 import { useTour } from './TourProvider'
@@ -27,12 +27,13 @@ const GAP = 14
 const M = 12
 
 function Spotlight({ step }: { step: Step }) {
-  const { active, go, exit, tryCtx, busy, setBusy } = useTour()
+  const { active, go, exit, runTry: run, busy } = useTour()
+  const [nudge, setNudge] = useState(false)
   const codeOpen = useCodeOpen() && Boolean(step.code?.length)
   const [doneAnchor, setDoneAnchor] = useState<string | undefined>(undefined)
   const anchor = useAnchorRect(doneAnchor ?? step.anchor, `${step.id}:${doneAnchor ?? ''}`)
   const card = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<CSSProperties & { narrow?: boolean }>({ visibility: 'hidden' })
+  const [pos, setPos] = useState<CSSProperties & { narrow?: boolean }>({ opacity: 0 })
   const [tryState, setTryState] = useState<{ ok: boolean; message: string } | null>(null)
 
   const tour = active?.tour
@@ -41,6 +42,19 @@ function Spotlight({ step }: { step: Step }) {
   const n = anchored.indexOf(step)
   const last = tour ? idx === tour.steps.length - 1 : true
   const rect = anchor.rect || null
+  // Re-place when the card's own content changes size (an error, the missing note) or the window does.
+  const [relayout, setRelayout] = useState(0)
+  useEffect(() => {
+    const bump = () => setRelayout((n) => n + 1)
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(bump)
+    const text = card.current?.querySelector('[data-testid="tour-text"]')
+    if (text) ro?.observe(text)
+    window.addEventListener('resize', bump)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', bump)
+    }
+  }, [])
 
   // Place the card: below or above the element when a usable card fits, else narrow beside it, else over the half
   // of the screen the element is not in (ported from the mock's place(), DECISIONS D10).
@@ -54,7 +68,7 @@ function Spotlight({ step }: { step: Step }) {
     if (!rect) {
       const W = codeOpen ? wide : narrowW
       const H = codeOpen ? Math.min(560, vh - 2 * M) : undefined
-      setPos({ left: (vw - W) / 2, top: Math.max(M, (vh - (H ?? el.offsetHeight)) / 2), width: W, height: H })
+      setPos({ left: (vw - W) / 2, top: Math.max(M, (vh - (H ?? el.offsetHeight)) / 2), width: W, height: H, opacity: 1 })
       return
     }
     const r = { top: rect.top - PAD, left: rect.left - PAD, right: rect.right + PAD, bottom: rect.bottom + PAD }
@@ -98,8 +112,8 @@ function Spotlight({ step }: { step: Step }) {
     if (x === undefined) x = W >= vw - 2 * M - 40 ? (vw - W) / 2 : (r.left + r.right) / 2 - W / 2
     x = Math.max(M, Math.min(x, vw - W - M))
     top = Math.max(M, Math.min(top, vh - M - H))
-    setPos({ left: x, top, width: W, height: codeOpen ? H : undefined, narrow })
-  }, [rect, codeOpen])
+    setPos({ left: x, top, width: W, height: codeOpen ? H : undefined, narrow, opacity: 1 })
+  }, [rect, codeOpen, relayout])
 
   // Focus the primary button when a step opens: keyboard users land in the card.
   useEffect(() => {
@@ -109,24 +123,26 @@ function Spotlight({ step }: { step: Step }) {
   const runTry = async () => {
     const t = step.tryIt
     if (!t || busy) return
-    setBusy(true)
     setTryState(null)
-    try {
-      await t.run(tryCtx)
-      if (t.then === 'next') go(idx + 1)
-      else {
-        setTryState({ ok: true, message: t.done ?? 'Done.' })
-        if (t.doneAnchor) setDoneAnchor(t.doneAnchor)
-      }
-    } catch (e) {
-      setTryState({ ok: false, message: e instanceof Error ? e.message : 'That did not work.' })
-    } finally {
-      setBusy(false)
+    const r = await run(step)
+    if ('aborted' in r) return
+    if (!r.ok) setTryState({ ok: false, message: r.message })
+    else if (t.then === 'next') go(idx + 1)
+    else {
+      setTryState({ ok: true, message: t.done ?? 'Done.' })
+      if (t.doneAnchor) setDoneAnchor(t.doneAnchor)
     }
   }
 
+  // The shade passes the wheel to whatever scrolls the anchor, so a long screen can still be read during a step.
+  const onWheel = (e: WheelEvent) => {
+    let el: HTMLElement | null = anchor.el?.parentElement ?? null
+    while (el && !(el.scrollHeight > el.clientHeight && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement
+    el?.scrollBy({ top: e.deltaY, left: e.deltaX })
+  }
+
   const hole = rect
-    ? { top: rect.top - PAD, left: rect.left - PAD, width: rect.width + 2 * PAD, height: rect.height + 2 * PAD }
+    ? { top: 0, left: 0, transform: `translate(${rect.left - PAD}px, ${rect.top - PAD}px)`, width: rect.width + 2 * PAD, height: rect.height + 2 * PAD }
     : null
   const Body = step.body
   const missing = anchor.rect === false
@@ -134,12 +150,21 @@ function Spotlight({ step }: { step: Step }) {
   return (
     <>
       {/* Shade with a hole: one element whose huge shadow is the dim overlay. A transparent shield under it takes clicks. */}
-      <div className="fixed inset-0 z-40" aria-hidden onClick={(e) => e.stopPropagation()} />
+      <div
+        className="fixed inset-0 z-40"
+        aria-hidden
+        data-testid="tour-shield"
+        onWheel={onWheel}
+        onClick={(e) => {
+          e.stopPropagation()
+          setNudge(true)
+        }}
+      />
       {hole ? (
         <div
           aria-hidden
           data-testid="tour-hole"
-          className="pointer-events-none fixed z-40 rounded-[9px] shadow-[0_0_0_200vmax_var(--color-shade)] outline-2 outline-offset-1 outline-act motion-safe:transition-[top,left,width,height] motion-safe:duration-200"
+          className="pointer-events-none fixed z-40 rounded-[9px] shadow-[0_0_0_200vmax_var(--color-shade)] outline-2 outline-offset-1 outline-act motion-safe:transition-[transform,width,height] motion-safe:duration-200"
           style={hole}
         />
       ) : (
@@ -148,7 +173,6 @@ function Spotlight({ step }: { step: Step }) {
       <div
         ref={card}
         role="dialog"
-        aria-modal="true"
         aria-labelledby="tour-title"
         aria-describedby="tour-body"
         data-testid="tour-card"
@@ -165,7 +189,6 @@ function Spotlight({ step }: { step: Step }) {
           {step.code?.length ? (
             <button
               type="button"
-              aria-pressed={!codeOpen}
               onClick={() => tourStore.setCodeOpen(!codeOpen)}
               className="whitespace-nowrap rounded-md border border-line-strong px-2 py-0.5 text-xs font-medium text-mid hover:border-ink hover:text-ink"
             >
@@ -176,7 +199,7 @@ function Spotlight({ step }: { step: Step }) {
             ×
           </button>
         </div>
-        <div className={cn('grid min-h-0 flex-1 gap-4 px-4 pt-2', codeOpen ? (pos.narrow ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[minmax(0,42fr)_minmax(0,58fr)]') : 'grid-cols-1')}>
+        <div className={cn('grid min-h-0 flex-1 gap-4 px-4 pt-2', codeOpen ? (pos.narrow ? 'grid-rows-[fit-content(55%)_minmax(0,1fr)]' : 'grid-cols-[minmax(0,42fr)_minmax(0,58fr)]') : 'grid-cols-1')}>
           <div className="flex min-h-0 flex-col gap-2.5 overflow-auto pb-1 pr-0.5 text-[13.5px] leading-relaxed text-ink" data-testid="tour-text">
             <h2 id="tour-title" className="m-0 text-[17px] font-semibold leading-tight tracking-[-0.012em] [text-wrap:balance]">
               {step.title}
@@ -184,6 +207,12 @@ function Spotlight({ step }: { step: Step }) {
             <div id="tour-body" className="flex flex-col gap-2.5" data-testid="tour-copy">
               <Body />
             </div>
+            {nudge && (
+              <p role="status" className="m-0 rounded-md border border-act-line bg-act-bg px-2.5 py-1.5 text-xs text-ink" data-testid="tour-nudge">
+                The app is paused while the tour is open.{' '}
+                {step.tryIt ? '“Try it” presses this control for you, or exit the tour to use it yourself.' : 'Exit the tour to use it yourself.'}
+              </p>
+            )}
             {missing && (
               <p role="status" className="m-0 rounded-md border border-line-strong bg-fill px-2.5 py-1.5 text-xs text-mid" data-testid="tour-missing">
                 <b className="text-ink">Not on screen right now.</b> {step.missing ?? 'This element is not on the screen in the demo’s current state.'}
@@ -194,7 +223,7 @@ function Spotlight({ step }: { step: Step }) {
                 <button
                   type="button"
                   onClick={() => void runTry()}
-                  disabled={busy || tryState?.ok === true || missing}
+                  disabled={busy || tryState?.ok === true || !rect}
                   className="rounded-md border border-act bg-act-bg px-3 py-1.5 text-[12.5px] font-semibold text-act hover:bg-act hover:text-white disabled:cursor-default disabled:opacity-50 disabled:hover:bg-act-bg disabled:hover:text-act"
                   data-testid="tour-try"
                 >
@@ -238,7 +267,15 @@ function Spotlight({ step }: { step: Step }) {
 }
 
 function TourModal({ step }: { step: Step }) {
-  const { active, go, exit, start } = useTour()
+  const { active, go, exit, start, changed, setChanged, runTry, busy } = useTour()
+  const [resetError, setResetError] = useState<string | null>(null)
+  const reset = async () => {
+    setResetError(null)
+    const r = await runTry({ ...step, tryIt: RESET_DEMO })
+    if ('aborted' in r) return
+    if (r.ok) setChanged(false)
+    else setResetError(r.message)
+  }
   const role = useCurrentUser().role
   const seen = useSeen()
   const box = useRef<HTMLDivElement>(null)
@@ -252,7 +289,6 @@ function TourModal({ step }: { step: Step }) {
       <div
         ref={box}
         role="dialog"
-        aria-modal="true"
         aria-labelledby="tour-title"
         data-testid="tour-modal"
         onKeyDown={trapTab}
@@ -270,15 +306,29 @@ function TourModal({ step }: { step: Step }) {
         <div data-testid="tour-copy" className="flex flex-col gap-3">
           <Body />
         </div>
+        {!welcome && changed && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border-l-[3px] border-practice-ink bg-practice-bg px-3 py-2 text-xs text-ink" data-testid="tour-changed">
+            <span className="min-w-[240px] flex-1">
+              The tour’s Try-its changed this practice (an approval, a triage or the clock). To walk the demo script from its start, reset the demo to the seed first.
+            </span>
+            <button type="button" disabled={busy} onClick={() => void reset()} className="rounded-md border border-act bg-paper px-2.5 py-1 font-semibold text-act hover:bg-act hover:text-white disabled:opacity-50">
+              {busy ? RESET_DEMO.busy : RESET_DEMO.label}
+            </button>
+            {resetError && (
+              <span role="alert" className="w-full font-medium text-risk-ink">
+                {resetError}
+              </span>
+            )}
+          </div>
+        )}
         {!welcome && (
-          <div className="grid grid-cols-3 gap-2" role="list" aria-label="Screen tours">
+          <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0" aria-label="Screen tours">
             {toursFor(role).map((id) => (
+              <li key={id} className="flex">
               <button
-                key={id}
-                role="listitem"
                 type="button"
                 onClick={() => start(id)}
-                className="flex min-w-0 flex-col gap-1 rounded-[9px] border border-line bg-paper px-3 py-2 text-left hover:border-act"
+                className="flex w-full min-w-0 flex-col gap-1 rounded-[9px] border border-line bg-paper px-3 py-2 text-left hover:border-act"
               >
                 <span className="flex items-center gap-1.5 text-[13.5px] font-semibold">
                   {TOURS[id].name}
@@ -288,8 +338,9 @@ function TourModal({ step }: { step: Step }) {
                 </span>
                 <span className="text-xs leading-snug text-mid">{TOURS[id].blurb}</span>
               </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
         <footer className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
           <span className="min-w-[220px] flex-1 text-xs text-mid">

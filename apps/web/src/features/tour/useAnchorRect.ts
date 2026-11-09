@@ -16,20 +16,30 @@ export function useAnchorRect(name: string | undefined, key: string, graceMs = 2
   const [state, setState] = useState<AnchorState>({ rect: null, el: null })
 
   useEffect(() => {
-    setState({ rect: null, el: null })
+    // The last box stays until the new anchor is measured, so a re-anchor does not flash the card to the centre.
     if (!name) return
     let frame = 0
     let scrolled: HTMLElement | null = null
     let resize: ResizeObserver | null = null
     let expired = false
+    let found = false
+    let lost: number | undefined
 
     const measure = () => {
       frame = 0
       const el = findAnchor(name)
       if (!el) {
-        setState((s) => (s.rect === false || !expired ? s : { rect: false, el: null }))
+        // An anchor seen once and gone briefly (a user switch re-renders the shell) gets a moment before "missing".
+        if (found && lost === undefined)
+          lost = window.setTimeout(() => {
+            if (!findAnchor(name)) setState({ rect: false, el: null })
+          }, 800)
+        else if (!found) setState((s) => (s.rect === false || !expired ? s : { rect: false, el: null }))
         return
       }
+      found = true
+      clearTimeout(lost)
+      lost = undefined
       if (el !== scrolled) {
         scrolled = el
         resize?.disconnect()
@@ -46,8 +56,9 @@ export function useAnchorRect(name: string | undefined, key: string, graceMs = 2
       if (!frame) frame = requestAnimationFrame(measure)
     }
 
+    // The app shell, not the body: the tour's own card (a streaming run pane) must not re-measure every frame.
     const mo = new MutationObserver(schedule)
-    mo.observe(document.body, { childList: true, subtree: true })
+    mo.observe(document.getElementById('app-shell') ?? document.body, { childList: true, subtree: true })
     window.addEventListener('scroll', schedule, { capture: true, passive: true })
     window.addEventListener('resize', schedule)
     const grace = window.setTimeout(() => {
@@ -58,6 +69,7 @@ export function useAnchorRect(name: string | undefined, key: string, graceMs = 2
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(grace)
+      clearTimeout(lost)
       mo.disconnect()
       resize?.disconnect()
       window.removeEventListener('scroll', schedule, { capture: true })

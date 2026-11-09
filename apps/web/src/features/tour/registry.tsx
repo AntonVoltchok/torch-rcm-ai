@@ -12,10 +12,10 @@ import { clockLabel } from '@/lib/format'
 import { useAgentsStatus } from '@/hooks/useAgents'
 import { useDenials, useEligibility, useActivity } from '@/hooks/useStatic'
 import { useRules } from '@/hooks/useRules'
-import { findAnchor, hover, press } from './anchors'
+import { findAnchor, hover } from './anchors'
 import { FOLLOWED, useFollowedGroup, useFollowedItem, useLaunchChange, useNowLabel, useStripFacts } from './facts'
 import { Num, Server } from './Num'
-import type { CodeTab, Step, Tour, TourId } from './types'
+import type { CodeTab, Step, Tour, TourId, TryIt } from './types'
 
 const P = ({ children }: { children: ReactNode }) => <p className="m-0">{children}</p>
 const Note = ({ children }: { children: ReactNode }) => <p className="m-0 text-xs leading-normal text-soft">{children}</p>
@@ -67,7 +67,9 @@ const pane = {
   }),
   rules: (): CodeTab => ({ label: 'GET /rules', source: 'GET /api/v1/rules', kind: 'captured', load: { type: 'query', queryKey: qk.rules, queryFn: api.rules } }),
   proposals: (): CodeTab => ({ label: 'GET /proposals', source: 'GET /api/v1/proposals', kind: 'captured', load: { type: 'query', queryKey: qk.proposals, queryFn: api.proposals } }),
-  run: (kind: 'approve_group' | 'triage'): CodeTab => ({ label: 'run + SSE', source: 'GET /api/v1/runs/{id} · GET /runs/{id}/events (SSE)', kind: 'captured', load: { type: 'run', kind } }),
+  run: (kind: 'approve_group' | 'triage'): CodeTab => ({ label: 'run + SSE', source: 'GET /api/v1/runs/{id} · GET /runs/{id}/events (SSE)', kind: 'cache', load: { type: 'run', kind } }),
+  /** The claim the screen shows (a screen tour opened on /claims/<id> explains that claim, not #4821). */
+  claimOnScreen: (field?: string): CodeTab => ({ label: field ?? 'GET /claims/{id}', source: `GET /api/v1/claims/{id}${field ? ` → ${field}` : ''}`, kind: 'captured', load: { type: 'claim-on-screen', ...(field ? { field } : {}) } }),
   file: (label: string, name: Parameters<typeof staticTab>[2], source: string, kind: CodeTab['kind'] = 'rendered'): CodeTab => staticTab(label, source, name, kind),
 }
 function staticTab(label: string, source: string, name: 'prompt_4821' | 'plan_4821' | 'tools' | 'policy' | 'guard' | 'recipe_resubmit' | 'case_4744' | 'plan_4744' | 'models' | 'router' | 'mockonly' | 'search', kind: CodeTab['kind']): CodeTab {
@@ -96,7 +98,7 @@ function Welcome() {
         <Fact k="Data" v="Canonical seed" m={<>
           <Num v={s?.open_count} /> open claims, generated from a fixed seed
         </>} />
-        <Fact k="Agent mode" v={mode === 'live' ? 'Live' : 'Deterministic (default)'} m="no model calls by default; live mode sends the same cases to Claude. Parity is so far checked against hand-authored cassettes" />
+        <Fact k="Agent mode" v={mode === undefined ? <Server t={undefined} /> : mode === 'live' ? 'Live' : 'Deterministic (default)'} m="no model calls by default; live mode sends the same cases to Claude. Parity is so far checked against hand-authored cassettes" />
       </div>
       <p className="m-0 max-w-[66ch] text-base leading-relaxed">
         The tour follows one claim, <b>K. Owens #4821</b>: Delta denied a crown because our own Claims agent attached a bitewing where Delta’s rule asks for a periapical. Every step
@@ -122,7 +124,7 @@ const MAIN: Tour = {
   name: 'Main tour',
   blurb: 'One claim, K. Owens #4821, through the whole loop.',
   steps: [
-    { id: 'welcome', modal: 'welcome', title: 'Welcome to TorchRCM', ey: 'Evaluator tour · about six minutes', body: Welcome },
+    { id: 'welcome', modal: 'welcome', title: 'Welcome to TorchRCM', ey: 'Evaluator tour · a few minutes', body: Welcome },
     {
       id: 'clock',
       route: INBOX_4821,
@@ -159,7 +161,7 @@ const MAIN: Tour = {
           <>
             <P>
               A claim has exactly <b>nine statuses</b>. “Needs action” (<Num v={s?.flagged_count} /> now) is a derived flag, not a tenth status. Every number here, the nav badges and the
-              header comes from one endpoint, <C>GET /summary/strip</C>, or from <C>meta.counts</C> on a mutation. The browser never counts rows, so two screens cannot disagree.
+              header comes from one endpoint, <C>GET /summary/strip</C>, or from <C>meta.counts</C> on a mutation, so two screens cannot disagree.
             </P>
             <P>
               Each status links to Claims, pre-filtered, and the filter lives in the URL (<C>/claims?status=denied</C>), so a refresh keeps it.
@@ -205,8 +207,9 @@ const MAIN: Tour = {
               <Num v={g?.count} /> claims, <Num v={g?.cents} as="money" />.
             </P>
             <P>
-              Code did three things before any agent ran: parsed and balanced the 835 line, routed CARC·RARC to the Follow-up agent (<C>route_denial</C>, the same function the Denials
-              worklist uses), and read provenance: <b>our Claims agent attached a BWX</b> where Delta’s rule names a PA. That makes the root cause <b>“ours”</b>, and it stays ours.
+              The seed writes this morning’s item; the steps below re-run the code that would have built it. That code balances the 835 line, routes CARC·RARC to the Follow-up
+              agent (<C>route_denial</C>, the same function the Denials worklist uses) and reads provenance: <b>our Claims agent attached a BWX</b> where Delta’s rule names a PA. That
+              makes the root cause <b>“ours”</b>, and it stays ours.
             </P>
           </>
         )
@@ -231,8 +234,8 @@ const MAIN: Tour = {
             <C>{'<world_content trust="untrusted">'}</C>: data to read, never instructions.
           </P>
           <Honest>
-            <b>In the default deterministic mode no model is called for #4821.</b> The situation is known, so the scripted planner produces the plan. The live cassette for this group is
-            hand-authored in the live format (<C>synthetic: true</C>), not recorded from the API.
+            <b>In this demo no model ever sees #4821.</b> Its item is seeded, and the panes run the scripted planner on it. Live mode would send this situation to the model; the
+            cassette <C>make eval</C> replays for it is hand-authored in the live format (<C>synthetic: true</C>), not recorded from the API.
           </Honest>
         </>
       ),
@@ -259,8 +262,8 @@ const MAIN: Tour = {
               Policy layer walks its decision table top down; the first matching row wins.
             </P>
             <P>
-              Here the matching row is the rule “Missing PA x-ray → attach, resubmit”, set to <b>Ask</b>, so the plan became this Inbox item. Track record:{' '}
-              <Num v={c?.k} /> of <Num v={c?.n} /> {c?.outcome ?? '…'}. That is history from the practice’s records, not a model’s guess.
+              Run on this plan, <C>decide()</C> matches the rule “Missing PA x-ray → attach, resubmit”, set to <b>Ask</b>: a proposal for a person, which is what this Inbox item is.
+              Track record: <Num v={c?.k} /> of <Num v={c?.n} /> {c?.outcome ?? '…'}, a seeded record on the rule, not a model’s guess.
             </P>
             <P>
               Were the rule on auto, another row would still stop it: <b>root cause “ours” can never be learned into running without review</b>.
@@ -289,10 +292,11 @@ const MAIN: Tour = {
       ),
       tryIt: {
         label: 'Try it · press the approve button',
+        mutates: true,
         busy: 'Approving…',
         then: 'next',
         run: async (ctx) => {
-          press('approve')
+          ctx.press('approve')
           await ctx.until(() => findAnchor('run-pane') !== null, 15_000, 'The run pane did not open. The app’s own message, if any, is on the decision panel.')
         },
       },
@@ -317,9 +321,13 @@ const MAIN: Tour = {
             {inbox ? (
               <P>
                 <b>What changed</b> is the server’s answer, not the browser’s arithmetic: your Inbox <Num v={inbox.before} /> → <Num v={inbox.after} />
-                {denied ? (
+                {denied && denied.before !== denied.after ? (
                   <>
-                    , and Denied <Num v={denied.before} /> → <Num v={denied.after} />: the claims stay denied until Delta processes the resubmission.
+                    , and Denied <Num v={denied.before} /> → <Num v={denied.after} />.
+                  </>
+                ) : denied ? (
+                  <>
+                    , and Denied stays <Num v={denied.after} />: the claims stay denied until Delta processes the resubmission.
                   </>
                 ) : (
                   <>; Denied is unchanged, because the claims stay denied until Delta processes the resubmission.</>
@@ -362,17 +370,31 @@ const MAIN: Tour = {
       },
       tryIt: {
         label: 'Try it · Skip to the next morning as Dr. Morgan',
+        mutates: true,
         busy: 'Advancing…',
         then: 'stay',
         done: 'Next morning · signed in as Dana again',
         doneAnchor: 'yours',
         run: async (ctx) => {
           const before = ctx.clockNow()
+          if (!before) throw new Error('The clock has not loaded yet; try again in a moment.')
           await ctx.switchUser('usr_morgan')
-          await ctx.until(() => findAnchor('clock-advance') !== null, 10_000, 'Dr. Morgan’s clock control did not appear.')
-          press('clock-advance')
-          await ctx.until(() => ctx.clockNow() !== before && !ctx.clockAdvancing(), 90_000, 'The advance did not finish in time; the clock control shows its progress.')
-          await ctx.switchUser('usr_dana')
+          try {
+            await ctx.until(() => findAnchor('clock-advance') !== null, 10_000, 'Dr. Morgan’s clock control did not appear.')
+            ctx.press('clock-advance')
+            // The user switch resets the cache, so an empty clock is "not loaded", never "moved".
+            await ctx.until(
+              () => {
+                const now = ctx.clockNow()
+                return now !== undefined && now !== before && !ctx.clockAdvancing()
+              },
+              90_000,
+              'The advance has not finished yet; the clock control shows its progress. You are back as Dana.',
+            )
+          } finally {
+            // Back to Dana whatever happened, unless the tour was exited (exit gives the viewer's own persona back).
+            if (!ctx.signal.aborted) await ctx.switchUser('usr_dana')
+          }
           await ctx.navigate('/inbox')
         },
       },
@@ -441,7 +463,7 @@ const INBOX: Tour = {
       return (
         <>
           <P>
-            <Num v={c?.k} /> of <Num v={c?.n} /> {c?.outcome ?? '…'}. The server sends <C>k</C>, <C>n</C> and the outcome; a percent appears only when the sample is big enough. Nothing
+            <Num v={c?.k} /> of <Num v={c?.n} /> {c?.outcome ?? '…'}: a seeded record on the rule. The server sends <C>k</C>, <C>n</C> and the outcome; a percent appears only when the sample is big enough. Nothing
             here is the model’s self-assessment.
           </P>
           <P>“Why it stopped at you” is the policy row that matched: the rule is set to Ask.</P>
@@ -572,13 +594,13 @@ const CLAIM: Tour = {
   home: '/claims/clm_4821',
   id: 'claim',
   name: 'Claim detail',
-  blurb: '#4821’s history by party, the open item, money; a live triage of #4744.',
+  blurb: 'The claim on screen by party, its open item; then a triage of #4744.',
   steps: [
     s('glance', 'The claim at a glance', 'claim-header', () => (
       <P>
         Status, whose move, billed, expected from the payer (an <b>estimate</b> from the contract, labelled so), and the deadline that matters now, with its basis.
       </P>
-    ), [pane.claim(FOLLOWED.claim)], { route: { to: `/claims/${FOLLOWED.claim}` } }),
+    ), [pane.claimOnScreen()]),
     s('history', 'History by party', 'history', () => (
       <>
         <P>
@@ -586,30 +608,31 @@ const CLAIM: Tour = {
         </P>
         <P>An HTML grid, not an SVG: the text wraps, selects and reads in order for a screen reader.</P>
       </>
-    ), [pane.claim(FOLLOWED.claim)], { route: { to: `/claims/${FOLLOWED.claim}` } }),
+    ), [pane.claimOnScreen()]),
     s('open', 'The open item, and where to decide it', 'open-items', () => (
       <P>
         The same recommendation as the Inbox, with <b>Decide in Inbox</b> beside the primary. A review draft (agent-written text) has no send button here at all, so nobody sends text
         they did not read.
       </P>
-    ), [pane.item()], { route: { to: `/claims/${FOLLOWED.claim}` } }),
+    ), [pane.claimOnScreen('open_inbox_items')]),
     s('triage', 'An unknown case: #4744', 'triage', () => (
       <>
         <P>
           P. Hale #4744, MetLife. MetLife’s correspondence asks for an extraction date. There is no CARC, so the classifier returns <b>unknown</b>. <b>Ask Follow-up to look</b> starts
           a triage run (<C>POST /claims/clm_4744:triage</C>).
         </P>
-        <P>In live mode this is where the model decides which reads to make and which action to propose. The second tab is the CASE FACTS it would receive.</P>
+        <P>This is one of the cases live mode leaves to the model: which reads to make and which action to propose. The second tab is the CASE FACTS it would receive.</P>
       </>
     ), [pane.claim(FOLLOWED.triage), pane.file('CASE FACTS', 'case_4744', 'planner/live.py render_case')], {
       route: { to: `/claims/${FOLLOWED.triage}` },
       missing: 'The triage button is not on screen: #4744 may already have an open item or a run in flight.',
       tryIt: {
         label: 'Try it · Ask Follow-up to look',
+        mutates: true,
         busy: 'Starting…',
         then: 'next',
         run: async (ctx) => {
-          press('triage')
+          ctx.press('triage')
           await ctx.until(() => findAnchor('run-pane') !== null, 15_000, 'The run pane did not open. The app’s toast says why.')
         },
       },
@@ -621,8 +644,8 @@ const CLAIM: Tour = {
           Inbox item, and its track record reads none: other situations’ history is not borrowed.
         </P>
         <Honest>
-          Deterministic mode replays a reviewed plan (<C>recorded/clm_4744.plan.json</C>). Its cassette is <b>hand-authored in the live format</b> (<C>synthetic: true</C>), not a
-          captured API response; the plan file’s “recorded_from: live triage” overstates that.
+          Deterministic mode replays a plan written by hand (<C>recorded/clm_4744.plan.json</C>, labelled “hand-written plan, replayed”). Its cassette is <b>hand-authored in the live
+          format</b> (<C>synthetic: true</C>), not a captured API response; the plan file’s “recorded_from: live triage” overstates that.
         </Honest>
       </>
     ), [pane.run('triage'), pane.file('recorded plan', 'plan_4744', 'planner/recorded/clm_4744.plan.json · cassette', 'synthetic'), pane.file('policy', 'policy', 'agents/policy.py decide()')], {
@@ -660,8 +683,8 @@ const ELIGIBILITY: Tour = {
       const e = useEligibility({}).data
       return (
         <P>
-          The Eligibility agent verifies the next visits and re-checks the morning of. <Num v={e?.total} /> appointments, <Num v={e?.need_human} /> need a human look, and those are the
-          eligibility items in the Inbox.
+          The Eligibility agent verifies the next visits and re-checks the morning of: <Num v={e?.total} /> appointments, <Num v={e?.need_human} /> of them flagged for a human look.
+          Flagged visits also come to the Inbox as items.
         </P>
       )
     }, [pane.eligibility()]),
@@ -685,7 +708,7 @@ const ELIGIBILITY: Tour = {
         const flagged = e.rows.find((r) => r.status === 'issue') ?? e.rows[0]
         return flagged ? { appt: flagged.appointment_id } : {}
       },
-      missing: 'Select an appointment in the list to open its benefits card.',
+      missing: 'The card opens on the first appointment that needs a human look; none does in the demo’s current state.',
     }),
   ],
 }
@@ -815,6 +838,24 @@ const SETTINGS: Tour = {
       </>
     ), [pane.proposals(), pane.file('guard', 'guard', 'policy.py · learning.py', 'source')]),
   ],
+}
+
+/** The finish's "put it back": the owner's own Reset button, pressed as Dr. Morgan, then back to the viewer. */
+export const RESET_DEMO: TryIt = {
+  label: 'Reset demo to the seed (as Dr. Morgan)',
+  busy: 'Resetting…',
+  then: 'stay',
+  done: 'Reset: the practice is back at the seed',
+  run: async (ctx) => {
+    await ctx.switchUser('usr_morgan')
+    try {
+      await ctx.until(() => findAnchor('reset-demo') !== null, 10_000, 'Dr. Morgan’s reset control did not appear.')
+      ctx.press('reset-demo')
+      await ctx.until(() => ctx.pressSettled() && ctx.clockNow() !== undefined, 30_000, 'The reset has not finished yet; the clock control shows it.')
+    } finally {
+      if (!ctx.signal.aborted) await ctx.switchUser('usr_dana')
+    }
+  },
 }
 
 export const TOURS: Record<TourId, Tour> = {
