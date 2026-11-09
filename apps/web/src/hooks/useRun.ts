@@ -37,7 +37,7 @@ export const runQueryOptions = (runId: string) =>
  * After a run ends: the run itself (its server status is the truth: `staleTime` is Infinity, so nothing else
  * would refetch it), then everything it can have changed. Polling already holds the server's run, so it skips it.
  */
-function invalidateAfterRun(qc: QueryClient, runId: string, opts: { refetchRun: boolean }) {
+export function invalidateAfterRun(qc: QueryClient, runId: string, opts: { refetchRun: boolean }) {
   if (opts.refetchRun) void qc.invalidateQueries({ queryKey: qk.run(runId) })
   const run = qc.getQueryData<RunView>(qk.run(runId))
   void qc.invalidateQueries({ queryKey: qk.stripAll })

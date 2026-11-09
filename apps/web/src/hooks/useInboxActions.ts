@@ -11,7 +11,7 @@ import { useMutation, useQueryClient, type QueryClient, type QueryKey } from '@t
 import { api } from '@/api/endpoints'
 import { isApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
-import type { InboxItem, InboxList, Run, RunView } from '@/api/schema'
+import type { InboxItem, InboxList, Run, RunView, StripChange } from '@/api/schema'
 import { mergeSnapshot, runViewOf } from '@/lib/runEvents'
 import { launchStore, type Launch } from '@/state/launches'
 import { toast } from '@/state/toast'
@@ -39,7 +39,7 @@ function settle(qc: QueryClient, claimIds: (string | null | undefined)[]) {
   for (const id of claimIds) if (id) void qc.invalidateQueries({ queryKey: qk.claim(id) })
 }
 
-function recordLaunch(qc: QueryClient, kind: Launch['kind'], title: string, runs: Run[], items: InboxItem[]): Launch {
+function recordLaunch(qc: QueryClient, kind: Launch['kind'], title: string, runs: Run[], items: InboxItem[], changes: StripChange[]): Launch {
   for (const run of runs) qc.setQueryData<RunView>(qk.run(run.id), (old) => mergeSnapshot(old, runViewOf(run)))
   const launch: Launch = {
     id: runs[0]?.id ?? `launch_${items[0]?.id ?? 'x'}`,
@@ -56,6 +56,7 @@ function recordLaunch(qc: QueryClient, kind: Launch['kind'], title: string, runs
       }
     }),
     started_at: qc.getQueryData<{ now: string }>(qk.clock)?.now ?? runs[0]?.started_at ?? '',
+    changes,
   }
   launchStore.add(launch)
   return launch
@@ -80,7 +81,7 @@ export function useApprove(opts: { onLaunched?: (l: Launch) => void; onFileDepar
     onMutate: async (v) => ({ snapshot: await removeOptimistically(qc, [v.item.id]) }),
     onSuccess: (res, v) => {
       if (res.run) {
-        opts.onLaunched?.(recordLaunch(qc, 'approve', v.item.title, [res.run], [res.item]))
+        opts.onLaunched?.(recordLaunch(qc, 'approve', v.item.title, [res.run], [res.item], res.changes))
         return
       }
       // No run: an owner sign-off (the rule change applies, signed) or a flag handed to the front desk.
@@ -109,7 +110,7 @@ export function useApproveGroup(opts: { onLaunched?: (l: Launch) => void } = {})
     mutationFn: (v: { groupKey: string; title: string; items: InboxItem[] }) => api.approveGroup(v.groupKey),
     onMutate: async (v) => ({ snapshot: await removeOptimistically(qc, v.items.map((i) => i.id)) }),
     onSuccess: (res, v) => {
-      opts.onLaunched?.(recordLaunch(qc, 'approve_group', `Approve ${res.items.length} · ${v.title}`, res.runs, res.items))
+      opts.onLaunched?.(recordLaunch(qc, 'approve_group', `Approve ${res.items.length} · ${v.title}`, res.runs, res.items, res.changes))
     },
     onError: (err, _v, ctx) => {
       rollback(qc, ctx?.snapshot)
