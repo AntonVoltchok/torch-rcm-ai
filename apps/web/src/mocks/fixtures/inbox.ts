@@ -82,7 +82,7 @@ export const EVIDENCE: Evidence[] = [
   {
     id: 'ev_4733_prior',
     kind: 'prior_eob',
-    title: 'Delta EOB 03/2022 · crown #31',
+    title: 'Delta EOB · 03/2022', // the API seed's title
     excerpt: 'D2740 #31 paid 03/2022. Delta tooth history lists it as #30; the real prior #30 crown was seated 2019-08-14.',
     captured_at: at('2026-10-28', '06:40'),
     reference: 'EOB 2022-03-118842',
@@ -191,7 +191,7 @@ function paItem(n: number, patient: string, tooth: string, cents: number, pct: n
     summary: 'Denied CO-16 · N29: pre-op radiograph required. Our Claims agent sent the BWX, not the PA; rule fixed 10/26.',
     confidence: { pct, basis: PA_BASIS },
     evidence_ids: [`ev_${n}_portal`, `ev_${n}_pms`, `ev_${n}_era`, ...(n === 4821 ? ['ev_4821_ivr', 'ev_4821_rep'] : [])],
-    proposed_action: { action: 'resubmit_with_attachment', params: { attachment: 'pa', tooth, file: 'delta_ny 11:15' }, cents, requires_hold_window: true },
+    proposed_action: { action: 'resubmit_with_attachment', params: { attachment_kind: 'pa', tooth, file: 'delta_ny 11:15' }, cents, requires_hold_window: true },
     plan_steps: [
         `Upload PA #${tooth} (PMS imaging, ${created} 10:41) to NEA FastAttach`,
         'Resubmit: NEA# in the attachment field, note cites the ICN',
@@ -223,7 +223,7 @@ export function buildInbox(): MockInboxItem[] {
       summary: 'Frequency denial (CO-119): payer tooth-# error. Review the drafted inquiry?',
       confidence: { pct: 82, basis: '5 of 6 reconsiderations won (12 mo)' },
       evidence_ids: ['ev_4733_prior', 'ev_4733_era'],
-      proposed_action: { action: 'send_claim_agent_text', params: { channel: 'portal inquiry' }, cents: 0, requires_hold_window: false },
+      proposed_action: { action: 'reprocessing_request', params: { basis: 'payer_history_error', attach: ['ev_4733_prior'] }, cents: 0, requires_hold_window: false },
       plan_steps: ['Attach the 03/2022 EOB', 'Send the inquiry text (drafted, cites the EOB)'],
       payload: {
         draft: {
@@ -250,7 +250,7 @@ export function buildInbox(): MockInboxItem[] {
       summary: 'Max met (PR-119). Bill patient allowed $1,012, contractual $228?',
       confidence: { pct: 96, basis: 'max confirmed on portal 10/27' },
       evidence_ids: ['ev_4611_portal'],
-      proposed_action: { action: 'write_off', params: { patient_cents: 101200, writeoff_cents: 22800 }, cents: 22800, requires_hold_window: false },
+      proposed_action: { action: 'write_off', params: { writeoff_cents: 22800, patient_transfer_cents: 101200 }, cents: 22800, requires_hold_window: false },
       plan_steps: ['Move $1,012 to patient responsibility', 'Write off the $228 contractual difference (tier 3 · Dr. Morgan)', 'Statement goes in the next run'],
       tier: 3, // the API seed's tier: the contractual write-off commits the practice
       created_at: at('2026-10-27', '15:10'),
@@ -302,7 +302,7 @@ export function buildInbox(): MockInboxItem[] {
       summary: 'Cigna ERA hold: PR-1 deductible applied though met 05/12.',
       confidence: { pct: 90, basis: 'deductible met per 05/12 EOB' },
       evidence_ids: ['ev_4772_era'],
-      proposed_action: { action: 'post_era_line', params: { hold_variance_cents: 3200, then: 'reprocessing_request' }, cents: 3200, requires_hold_window: false },
+      proposed_action: { action: 'post_era_line', params: { post: 'patient_share_only', patient_cents: 2720, disputed_cents: 3200, then: 'reprocessing_request:deductible_misapplied' }, cents: 3200, requires_hold_window: false },
       tier: 2, // posting a line is tier 2 (rule_t2_post_era); the line was held because it does not match tracked benefits
       created_at: at('2026-10-28', '06:20'),
       cents: 3200,

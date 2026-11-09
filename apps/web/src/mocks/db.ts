@@ -33,7 +33,6 @@ import type {
   PatientRef,
   Ledger,
   LedgerRow,
-  MoveCount,
   NextAction,
   PolicyVerdict,
   Preview,
@@ -54,6 +53,27 @@ import type {
   Tier,
 } from './wire'
 import { CLAIM_STATUSES, Evidence as EvidenceSchema } from '@/api/schema'
+import type { ClaimMove, ClaimStatus as Status, MoveWho } from '@/api/schema'
+import {
+  byHolder,
+  changeNote,
+  claimMove,
+  claimOutcome,
+  ELIGIBILITY_LABEL,
+  lands,
+  moveCounts,
+  phrase,
+  plainProcedures,
+  signerNote,
+  SIGNOFF_LABEL,
+  stripChanges,
+  touches,
+  USER_NAME,
+  USER_ROLE,
+  type MoveFacts,
+  type UserId,
+  type WordsCtx,
+} from './d1'
 import type { ClaimsApiParams } from '@/features/claims/search'
 import { at, buildClaims, FROZEN_NOW, OWENS_RUNS, paidTileCents, PROVIDER_ID, STATUS_CHECK_CLAIMS, type MockClaim, type MockTimelineEntry } from './fixtures/claims'
 import { buildInbox, EVIDENCE, GROUP_META, type MockInboxItem } from './fixtures/inbox'
@@ -90,9 +110,7 @@ export class MockError extends Error {
   }
 }
 
-export type UserId = 'usr_dana' | 'usr_morgan' | 'usr_lee' | 'usr_tasha'
-const USER_NAME: Record<UserId, string> = { usr_dana: 'Dana S.', usr_morgan: 'Dr. Morgan', usr_lee: 'Dr. Lee', usr_tasha: 'Tasha P.' }
-const USER_ROLE: Record<UserId, Role> = { usr_dana: 'billing', usr_morgan: 'owner', usr_lee: 'dentist', usr_tasha: 'front_desk' }
+export type { UserId }
 const isOwner = (u: UserId) => u === 'usr_morgan'
 const USERS_BY_ID: Record<string, UserId> = { usr_dana: 'usr_dana', usr_morgan: 'usr_morgan', usr_lee: 'usr_lee', usr_tasha: 'usr_tasha' }
 const nameOf = (id: string | null | undefined): string | null => (id && id in USER_NAME ? USER_NAME[id as UserId] : (id ?? null))
@@ -103,20 +121,18 @@ const PAYER_ACK_AFTER_0710 = new Set([4854])
 /** What the six overnight 835s paid, in the order they are picked (oldest pending first); they sum to $3,446.46. */
 const OVERNIGHT_PAID_CENTS = [58_125, 44_437, 86_624, 30_006, 65_678, 59_776]
 const AR: readonly ClaimStatus[] = ['sent', 'rejected', 'accepted', 'pending', 'denied', 'appealed', 'partial']
-const OPEN: readonly ClaimStatus[] = ['ready', ...AR] // the API's OPEN_STATUSES, in its order
 
-/** Phase-1 stub, as the API's `_moves_stub`: every open claim under `nobody`, so the rows sum to `open_count`. */
-function movesStub(open: MockClaim[]): MoveCount[] {
-  const byStatus = OPEN.flatMap((status) => {
-    const count = open.filter((c) => c.status === status).length
-    return count ? [{ status, count }] : []
-  })
-  return (['practice', 'agents', 'payer', 'nobody'] as const).map((who) =>
-    who === 'nobody'
-      ? { who, count: open.length, cents: open.reduce((a, c) => a + c.billed_cents, 0), by_status: byStatus }
-      : { who, count: 0, cents: 0, by_status: [] },
-  )
+/** Denied/partial claims with something filed after their last 835 at the seed (the API's `filed_since_remit`;
+ * `parity.test.ts` checks it). The mock keeps no remittance rows per claim, so this seed fact is carried here. */
+/** The API timeline's `who`: a visit is the practice, Vyne's 999/277CA acks are the payer side, file queueing is the agents. */
+function whoActed(e: MockTimelineEntry): MoveWho {
+  if (e.lane === 'human') return 'practice'
+  if (e.lane === 'agent') return 'agents'
+  if (e.lane === 'payer') return 'payer'
+  if (/^Visit/.test(e.title)) return 'practice'
+  return /999|277CA|\bA1\b|\bA7\b/.test(e.title) ? 'payer' : 'agents'
 }
+export const SEED_FILED_SINCE_REMIT = new Set([4733, 4821, 4836, 4840])
 const FILE_TIMES = Array.from({ length: 22 }, (_, i) => {
   const m = 7 * 60 + 45 + i * 30 // per-payer files every 30 min, 7:45 AM – 6:15 PM
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -307,7 +323,7 @@ export class MockDb {
     return ELIGIBILITY.find((a) => a.appointment_id === item.appointment_id)?.patient ?? null
   }
   /** `InboxItemOut`. The mock keeps its rows in priority order, so `priority` is that rank (higher first). */
-  private itemOut(item: MockInboxItem): InboxItem {
+  private itemOut(item: MockInboxItem, viewer: UserId = 'usr_dana'): InboxItem {
     const claim = this.claimOf(item)
     const evidence = item.evidence_ids.map((e) => this.s.evidence[e]).filter((e): e is Evidence => Boolean(e))
     const index = this.s.items.findIndex((i) => i.id === item.id)
@@ -324,7 +340,7 @@ export class MockDb {
       confidence: item.confidence ?? null,
       group_key: item.group_key ?? null,
       group_title: item.group_title ?? (item.group_key ? (GROUP_META[item.group_key]?.title ?? null) : null),
-      claim: claim ? this.summary(claim) : null,
+      claim: claim ? this.summary(claim, viewer) : null,
       patient: this.patientOf(item),
       appointment_id: item.appointment_id ?? null,
       remittance_id: item.remittance_id ?? null,
@@ -343,12 +359,57 @@ export class MockDb {
       priority: index === -1 ? 0 : this.s.items.length - index,
       root_cause: item.root_cause ?? claim?.denial?.root_cause ?? null,
       suspicious_evidence: evidence.some((e) => e.suspicious === true),
-      // Phase-1 stubs, same as the API until d1-api fills them.
-      action_label: null,
-      touches: [],
-      signer_note: null,
-      lands: null,
+      action_label: this.actionLabel(item),
+      touches: this.itemTouches([item]),
+      signer_note: signerNote(item, viewer),
+      lands: claim ? lands(item, () => this.moveOf(claim, viewer, { closedItem: item.id, excludeRun: item.run_id ?? undefined })) : null,
     }
+  }
+  /** As the API's `wording.phrase_ctx`: the words come from the proposed action's params. */
+  private wordsCtx(item: MockInboxItem, n = 1): WordsCtx | null {
+    const pa = item.proposed_action
+    if (!pa) return null
+    const claim = this.claimOf(item)
+    const attach = Array.isArray(pa.params?.attach) ? (pa.params.attach as string[]) : []
+    return {
+      params: pa.params ?? {},
+      payer: claim ? PAYER_REF[claim.payer_key].short_name : 'the payer',
+      now: this.s.now,
+      n,
+      drafted: item.kind === 'review_draft',
+      enclosures: attach.flatMap((e) => (this.s.evidence[e] ? [this.s.evidence[e].title] : [])),
+    }
+  }
+  private actionLabel(item: MockInboxItem, n = 1): string | null {
+    if (item.kind === 'eligibility_flag') return ELIGIBILITY_LABEL
+    if (item.kind === 'owner_signoff') return SIGNOFF_LABEL
+    const ctx = this.wordsCtx(item, n)
+    return ctx && item.proposed_action ? phrase(item.proposed_action.action, ctx) : null
+  }
+  private itemTouches(items: MockInboxItem[]): string[] {
+    const first = items[0]
+    if (!first) return []
+    if (first.kind === 'eligibility_flag') return ['Note added for the front desk']
+    if (!first.proposed_action) return []
+    return touches(first.proposed_action.action, items.flatMap((i) => this.wordsCtx(i) ?? []))
+  }
+  /** The API's `claim_move`: whose move, with the viewer deciding only `mine`. */
+  moveOf(c: MockClaim, viewer: UserId | null = 'usr_dana', opts: { closedItem?: string; excludeRun?: string; openItem?: string } = {}): ClaimMove {
+    const items = this.s.items.filter((i) => i.claim_id === c.id && ((i.state === 'open' && i.id !== opts.closedItem) || i.id === opts.openItem))
+    const activeRuns = Object.values(this.s.runs).filter((r) => r.claim_id === c.id && r.id !== opts.excludeRun && ['queued', 'running', 'paused'].includes(r.status))
+    // A ready claim with a file time is queued for that file (as `summary().file_time` reads it).
+    const queued = c.queued_file ?? (c.status === 'ready' && c.file_time ? { at: at(c.built_at.slice(0, 10), c.file_time), kind: 'original' as const } : null)
+    const facts: MoveFacts = {
+      claim: { ...c, queued_file: queued },
+      items,
+      activeRuns,
+      viewer,
+      now: this.s.now,
+      payerShort: PAYER_REF[c.payer_key].short_name,
+      sendRuleAuto: this.s.rules.some((r) => r.action === 'send_claim_pms_codes' && r.mode === 'auto'),
+      filedSinceRemit: SEED_FILED_SINCE_REMIT.has(c.number),
+    }
+    return claimMove(facts)
   }
   /** As the API: the claim's queued payer file gives the window; once it has left, only a corrected claim is left. */
   private holdWindow(item: MockInboxItem): HoldWindow | null {
@@ -372,7 +433,7 @@ export class MockDb {
   /** API `Run`: the stored run without RunDetail's evidence and cursor. */
   private wireRun(run: RunView): Run {
     const { evidence: _e, last_event_id: _l, ...wire } = run
-    return { ...wire, steps: run.steps.map((st) => ({ ...st })), claim_outcome: null } // claim_outcome: phase-1 stub
+    return { ...wire, steps: run.steps.map((st) => ({ ...st })), claim_outcome: run.claim_outcome ?? null }
   }
 
   private claimsAt(location?: string): MockClaim[] {
@@ -410,7 +471,7 @@ export class MockDb {
         flagged: group.filter((c) => this.needsAction(c.id)).length,
         cents_basis: status === 'paid' ? ('paid' as const) : ('billed' as const),
         label: status === 'paid' ? 'Paid · Oct' : status[0]?.toUpperCase() + status.slice(1),
-        by_holder: [{ who: 'nobody' as const, holder_role: null, holder_user_id: null, mine: false, count: group.length }], // phase-1 stub, as the API
+        by_holder: byHolder(group.map((c) => this.moveOf(c, user))),
       }
     })
     const sum = (rows: MockClaim[]) => rows.reduce((a, c) => a + c.billed_cents, 0)
@@ -421,7 +482,7 @@ export class MockDb {
     const inbox = this.visibleItems(user)
     return {
       tiles,
-      moves: movesStub(open), // phase-1 stub, as the API
+      moves: moveCounts(open, (c) => this.moveOf(c, user)),
       inbox_open: inbox.length,
       inbox_open_cents: inbox.reduce((a, i) => a + i.cents, 0),
       inbox_claims: new Set(inbox.flatMap((i) => (i.claim_id ? [i.claim_id] : []))).size,
@@ -460,7 +521,7 @@ export class MockDb {
       if (!item.group_key) continue
       let g = groups.find((x) => x.group_key === item.group_key)
       if (!g) {
-        g = { group_key: item.group_key, title: GROUP_META[item.group_key]?.title ?? item.group_key, count: 0, cents: 0, item_ids: [], action_label: null, touches: [] } // labels: phase-1 stubs
+        g = { group_key: item.group_key, title: GROUP_META[item.group_key]?.title ?? item.group_key, count: 0, cents: 0, item_ids: [], action_label: null, touches: [] }
         groups.push(g)
       }
       g.count++
@@ -469,12 +530,18 @@ export class MockDb {
     }
     // A group of one is just an item.
     return {
-      items: items.map((i) => this.itemOut(i)),
+      items: items.map((i) => this.itemOut(i, user)),
       total: items.length,
       total_cents: items.reduce((a, i) => a + i.cents, 0),
       next_cursor: null,
-      // As the API titles a group: the count is in the string.
-      groups: groups.filter((g) => g.count > 1).map((g) => ({ ...g, title: `${g.title} (${g.count})` })),
+      // As the API titles a group: the count is in the string; the words are the members' shared action.
+      groups: groups
+        .filter((g) => g.count > 1)
+        .map((g) => {
+          const members = g.item_ids.flatMap((id) => items.filter((i) => i.id === id))
+          const first = members[0]
+          return { ...g, title: `${g.title} (${g.count})`, action_label: first ? this.actionLabel(first, g.count) : null, touches: this.itemTouches(members) }
+        }),
     }
   }
 
@@ -576,7 +643,8 @@ export class MockDb {
         patient_resp_cents: c.status === 'denied' ? 0 : c.patient_resp_cents, // as an 835 denial says until the claim is reprocessed
         basis: c.status === 'paid' || c.status === 'partial' ? 'per 835' : `estimate from contract allowed · ${coverageFor(c).plan_name}`,
       },
-      timeline: c.timeline.map((e) => ({ ...e, kind: e.lane })),
+      // `who` is the party that acted, as the API's timeline: people, agents (and Vyne file queueing), the payer side.
+      timeline: c.timeline.map((e) => ({ ...e, kind: e.lane, who: e.who ?? whoActed(e) })),
       timeline_next_cursor: null,
       open_inbox_items: this.openItems().filter((i) => i.claim_id === id).map((i) => this.itemOut(i)),
       holds: c.hold ? [c.hold] : [],
@@ -699,10 +767,35 @@ export class MockDb {
 
   approve(id: string, user: UserId, label?: string): { item: InboxItem; run: Run | null; rule?: Rule; changes: StripChange[]; meta: { counts: StripSummary } } {
     const item = this.openItem(id)
-    if (item.kind === 'owner_signoff') return this.approveSignoff(item, user)
+    const before = this.strip(undefined, user)
+    const statuses = this.statusesOf([item])
+    if (item.kind === 'owner_signoff') {
+      const out = this.approveSignoff(item, user)
+      return { ...out, changes: this.changes(before, user, [item], statuses) }
+    }
     const { item: resolved, run } = this.approveItem(item, user, label)
-    return { item: this.itemOut(resolved), run: this.wireRun(run), changes: [], meta: { counts: this.counts(user) } }
+    return { item: this.itemOut(resolved, user), run: this.wireRun(run), changes: this.changes(before, user, [item], statuses), meta: { counts: this.counts(user) } }
   }
+
+  private statusesOf(items: MockInboxItem[]): Status[] {
+    return items.flatMap((i) => {
+      const c = this.claimOf(i)
+      return c ? [c.status] : []
+    })
+  }
+  /** The API's `strip_changes`: Inbox, claims behind it, and every touched claim's tile, read before and after. */
+  private changes(before: StripSummary, user: UserId, items: MockInboxItem[], statuses: Status[]): StripChange[] {
+    const after = this.strip(undefined, user)
+    const touched = [...statuses, ...this.statusesOf(items)]
+    const actions = items.flatMap((i) => (i.proposed_action && i.claim_id ? [i.proposed_action.action] : []))
+    const payers = items.flatMap((i) => {
+      const c = this.claimOf(i)
+      return c ? [PAYER_REF[c.payer_key].short_name] : []
+    })
+    return stripChanges(before, after, touched, (status) => changeNote(status, actions, payers))
+  }
+  /** `Run.claim_outcome` "before": the run's own claim with the run left out and its approved item still open. */
+  private claimBefore = new Map<string, [Status, MoveWho]>()
 
   private approveItem(item: MockInboxItem, user: UserId, label?: string): { item: MockInboxItem; run: RunView } {
     if (item.tier === 3 && !isOwner(user)) throw new MockError(403, 'tier_requires_owner', 'Tier 3 commits the practice: Dr. Morgan acts on this one.')
@@ -721,6 +814,9 @@ export class MockDb {
       plan: this.approvalPlan(item, user),
     })
     resolved.run_id = run.id
+    run.action_label = this.actionLabel(item) ?? ''
+    const claim = this.claimOf(item)
+    if (claim) this.claimBefore.set(run.id, [claim.status, this.moveOf(claim, null, { excludeRun: run.id, openItem: item.id }).who])
     if (item.claim_id) {
       this.pushTimeline(item.claim_id, { lane: 'human', actor: USER_NAME[user], title: `${USER_NAME[user]} approved${label ? ` · ${label}` : ''}: ${item.recommendation}` })
     }
@@ -743,9 +839,11 @@ export class MockDb {
   approveGroup(groupKey: string, user: UserId) {
     const members = this.openItems().filter((i) => i.group_key === groupKey)
     if (members.length === 0) throw new MockError(409, 'already_resolved', 'Nothing left to approve in this group.')
+    const before = this.strip(undefined, user)
+    const statuses = this.statusesOf(members)
     const label = `Approve ${members.length} (${GROUP_META[groupKey]?.title ?? groupKey})`
     const results = members.map((m) => this.approve(m.id, user, label))
-    return { items: results.map((r) => r.item), runs: results.flatMap((r) => (r.run ? [r.run] : [])), changes: [], meta: { counts: this.counts(user) } }
+    return { items: results.map((r) => r.item), runs: results.flatMap((r) => (r.run ? [r.run] : [])), changes: this.changes(before, user, members, statuses), meta: { counts: this.counts(user) } }
   }
 
   reject(id: string, user: UserId, reason: string) {
@@ -1278,7 +1376,7 @@ export class MockDb {
   }
 
   // ── static screens ─────────────────────────────────────────────────────────
-  summary(c: MockClaim): ClaimSummary {
+  summary(c: MockClaim, viewer: UserId = 'usr_dana'): ClaimSummary {
     const [first, ...rest] = c.patient_name.split(' ')
     return {
       id: c.id,
@@ -1289,6 +1387,7 @@ export class MockDb {
       payer: PAYER_REF[c.payer_key],
       dos: c.dos,
       procedures: c.procedures_label,
+      procedures_plain: plainProcedures(c.lines),
       billed_cents: c.billed_cents,
       allowed_cents: c.allowed_cents ?? null,
       paid_cents: c.paid_cents ?? null,
@@ -1297,7 +1396,7 @@ export class MockDb {
       in_flight: c.in_flight ?? null,
       age_days: c.age_days ?? null,
       file_time: c.queued_file?.at ?? (c.status === 'ready' && c.file_time ? at(c.built_at.slice(0, 10), c.file_time) : (c.sent_at ?? null)),
-      move: { who: 'nobody', holder_role: null, holder_user_id: null, mine: false, label: '' }, // phase-1 stub, as the API
+      move: this.moveOf(c, viewer),
     }
   }
 
@@ -1593,6 +1692,8 @@ export class MockDb {
   private finishRun(run: RunView, plan: RunPlan) {
     plan.onDone(this, run)
     run.finished_at = this.s.now
+    const claim = this.s.claims.find((c) => c.id === run.claim_id)
+    if (claim) run.claim_outcome = claimOutcome(this.claimBefore.get(run.id) ?? null, [claim.status, this.moveOf(claim, null, { excludeRun: run.id }).who])
     this.setRunStatus(run, 'succeeded')
     this.emit(run.id, 'counts', this.counts(USERS_BY_ID[run.actor ?? ''] ?? 'usr_dana'))
     this.emit(run.id, 'done', { status: 'succeeded', audit_line: run.audit_line, result_summary: run.result_summary })
