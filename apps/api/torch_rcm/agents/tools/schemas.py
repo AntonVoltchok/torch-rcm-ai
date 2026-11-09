@@ -5,9 +5,13 @@ terminal tools (`submit_plan`, `submit_draft`, `submit_result`). No schema has a
 root-cause or amount field, and no `enum`/`const` carries an id or a name (compiled grammars are cached
 outside PHI protections) — ids are plain strings checked by code against the case.
 
-Every tool is `strict: true`; every object has `additionalProperties: false` and lists all its properties
-as required (nullable where optional — our choice, not an API rule). No numeric or length keywords: pydantic
-enforces those after the call. The lint in `lint_tools()` is what tests and `torch eval` assert.
+Strict mode is on for the terminal tools whose payload code acts on (`submit_plan`, `submit_draft`; ADR-0010):
+`submit_plan` alone sits near the API's compiled-grammar ceiling, so a request carries one strict tool. Read
+tools and `submit_result` are not strict; their inputs go through pydantic models with `extra="forbid"` and the
+scope check, so a malformed call gets `is_error`. Every schema, strict or not, has `additionalProperties: false`
+on every object and lists all its properties as required (nullable where optional — our choice, not an API
+rule). No numeric or length keywords: pydantic enforces those after the call. The lint in `lint_tools()` is
+what tests and `torch eval` assert.
 """
 
 from __future__ import annotations
@@ -23,6 +27,12 @@ JsonSchema = dict[str, Any]
 
 MAX_STRICT_TOOLS = 20
 MAX_UNION_PARAMS = 16
+#: The terminal tools always sent with `strict: true` (a forced single-tool request, like eligibility's, may
+#: be strict too). Measured 2026-11-09 against claude-sonnet-5-5: `submit_plan` (followup)
+#: compiles alone, but with any other enum-bearing strict tool the API returns 400 "compiled grammar is too
+#: large", though the documented counts (strict tools, optional and union params) are all within limits.
+STRICT_TOOLS = frozenset({"submit_plan", "submit_draft"})
+MAX_STRICT_PER_REQUEST = 1
 FORBIDDEN_KEYWORDS = frozenset(
     {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "minItems",
      "maxItems", "multipleOf", "pattern", "uniqueItems"}
@@ -47,7 +57,10 @@ def _obj(properties: dict[str, JsonSchema], description: str | None = None) -> J
 
 
 def _tool(name: str, description: str, schema: JsonSchema) -> JsonSchema:
-    return {"name": name, "description": description, "strict": True, "input_schema": schema}
+    tool: JsonSchema = {"name": name, "description": description, "input_schema": schema}
+    if name in STRICT_TOOLS:
+        tool["strict"] = True
+    return tool
 
 
 # ── read tools ──────────────────────────────────────────────────────────────────────────────────────────
@@ -378,10 +391,11 @@ def union_params(tool: JsonSchema) -> int:
 
 
 def lint_tools(tools: list[JsonSchema], forbidden_values: frozenset[str] = frozenset()) -> list[str]:
-    """Problems with a request's tool list; empty means it is safe to send in strict mode."""
+    """Problems with a request's tool list; empty means it is safe to send."""
     problems: list[str] = []
-    if sum(1 for t in tools if t.get("strict")) > MAX_STRICT_TOOLS:
-        problems.append(f"more than {MAX_STRICT_TOOLS} strict tools")
+    strict = sum(1 for t in tools if t.get("strict"))
+    if strict > min(MAX_STRICT_TOOLS, MAX_STRICT_PER_REQUEST):
+        problems.append(f"{strict} strict tools (> {MAX_STRICT_PER_REQUEST}: the compiled grammar gets too large)")
     unions = sum(union_params(t) for t in tools)
     if unions > MAX_UNION_PARAMS:
         problems.append(f"{unions} union params (> {MAX_UNION_PARAMS})")
@@ -403,7 +417,7 @@ def lint_tools(tools: list[JsonSchema], forbidden_values: frozenset[str] = froze
             problems.append(f"{path}: enum/const carries ids or names {leaked}")
 
     for t in tools:
-        if not t.get("strict"):
+        if t["name"] in STRICT_TOOLS and not t.get("strict"):
             problems.append(f"{t['name']}: not strict")
         _walk(t["input_schema"], t["name"], visit)
     return problems
