@@ -82,6 +82,8 @@ function pick(d: unknown, ...keys: string[]): unknown {
 
 /* ---------- main tour ---------- */
 const INBOX_4821 = { to: '/inbox', search: { item: FOLLOWED.item } }
+/** Shown when the tour's own Approve (or the overnight after it) has taken the Delta group out of the Inbox. */
+const APPROVED = 'Approved in this tour: the Delta group has left the Inbox. The finish offers the reset that brings it back.'
 
 function Welcome() {
   const now = useNowLabel()
@@ -128,6 +130,7 @@ const MAIN: Tour = {
     {
       id: 'clock',
       route: INBOX_4821,
+      needs: 'followed-open',
       anchor: 'clock',
       ey: 'seed & clock',
       title: 'Where the data comes from',
@@ -152,6 +155,7 @@ const MAIN: Tour = {
     {
       id: 'strip',
       route: INBOX_4821,
+      needs: 'followed-open',
       anchor: 'pipeline',
       ey: 'one status model',
       title: 'The pipeline: nine statuses, one source',
@@ -174,6 +178,7 @@ const MAIN: Tour = {
     {
       id: 'moves',
       route: INBOX_4821,
+      needs: 'followed-open',
       anchor: 'whose-move',
       ey: 'whose move',
       title: 'Whose move it is, decided by the server',
@@ -194,8 +199,9 @@ const MAIN: Tour = {
     {
       id: 'how',
       route: INBOX_4821,
+      needs: 'followed-open',
       anchor: 'relay',
-      missing: 'The Delta group is no longer open in this practice’s state (it was approved, or the clock moved on). Dr. Morgan’s “Reset demo to Wed 10:40” brings it back.',
+      missing: APPROVED,
       ey: '835 → router → agent',
       title: 'How #4821 got here',
       body: function B() {
@@ -219,8 +225,9 @@ const MAIN: Tour = {
     {
       id: 'model',
       route: INBOX_4821,
+      needs: 'followed-open',
       anchor: 'recommends',
-      missing: 'The #4821 item is not open right now, so its recommendation is not on screen. The prompt and plan in the code pane do not depend on it.',
+      missing: `${APPROVED} The prompt and plan in the code pane do not depend on it.`,
       ey: 'the model’s input',
       title: 'What a model would see',
       body: () => (
@@ -249,8 +256,9 @@ const MAIN: Tour = {
     {
       id: 'policy',
       route: INBOX_4821,
+      needs: 'followed-open',
       anchor: 'why',
-      missing: 'The #4821 item is not open right now. The policy table and its verdict are in the code pane.',
+      missing: `${APPROVED} The policy table and its verdict are in the code pane.`,
       ey: 'policy, tier, track record',
       title: 'Code decides whether it runs',
       body: function B() {
@@ -276,8 +284,9 @@ const MAIN: Tour = {
     {
       id: 'decide',
       route: INBOX_4821,
+      needs: 'followed-open',
       anchor: 'approve',
-      missing: 'The Delta group is not open right now, so there is nothing to approve. Dr. Morgan’s “Reset demo to Wed 10:40” brings it back.',
+      missing: `${APPROVED} Its run is on the next step.`,
       ey: 'a person decides',
       title: 'Dana decides',
       body: () => (
@@ -306,7 +315,8 @@ const MAIN: Tour = {
       id: 'run',
       route: { to: '/inbox' },
       anchor: 'run-pane',
-      missing: 'No run pane is open. Press “Try it” on the step before, or open a run from “Runs you started”.',
+      after: { step: 'decide', note: 'The run starts when Dana approves, and this step shows it. Press the approve button here, or go Back.' },
+      missing: 'The run pane was closed. “Runs you started” in the Inbox opens it again.',
       ey: 'recipe → NEA → next file',
       title: 'The approval run',
       body: function B() {
@@ -451,13 +461,13 @@ const INBOX: Tour = {
         </P>
         <P>A red banner means <b>root cause: ours</b>. Red is reserved for money at risk and for “ours”.</P>
       </>
-    ), [pane.item()], { route: INBOX_4821 }),
+    ), [pane.item()], { route: INBOX_4821, needs: 'followed-open' }),
     s('touches', 'What this does, before you press it', 'touches', () => (
       <P>
         “What this does” (<C>touches</C>) and the baton under the button (<C>lands</C>) come from the action catalog with the item resolved, and a test checks that <C>lands</C> equals
         where the claim actually goes after the run. The line under it says how long the action can still be pulled: until the payer’s next file leaves.
       </P>
-    ), [pane.file('recipe', 'recipe_resubmit', 'catalog/recipes.py · readmodels/wording.py', 'source')], { route: INBOX_4821 }),
+    ), [pane.file('recipe', 'recipe_resubmit', 'catalog/recipes.py · readmodels/wording.py', 'source')], { route: INBOX_4821, needs: 'followed-open' }),
     s('record', 'Track record, not a confidence score', 'track-record', function B() {
       const c = useFollowedItem()?.confidence
       return (
@@ -469,13 +479,13 @@ const INBOX: Tour = {
           <P>“Why it stopped at you” is the policy row that matched: the rule is set to Ask.</P>
         </>
       )
-    }, [pane.learnable()], { route: INBOX_4821 }),
+    }, [pane.learnable()], { route: INBOX_4821, needs: 'followed-open' }),
     s('evidence', 'What the agent read', 'evidence', () => (
       <P>
         Each evidence row is a captured object: the portal’s claim status, the 835 line decoded, the IVR transcript, the rep call with its reference number, the PMS imaging record. Each
         carries its source and capture time; world content is untrusted by default.
       </P>
-    ), [pane.evidence()], { route: INBOX_4821 }),
+    ), [pane.evidence()], { route: INBOX_4821, needs: 'followed-open' }),
     s('keys', 'Keys', 'inbox-actions', () => (
       <>
         <P>
@@ -486,7 +496,7 @@ const INBOX: Tour = {
           While a run holds a claim, Approve, Reject and Snooze lock; the server enforces the same rule as <C>409 claim_busy</C>.
         </P>
       </>
-    ), [pane.file('URL state', 'search', 'features/claims/search.ts', 'source')], { route: INBOX_4821 }),
+    ), [pane.file('URL state', 'search', 'features/claims/search.ts', 'source')], { route: INBOX_4821, needs: 'followed-open' }),
   ],
 }
 
@@ -625,7 +635,8 @@ const CLAIM: Tour = {
       </>
     ), [pane.claim(FOLLOWED.triage), pane.file('CASE FACTS', 'case_4744', 'planner/live.py render_case')], {
       route: { to: `/claims/${FOLLOWED.triage}` },
-      missing: 'The triage button is not on screen: #4744 may already have an open item or a run in flight.',
+      needs: 'triage-ready',
+      missing: 'Triaged in this tour: the run is on the next step.',
       tryIt: {
         label: 'Try it · Ask Follow-up to look',
         mutates: true,
@@ -650,7 +661,8 @@ const CLAIM: Tour = {
       </>
     ), [pane.run('triage'), pane.file('recorded plan', 'plan_4744', 'planner/recorded/clm_4744.plan.json · cassette', 'recording'), pane.file('policy', 'policy', 'agents/policy.py decide()')], {
       route: { to: `/claims/${FOLLOWED.triage}` },
-      missing: 'No run pane is open. Press “Try it” on the step before.',
+      after: { step: 'triage', note: 'The run starts when someone asks Follow-up to look, and this step shows it. Press the button here, or go Back.' },
+      missing: 'The run pane was closed. The claim’s History shows what the run did.',
     }),
   ],
 }
@@ -840,20 +852,24 @@ const SETTINGS: Tour = {
   ],
 }
 
-/** The finish's "put it back": the owner's own Reset button, pressed as Dr. Morgan, then back to the viewer. */
+/**
+ * The owner's own Reset button, pressed as Dr. Morgan, then back to whoever was signed in. The finish offers it; a step
+ * whose `needs` the practice has lost runs it before it is drawn.
+ */
 export const RESET_DEMO: TryIt = {
   label: 'Reset demo to the seed (as Dr. Morgan)',
   busy: 'Resetting…',
   then: 'stay',
   done: 'Reset: the practice is back at the seed',
   run: async (ctx) => {
+    const back = session.get().userId
     await ctx.switchUser('usr_morgan')
     try {
       await ctx.until(() => findAnchor('reset-demo') !== null, 10_000, 'Dr. Morgan’s reset control did not appear.')
       ctx.press('reset-demo')
       await ctx.until(() => ctx.pressSettled() && ctx.clockNow() !== undefined, 30_000, 'The reset has not finished yet; the clock control shows it.')
     } finally {
-      if (!ctx.signal.aborted) await ctx.switchUser('usr_dana')
+      if (!ctx.signal.aborted) await ctx.switchUser(back)
     }
   },
 }

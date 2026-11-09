@@ -1,6 +1,8 @@
 /**
  * The tour against the mock API (MSW serves the same seed shapes the real API does):
  *  - every spotlight step's anchor exists on its screen, except those a "Try it" creates (the run panes);
+ *  - a step that comes before its Try it shows that Try it's control instead of an empty spot (resolveStep);
+ *  - a step whose practice state is gone (needs.ts) resets the demo first, once, and only before any mutating Try it;
  *  - step copy states no number it did not get from the server;
  *  - "Hide code" is remembered across reloads;
  *  - the main tour opens on load, and Esc gives the app back.
@@ -13,6 +15,7 @@ import { createMockApi } from '@/mocks/node'
 import { renderApp, renderWithProviders } from '@/test/render'
 import { launchStore } from '@/state/launches'
 import { session } from '@/state/session'
+import { resolveStep } from './needs'
 import { TOURS } from './registry'
 import { AUTOOPEN, tourStore } from './store'
 import { anchorSelector } from './anchors'
@@ -31,7 +34,10 @@ afterEach(() => {
 })
 afterAll(() => api.server.close())
 
-/** Anchors that only exist after the step before them pressed "Try it" (covered by e2e/tour.spec.ts). */
+/**
+ * Steps whose own anchor a "Try it" creates (the run panes). Before it runs they show that Try it's control instead
+ * (`after`, tested in "needs and after" below); the panes themselves are covered by e2e/tour.spec.ts.
+ */
 const AFTER_TRY = new Set(['main/run', 'claim/run'])
 
 const stepUrl = (t: Tour, s: Step) => {
@@ -225,6 +231,42 @@ describe('Try it and focus', () => {
     expect(session.get().userId).toBe('usr_dana')
   })
 
+  it('Esc after a Try-it switched to Dr. Morgan gives the viewer back (the reset a step runs on its own)', async () => {
+    let tour: ReturnType<typeof useTour> | null = null
+    const Grab = () => {
+      tour = useTour()
+      return null
+    }
+    renderWithProviders(
+      <TourProvider>
+        <Grab />
+      </TourProvider>,
+    )
+    await waitFor(() => expect(tour).not.toBeNull())
+    const step: Step = {
+      id: 't',
+      title: 't',
+      body: () => null,
+      tryIt: {
+        label: 't',
+        busy: 't',
+        then: 'stay',
+        run: async (ctx) => {
+          await ctx.switchUser('usr_morgan')
+          await ctx.until(() => false, 5000, 'never')
+        },
+      },
+    }
+    let result: unknown
+    act(() => {
+      void tour?.runTry(step).then((r) => (result = r))
+    })
+    await waitFor(() => expect(session.get().userId).toBe('usr_morgan'))
+    act(() => tour?.exit())
+    await waitFor(() => expect(result).toEqual({ aborted: true }))
+    expect(session.get().userId).toBe('usr_dana')
+  })
+
   it('a click on the shade explains why the app is paused instead of doing nothing', async () => {
     const user = userEvent.setup()
     renderApp('/inbox')
@@ -233,4 +275,117 @@ describe('Try it and focus', () => {
     await user.click(screen.getByTestId('tour-shield'))
     expect(await screen.findByTestId('tour-nudge')).toHaveTextContent('The app is paused while the tour is open.')
   })
+})
+
+describe('needs and after', () => {
+  beforeEach(() => localStorage.removeItem(AUTOOPEN))
+  const off: Array<() => void> = []
+  afterEach(() => off.splice(0).forEach((f) => f()))
+
+  /** Who made each matching request from now on (the X-Torch-User header); the listener is dropped after the test. */
+  const requests = (method: string, path: RegExp) => {
+    const seen: Array<string | null> = []
+    const on = ({ request }: { request: Request }) => {
+      if (request.method === method && path.test(new URL(request.url).pathname)) seen.push(request.headers.get('X-Torch-User'))
+    }
+    api.server.events.on('request:start', on)
+    off.push(() => api.server.events.removeListener('request:start', on))
+    return seen
+  }
+  const next = () => within(screen.getByTestId('tour-card')).getByRole('button', { name: 'Next' })
+
+  it('the run step, before the approve has run, is the decide step’s control and Try it; after it, itself', () => {
+    const tour = TOURS.main
+    const run = tour.steps.find((s) => s.id === 'run')
+    expect(run).toBeDefined()
+    if (!run) return
+    const before = resolveStep(tour, run, new Set())
+    expect(before.anchor).toBe('approve')
+    expect(before.tryIt?.mutates).toBe(true)
+    expect(before.tryIt?.then).toBe('stay')
+    expect(before.waiting).toBe(run.after?.note)
+    expect(before.id).toBe('run')
+    const after = resolveStep(tour, run, new Set(['decide']))
+    expect(after).toBe(run)
+    expect(after.anchor).toBe('run-pane')
+    expect(after.tryIt).toBeUndefined()
+  })
+
+  it('resets the demo before the first step when #4821 has left the Inbox, says why, and signs Dana back in', async () => {
+    // #4821 reads as approved until the reset, which then serves the seed again (the mock reseeds on POST /clock/reset).
+    let approved = true
+    api.server.use(
+      http.post(/\/clock\/reset$/, () => {
+        approved = false
+      }),
+      http.get(/\/inbox\/itm_4821$/, () => (approved ? HttpResponse.json({ ...api.db.inboxItem('itm_4821'), state: 'approved' }) : undefined)),
+    )
+    const resets = requests('POST', /\/clock\/reset$/)
+    // Signed in as the owner: the main tour switches to Dana, the reset presses as Dr. Morgan, then gives Dana back.
+    session.set({ userId: 'usr_morgan' })
+    const user = userEvent.setup()
+    renderApp('/inbox')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    const card = await screen.findByTestId('tour-preparing')
+    expect(card).toHaveTextContent('K. Owens #4821 is approved in this practice’s data')
+    await waitFor(() => expect(screen.queryByTestId('tour-preparing')).toBeNull(), { timeout: 15_000 })
+    expect(resets).toEqual(['usr_morgan'])
+    expect(screen.queryByTestId('tour-preparing-error')).toBeNull()
+    await screen.findByRole('heading', { name: 'Where the data comes from' })
+    expect(session.get().userId).toBe('usr_dana')
+    // One reset per tour: the next steps, which need the same state, do not reset again.
+    await user.click(next())
+    await screen.findByRole('heading', { name: 'The pipeline: nine statuses, one source' })
+    expect(resets).toHaveLength(1)
+    // Exit gives back the persona the tour started from.
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(session.get().userId).toBe('usr_morgan'))
+  }, 20_000)
+
+  it('makes no reset when #4821 is open, as it is in the seed', async () => {
+    const resets = requests('POST', /\/clock\/reset$/)
+    const user = userEvent.setup()
+    renderApp('/inbox')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    await screen.findByRole('heading', { name: 'Where the data comes from' })
+    await user.click(next())
+    await screen.findByRole('heading', { name: 'The pipeline: nine statuses, one source' })
+    expect(screen.queryByTestId('tour-preparing')).toBeNull()
+    expect(resets).toEqual([])
+  })
+
+  it('Next past “Dana decides” without Try it spotlights the approve button and offers its Try it there', async () => {
+    const user = userEvent.setup()
+    renderApp('/inbox?item=itm_4821')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    for (let i = 0; i < 6; i++) await user.keyboard('{ArrowRight}')
+    await screen.findByRole('heading', { name: 'Dana decides' })
+    await user.click(next())
+    await screen.findByRole('heading', { name: 'The approval run' })
+    expect(await screen.findByTestId('tour-waiting')).toHaveTextContent('The run starts when Dana approves')
+    const tryBtn = await screen.findByTestId('tour-try')
+    await waitFor(() => expect(tryBtn).toBeEnabled(), { timeout: 4000 })
+    expect(screen.getByTestId('tour-hole')).toBeInTheDocument()
+    expect(document.querySelector(anchorSelector('approve'))).not.toBeNull()
+    expect(screen.queryByTestId('tour-missing')).toBeNull()
+  })
+
+  it('after the tour’s own approve, Back to “Dana decides” does not reset: it says the group was approved', async () => {
+    const resets = requests('POST', /\/clock\/reset$/)
+    const user = userEvent.setup()
+    renderApp('/inbox?item=itm_4821')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    for (let i = 0; i < 6; i++) await user.keyboard('{ArrowRight}')
+    await screen.findByRole('heading', { name: 'Dana decides' })
+    const tryBtn = await screen.findByTestId('tour-try')
+    await waitFor(() => expect(tryBtn).toBeEnabled(), { timeout: 4000 })
+    await user.click(tryBtn)
+    await screen.findByRole('heading', { name: 'The approval run' }, { timeout: 15_000 })
+    expect(screen.queryByTestId('tour-waiting')).toBeNull()
+    await user.click(within(screen.getByTestId('tour-card')).getByRole('button', { name: 'Back' }))
+    await screen.findByRole('heading', { name: 'Dana decides' })
+    expect(await screen.findByTestId('tour-missing', {}, { timeout: 6000 })).toHaveTextContent('Approved in this tour')
+    expect(screen.queryByTestId('tour-preparing')).toBeNull()
+    expect(resets).toEqual([])
+  }, 20_000)
 })

@@ -16,17 +16,83 @@ import type { Step } from './types'
  * screen's own shortcuts stay in the tour; Esc or "Exit tour" gives the app back at any step.
  */
 export function TourLayer() {
-  const { active, step } = useTour()
+  const { active, step, preparing } = useTour()
   useTourKeys()
   if (!active || !step) return null
-  return step.modal ? <TourModal step={step} /> : <Spotlight step={step} key={`${active.tour.id}:${active.idx}`} />
+  if (step.modal) return <TourModal step={step} />
+  return preparing ? <PrepareCard /> : <Spotlight step={step} key={`${active.tour.id}:${active.idx}`} />
+}
+
+/** The tour is resetting the practice so the next step has what it shows (needs.ts); the shell stays covered meanwhile. */
+function PrepareCard() {
+  const { active, preparing, settlePrepare, exit } = useTour()
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    box.current?.querySelector<HTMLButtonElement>('[data-tour-next]')?.focus({ preventScroll: true })
+  }, [preparing?.error])
+  if (!preparing) return null
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-shade p-4">
+      <div
+        ref={box}
+        role="dialog"
+        aria-labelledby="tour-title"
+        aria-describedby="tour-body"
+        data-testid="tour-preparing"
+        onKeyDown={trapTab}
+        className="box-border flex w-[500px] max-w-full flex-col gap-2.5 rounded-xl bg-paper px-4 pb-3 pt-3 text-[13.5px] leading-relaxed text-ink shadow-[0_0_0_1px_rgb(22_26_34/0.08),0_22px_60px_rgb(22_26_34/0.30)]"
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-soft">{active?.tour.name} · setting up</span>
+        <h2 id="tour-title" className="m-0 text-[17px] font-semibold leading-tight tracking-[-0.012em]">
+          {preparing.error ? 'The reset did not finish' : 'Putting the practice back at the seed'}
+        </h2>
+        <div id="tour-body" className="flex flex-col gap-2.5">
+          <p className="m-0">{preparing.why}</p>
+          <p className="m-0 text-mid">
+            The tour shows each step on the data it describes, so it presses Dr. Morgan’s <b className="text-ink">Reset demo</b> (the same button the owner has) and
+            signs you back in.
+          </p>
+          {preparing.error ? (
+            <p role="alert" className="m-0 text-xs font-medium text-risk-ink" data-testid="tour-preparing-error">
+              {preparing.error}
+            </p>
+          ) : (
+            <p role="status" className="m-0 text-xs text-soft">
+              Resetting…
+            </p>
+          )}
+        </div>
+        <footer className="mt-1 flex items-center gap-2 border-t border-line pt-2.5">
+          <button type="button" onClick={exit} className="px-0.5 py-1.5 text-[12.5px] font-medium text-mid underline underline-offset-2 hover:text-ink">
+            Exit tour
+          </button>
+          <span className="flex-1" />
+          {preparing.error && (
+            <>
+              <button type="button" onClick={() => settlePrepare(false)} className="rounded-md border border-line-strong bg-paper px-3.5 py-1.5 text-[13px] font-semibold">
+                Continue as is
+              </button>
+              <button
+                type="button"
+                data-tour-next=""
+                onClick={() => settlePrepare(true)}
+                className="rounded-md border border-act bg-act px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-act-hover"
+              >
+                Try again
+              </button>
+            </>
+          )}
+        </footer>
+      </div>
+    </div>
+  )
 }
 
 const PAD = 5
 const GAP = 14
 const M = 12
 
-function Spotlight({ step }: { step: Step }) {
+function Spotlight({ step }: { step: Step & { waiting?: string } }) {
   const { active, go, exit, runTry: run, busy } = useTour()
   const [nudge, setNudge] = useState(false)
   const codeOpen = useCodeOpen() && Boolean(step.code?.length)
@@ -39,7 +105,7 @@ function Spotlight({ step }: { step: Step }) {
   const tour = active?.tour
   const idx = active?.idx ?? 0
   const anchored = tour?.steps.filter((s) => !s.modal) ?? []
-  const n = anchored.indexOf(step)
+  const n = anchored.findIndex((s) => s.id === step.id)
   const last = tour ? idx === tour.steps.length - 1 : true
   const rect = anchor.rect || null
   // Re-place when the card's own content changes size (an error, the missing note) or the window does.
@@ -211,6 +277,11 @@ function Spotlight({ step }: { step: Step }) {
               <p role="status" className="m-0 rounded-md border border-act-line bg-act-bg px-2.5 py-1.5 text-xs text-ink" data-testid="tour-nudge">
                 The app is paused while the tour is open.{' '}
                 {step.tryIt ? '“Try it” presses this control for you, or exit the tour to use it yourself.' : 'Exit the tour to use it yourself.'}
+              </p>
+            )}
+            {step.waiting && (
+              <p role="status" className="m-0 rounded-md border border-act-line bg-act-bg px-2.5 py-1.5 text-xs text-ink" data-testid="tour-waiting">
+                {step.waiting}
               </p>
             )}
             {missing && (
