@@ -1,0 +1,64 @@
+# The Follow-up plan conversation's tools: the request's `tools` array
+# source: apps/api/torch_rcm/agents/prompts/__init__.py tools_for('followup', 'plan') → apps/api/torch_rcm/agents/tools/schemas.py plan_tools, lint_tools
+# JSON as json.dumps(indent=2), except that scalar arrays and small flat objects sit on one line
+# regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
+# generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
+
+# 1. pms_get_visit  strict=true  (read)
+# 2. pms_find_images  strict=true  (read)
+# 3. pms_get_coverage  strict=true  (read)
+# 4. payer_rulebook_lookup  strict=true  (read)
+# 5. claim_get_history  strict=true  (read)
+# 6. submit_plan  strict=true  (terminal)
+# 7. submit_result  strict=true  (terminal)
+# lint_tools(tools) -> []   (strict-mode limits; no PHI in enum/const)
+# tools_sha_for('followup', 'plan') = 6327ae18a2e579a82f9e93466d8ba6279f65c27fee935bdc4f4601744aaaa295
+
+# --- read tool: pms_find_images ---
+{
+  "name": "pms_find_images",
+  "description": "List imaging records for the patient on or before a date. Returns image ids, kind as stored in the PMS, tooth, taken_at. An image may be mislabeled; compare kind to the payer rule.",
+  "strict": true,
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["patient_id", "on_or_before", "kinds", "tooth"],
+    "properties": {
+      "patient_id": {"type": "string"},
+      "on_or_before": {"type": "string", "format": "date"},
+      "kinds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["pa", "bwx", "fmx", "pano", "perio_chart", "intraoral_photo"]
+        }
+      },
+      "tooth": {
+        "type": ["string", "null"],
+        "description": "Universal tooth number 1-32, or null for all"
+      }
+    }
+  }
+}
+
+# --- read tool: claim_get_history ---
+{
+  "name": "claim_get_history",
+  "description": "The claim's acks, remittance lines with CARC/RARC, attachments sent (source agent|user|pms_imaging), payer correspondence, prior EOBs, prior Torch runs.",
+  "strict": true,
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["claim_id", "include"],
+    "properties": {
+      "claim_id": {"type": "string"},
+      "include": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["acks", "remits", "attachments", "correspondence", "prior_eobs", "runs", "payer_tooth_history"]
+        }
+      }
+    }
+  }
+}

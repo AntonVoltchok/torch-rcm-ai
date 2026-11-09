@@ -1,0 +1,76 @@
+# The model capability table, and the exact Messages API body a live run sends (5.5 models)
+# source: apps/api/torch_rcm/agents/llm/models.py SAMPLING_PARAMS, CAPABILITIES (ast lookup by name)
+# source: apps/api/torch_rcm/agents/llm/client.py EPHEMERAL (ast lookup), system_blocks and build_request (inspect.getsource)
+# regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
+# generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
+
+SAMPLING_PARAMS = frozenset({"temperature", "top_p", "top_k"})
+
+CAPABILITIES: dict[str, Capability] = {
+    "claude-sonnet-5-5": Capability(
+        family="claude-sonnet-5-5",
+        thinking=frozenset({"between_tools", "adaptive"}),  # `disabled` and manual budgets → 400
+        tool_choice=frozenset({"auto", "none"}),
+        efforts=frozenset({"low", "medium", "high"}),
+        effort_with_thinking={"between_tools": frozenset({"low", "medium", "high"})},
+        cache_read_multiplier=0.05,
+    ),
+    "claude-opus-5-5": Capability(
+        family="claude-opus-5-5",
+        thinking=frozenset({"adaptive"}),
+        tool_choice=frozenset({"auto", "none"}),
+        efforts=frozenset({"low", "medium", "high"}),
+        cache_read_multiplier=0.05,
+    ),
+    "claude-haiku-5-5": Capability(
+        family="claude-haiku-5-5",
+        thinking=frozenset({"disabled", "adaptive"}),
+        tool_choice=frozenset(
+            {"auto", "any", "tool", "none"}
+        ),  # forced choice accepted; with thinking it skips thinking
+        efforts=frozenset({"low", "medium", "high"}),  # accepted (default medium); the fast profile omits it
+        cache_read_multiplier=0.1,
+    ),
+}
+
+# --- apps/api/torch_rcm/agents/llm/client.py ---
+EPHEMERAL: dict[str, str] = {"type": "ephemeral"}
+
+def system_blocks(agent: AgentKind) -> list[dict[str, Any]]:
+    """The static system prompt as one text block carrying the single explicit cache breakpoint."""
+    return [{"type": "text", "text": load(agent).text, "cache_control": dict(EPHEMERAL)}]
+
+def build_request(
+    agent: AgentKind,
+    messages: list[dict[str, Any]],
+    *,
+    model_role: Role,
+    cfg: AgentConfig | None = None,
+    tools: list[JsonSchema] | None = None,
+    forced_tool: str | None = None,
+    max_tokens: int | None = None,
+) -> dict[str, Any]:
+    """The exact Messages API body for one call. Pure: no SDK, no clock, no I/O beyond the cached prompt file."""
+    cfg = cfg or AgentConfig()
+    profile = profile_for(model_role, cfg, forced_tool=forced_tool)
+    if tools is None:
+        tools = tools_for(agent, "draft" if model_role == "draft" else "plan")
+    problems = lint_tools(tools)
+    if problems:
+        raise ValueError(f"tool list is not safe for strict mode: {problems}")
+    body: dict[str, Any] = {
+        "model": profile.model,
+        "max_tokens": max_tokens or cfg.llm_max_tokens,
+        "tools": tools,
+        "tool_choice": profile.tool_choice_param(),
+        "system": system_blocks(agent),
+        "messages": messages,
+        "thinking": profile.thinking_param(),
+        "cache_control": dict(EPHEMERAL),
+    }
+    if profile.effort is not None:
+        body["output_config"] = {"effort": profile.effort}
+    if profile.tool_choice == "forced" and not any(t["name"] == profile.forced_tool for t in tools):
+        raise ValueError(f"forced tool {profile.forced_tool} is not in the tool list")
+    assert not SAMPLING_PARAMS & set(body), "5.5 models reject sampling params"
+    return body

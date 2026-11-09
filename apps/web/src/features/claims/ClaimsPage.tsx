@@ -68,6 +68,7 @@ export function ClaimsPage() {
       ) : (
         <DataTable
           label="Claims"
+          tour="claims-table"
           columns={claimColumns}
           data={rows}
           getRowId={(r) => r.id}

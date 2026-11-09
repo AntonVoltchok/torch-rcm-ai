@@ -36,7 +36,7 @@ function Benefits({ appt }: { appt: string }) {
   const b: BenefitsPanel = q.data
   const c = b.coverage
   return (
-    <aside aria-label={`Benefits · ${b.patient.display_name}`} className="flex flex-col gap-2.5 p-4 text-sm">
+    <aside aria-label={`Benefits · ${b.patient.display_name}`} data-tour="benefits" className="flex flex-col gap-2.5 p-4 text-sm">
       <header>
         <h2 className="m-0 text-md font-semibold">{b.patient.display_name}</h2>
         <div className="text-sm text-mid">
@@ -126,7 +126,7 @@ export function EligibilityPage() {
               const days = byDay(d)
               return (
                 <div className="flex flex-col">
-                  <div className="flex flex-wrap items-center gap-3 border-b border-line bg-fill px-4 py-2 text-sm" data-testid="eligibility-summary">
+                  <div className="flex flex-wrap items-center gap-3 border-b border-line bg-fill px-4 py-2 text-sm" data-testid="eligibility-summary" data-tour="eligibility-summary">
                     <b className="font-semibold">
                       {days.length ? `${weekday(days[0]?.day ?? d.date)} ${shortDate(days[0]?.day ?? d.date)}${days.length > 1 ? ` – ${weekday(days.at(-1)?.day ?? d.date)} ${shortDate(days.at(-1)?.day ?? d.date)}` : ''}` : shortDate(d.date)} · {plural(d.total, 'appt')}
                     </b>
@@ -141,7 +141,7 @@ export function EligibilityPage() {
                   {d.total === 0 ? (
                     <EmptyState title="No appointments to verify">Agents re-verify nightly and the morning of the visit.</EmptyState>
                   ) : (
-                    <table aria-label="Appointments" className="w-full border-collapse text-base">
+                    <table aria-label="Appointments" data-tour="eligibility-table" className="w-full border-collapse text-base">
                       <thead className="sticky top-0 bg-paper">
                         <tr>
                           {['Time', 'Patient', 'Provider', 'Payer', 'Planned · est. fee', 'Max left', 'Status'].map((h) => (

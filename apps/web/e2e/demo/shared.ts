@@ -22,6 +22,8 @@ export async function freshDemo(page: Page) {
   await page.evaluate(() => {
     sessionStorage.clear()
     localStorage.clear()
+    // The onboarding tours open on their own; the demo specs drive the app, not the tour (e2e/tour.spec.ts does).
+    localStorage.setItem('torchrcm.tour.autoopen', 'false')
   })
   await page.goto('/inbox')
 }

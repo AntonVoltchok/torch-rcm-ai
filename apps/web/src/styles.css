@@ -62,6 +62,8 @@
   --color-ok-bg: #e6f4ec;
   --color-ok-line: #b9e0c8;
   --color-dark: #7a1f16;
+  /* The tour's dim overlay: ink at 55%. The one colour the onboarding tours add (ADR-0009). */
+  --color-shade: rgb(22 26 34 / 0.55);
 
   --color-age-ok: #2e9e5e;
   --color-age-warn: #d9a21b;

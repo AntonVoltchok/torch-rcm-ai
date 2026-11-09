@@ -10,10 +10,20 @@ import { session, USERS, useCurrentUser, type DemoUser } from '@/state/session'
  */
 const ROLE: Record<DemoUser['role'], string> = { owner: 'Owner', billing: 'Billing', dentist: 'Dentist', front_desk: 'Front desk' }
 
-export function UserSwitcher() {
-  const user = useCurrentUser()
+/** Switch the demo user the way the select does; the tour's "Try it" uses the same function, so it has no path of its own. */
+export function useSwitchUser() {
   const qc = useQueryClient()
   const router = useRouter()
+  return (id: DemoUser['id']) => {
+    session.set({ userId: id })
+    void qc.resetQueries()
+    return router.invalidate()
+  }
+}
+
+export function UserSwitcher() {
+  const user = useCurrentUser()
+  const switchUser = useSwitchUser()
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs text-soft">Signed in as (demo)</span>
@@ -24,9 +34,7 @@ export function UserSwitcher() {
           title={`${user.name}, ${user.title}`}
           className="w-full appearance-none rounded-[5px] bg-paper py-1 pl-2 pr-6 text-sm font-medium text-ink shadow-[0_0_0_1px_var(--color-line),var(--shadow-panel)]"
           onChange={(e) => {
-            session.set({ userId: e.target.value as DemoUser['id'] })
-            void qc.resetQueries()
-            void router.invalidate()
+            void switchUser(e.target.value as DemoUser['id'])
           }}
         >
           {USERS.map((u) => (

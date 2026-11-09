@@ -23,7 +23,7 @@ export function PipelineStrip({ variant = 'line', active }: { variant?: 'card' |
   }
   if (strip.isError) {
     return (
-      <section aria-label="Claim pipeline" className={cn('flex items-center gap-3 text-sm text-mid', card ? 'panel px-4 py-3' : 'px-5 py-3')}>
+      <section aria-label="Claim pipeline" data-tour="pipeline" className={cn('flex items-center gap-3 text-sm text-mid', card ? 'panel px-4 py-3' : 'px-5 py-3')}>
         Claim pipeline: counts unavailable.
         <button type="button" className="font-semibold text-act underline" onClick={() => void strip.refetch()}>
           Retry
@@ -55,7 +55,7 @@ export function PipelineStrip({ variant = 'line', active }: { variant?: 'card' |
 
   if (!card) {
     return (
-      <section aria-label="Claim pipeline" className="flex flex-none items-center gap-x-4 overflow-hidden px-5 pb-2.5 pt-3">
+      <section aria-label="Claim pipeline" data-tour="pipeline" className="flex flex-none items-center gap-x-4 overflow-hidden px-5 pb-2.5 pt-3">
         {open.map((t) => (
           <span key={t.status} className="inline-flex items-center gap-1.5">
             <StageTile tile={t} active={isActive(t)} />
@@ -72,7 +72,7 @@ export function PipelineStrip({ variant = 'line', active }: { variant?: 'card' |
   }
 
   return (
-    <section aria-label="Claim pipeline" className="panel flex min-w-0 flex-col px-4 py-3">
+    <section aria-label="Claim pipeline" data-tour="pipeline" className="panel flex min-w-0 flex-col px-4 py-3">
       <div className="flex items-center justify-between gap-3 text-sm text-mid">
         {totals}
         {paid && <StageTile tile={paid} active={isActive(paid)} showMoney />}

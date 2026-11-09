@@ -87,7 +87,7 @@ export function OpenItemsPanel({ claim }: { claim: ClaimDetail }) {
   if (items.length === 0) {
     const flight = claim.claim.in_flight
     return (
-      <section aria-label="Open inbox items" className={cn('rounded-[7px] border px-4 py-3', flight ? 'border-agents-line bg-agents-bg' : 'border-line bg-paper')}>
+      <section aria-label="Open inbox items" data-tour="open-items" className={cn('rounded-[7px] border px-4 py-3', flight ? 'border-agents-line bg-agents-bg' : 'border-line bg-paper')}>
         <p className="m-0 text-sm text-mid" data-testid="no-open-items">
           {flight ? (
             <>
@@ -102,7 +102,7 @@ export function OpenItemsPanel({ claim }: { claim: ClaimDetail }) {
     )
   }
   return (
-    <section aria-label="Open inbox items">
+    <section aria-label="Open inbox items" data-tour="open-items">
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {items.map((it) => (
           <Item key={it.id} it={it} payer={payer} />

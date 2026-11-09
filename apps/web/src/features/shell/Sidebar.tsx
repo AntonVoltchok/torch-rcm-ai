@@ -10,6 +10,7 @@ import { ClockControl } from './ClockControl'
 import { OutageLine } from './OutageLine'
 import { UserSwitcher } from './UserSwitcher'
 import { NavIcon } from './NavIcon'
+import { TourSidebarRow } from '@/features/tour/TourEntry'
 import { navFor } from './nav'
 
 /**
@@ -61,6 +62,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="mt-auto flex flex-col gap-3 px-1.5 pt-5 text-sm text-mid">
+        <TourSidebarRow />
         <AgentsIndicator />
         <OutageLine />
         <div className="flex flex-col gap-2.5 border-t border-line pt-3">

@@ -88,7 +88,7 @@ export function ActivityPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title="Activity" sub="what agents did this week, and what you did" />
-      <div className="flex flex-none flex-wrap items-center gap-2 border-b border-line px-4 py-2">
+      <div className="flex flex-none flex-wrap items-center gap-2 border-b border-line px-4 py-2" data-tour="activity-filters">
         <select aria-label="Day" value={search.day ?? ''} className={select} onChange={(e) => void navigate({ search: (s) => ({ ...s, day: e.target.value || undefined }) })}>
           <option value="">This week</option>
           {(now ? weekDays(now) : []).map((d) => (
@@ -123,7 +123,7 @@ export function ActivityPage() {
         <Load q={q} what="activity">
           {(d) => (
             <div className="flex flex-col gap-4 p-5">
-              <div className="flex flex-wrap gap-2" data-testid="activity-summary">
+              <div className="flex flex-wrap gap-2" data-testid="activity-summary" data-tour="activity-summary">
                 <Stat n={d.summary.status_checks} label="status checks" />
                 <Stat n={d.summary.payer_calls} label="payer calls (with ref #)" />
                 <Stat n={d.summary.claims_sent} label="claims sent" />
@@ -134,7 +134,7 @@ export function ActivityPage() {
               {d.rows.length === 0 ? (
                 <EmptyState title="Nothing matches these filters">Clear a filter to see the rest of the week.</EmptyState>
               ) : (
-                <table aria-label="Activity" className="w-full border-collapse text-base">
+                <table aria-label="Activity" data-tour="activity-table" className="w-full border-collapse text-base">
                   <thead className="sticky top-0 bg-paper">
                     <tr>
                       {['Time', 'Agent', 'Action', 'Claim / patient', 'Now with', 'Outcome', 'Evidence'].map((h) => (

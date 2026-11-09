@@ -13,7 +13,7 @@ export function PreviewPanel({ target, ruleLabel, currentMode }: { target: Previ
   const q = usePreview(target)
   const mode = target?.mode ?? currentMode
   return (
-    <section aria-label="Live preview" aria-live="polite" className="flex min-w-[340px] flex-col gap-1 rounded-lg border border-line bg-fill px-4 py-2.5">
+    <section aria-label="Live preview" data-tour="preview" aria-live="polite" className="flex min-w-[340px] flex-col gap-1 rounded-lg border border-line bg-fill px-4 py-2.5">
       <div className="text-sm font-semibold text-ink">
         Live preview{ruleLabel ? ` · ${ruleLabel}` : ''}
         {mode ? ` → ${MODE_LABEL[mode]}` : ''}

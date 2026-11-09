@@ -17,7 +17,7 @@ export function PracticeCapEditor({ cents, canEdit }: { cents: number; canEdit: 
   const { register, handleSubmit, formState } = useForm<{ dollars: string }>({ values: { dollars: String(cents / 100) } })
   if (!open) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm text-mid">
+      <span className="inline-flex items-center gap-1.5 text-sm text-mid" data-tour="practice-cap">
         Practice cap <b className="text-ink">{money(cents)} / item</b> · tier 2 · tier 1 exempt
         {canEdit ? (
           <button type="button" className="font-medium text-act hover:underline" onClick={() => setOpen(true)}>
@@ -32,6 +32,7 @@ export function PracticeCapEditor({ cents, canEdit }: { cents: number; canEdit: 
   return (
     <form
       aria-label="Practice cap"
+      data-tour="practice-cap"
       className="inline-flex items-center gap-1.5 text-sm"
       onSubmit={(e) => {
         void handleSubmit((v) => {

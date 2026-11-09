@@ -194,7 +194,10 @@ class ScriptedPlanner:
 
 
 class RecordedPlanPlanner(ScriptedPlanner):
-    """Replays a reviewed live plan for an `unknown` case. Labelled "recorded agent plan"."""
+    """Replays a hand-written plan for an `unknown` case (live format; its cassette is synthetic).
+
+    Labelled "hand-written plan, replayed".
+    """
 
     def __init__(self) -> None:
         super().__init__(kind="recorded_plan")

@@ -75,7 +75,7 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
         </div>
       </div>
 
-      <table aria-label="Agent rules" className="w-full border-collapse text-base">
+      <table aria-label="Agent rules" data-tour="rules-table" className="w-full border-collapse text-base">
         <thead className="sticky top-0 z-[1] bg-paper">
           <tr>
             {COLS.map((c) => (

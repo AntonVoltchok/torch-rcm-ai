@@ -98,7 +98,7 @@ export function CashPage() {
             const ap = d.appeals_12mo
             return (
               <div className="flex flex-col gap-4 p-5">
-                <div className="grid grid-cols-3 gap-3 xl:grid-cols-6" data-testid="cash-kpis">
+                <div className="grid grid-cols-3 gap-3 xl:grid-cols-6" data-testid="cash-kpis" data-tour="cash-kpis">
                   {tiles.map((k) => (
                     <KpiTile key={k.key} k={k} />
                   ))}
@@ -123,7 +123,7 @@ export function CashPage() {
                     <Bars label="A/R by payer" rows={breakdown(d.by_payer)} />
                   </Card>
                   <Card title="Agent impact" sub="this week">
-                    <p className="m-0 text-sm" data-testid="agent-impact">
+                    <p className="m-0 text-sm" data-testid="agent-impact" data-tour="agent-impact">
                       <span className="font-semibold">{count(impact.items_auto)} ran without review</span> · {count(impact.items_to_you)} to staff
                     </p>
                     <div className="rounded-md border border-dashed border-line-strong px-3 py-2">
@@ -146,7 +146,7 @@ export function CashPage() {
                     <Bars label="By provider" rows={breakdown(d.by_provider)} />
                   </Card>
                   <Card title="Write-offs by type" sub="non-contractual · this month">
-                    <table aria-label="Write-offs by type" className="w-full text-sm">
+                    <table aria-label="Write-offs by type" data-tour="writeoffs" className="w-full text-sm">
                       <tbody>
                         {d.writeoffs_by_type.map((w) => (
                           <tr key={w.key} className="border-t border-line">
@@ -166,7 +166,7 @@ export function CashPage() {
                   </Card>
                 </div>
                 <Card title="Every KPI" sub="value · formula · basis">
-                  <table aria-label="Every KPI" className="w-full text-sm">
+                  <table aria-label="Every KPI" data-tour="kpi-table" className="w-full text-sm">
                     <tbody>
                       {d.kpis.map((k) => (
                         <tr key={k.key} className="border-t border-line">

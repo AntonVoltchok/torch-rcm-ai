@@ -59,7 +59,7 @@ export function SettingsAgentsPage() {
       <PageHeader title="Settings › Agents" sub="rules grouped by what the action touches">
         <AgentsSwitch />
       </PageHeader>
-      <div role="tablist" aria-label="Settings sections" className="flex flex-none items-center gap-1 border-b border-line px-4 py-2 text-sm">
+      <div role="tablist" aria-label="Settings sections" data-tour="settings-tabs" className="flex flex-none items-center gap-1 border-b border-line px-4 py-2 text-sm">
         {SETTINGS_TABS.map((t) => (
           <Link
             key={t}

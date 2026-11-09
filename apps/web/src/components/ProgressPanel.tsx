@@ -28,7 +28,7 @@ import { RelayRow, RelayTable } from './RelayTable'
 const PLANNER_LABEL: Record<PlannerKind, string> = {
   live: 'live agent',
   scripted: 'scripted',
-  recorded_plan: 'recorded agent plan',
+  recorded_plan: 'hand-written plan, replayed',
   scripted_fallback: 'fell back to rules',
 }
 
@@ -443,6 +443,7 @@ export function ProgressPanel({
       role="region"
       aria-label="Agent progress"
       data-testid="run-pane"
+      data-tour="run-pane"
       data-starting={starting ? true : undefined}
       data-done={done || undefined}
       data-failed={failed.length > 0 || undefined}

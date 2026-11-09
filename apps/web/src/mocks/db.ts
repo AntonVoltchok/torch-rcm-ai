@@ -2052,7 +2052,7 @@ export class MockDb {
         },
         onDone: (db, run) => {
           run.result_summary = 'Proposed: records request with the 2019 extraction note'
-          run.audit_line = `Triage #${claim.number} · situation unknown → "payer asks for missing-tooth history" · proposed records request (tier 1) · sent to Inbox, not run · recorded agent plan`
+          run.audit_line = `Triage #${claim.number} · situation unknown → "payer asks for missing-tooth history" · proposed records request (tier 1) · sent to Inbox, not run · hand-written plan, replayed`
           db.s.items = [
             ...db.s.items,
             {
