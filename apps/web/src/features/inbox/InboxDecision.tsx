@@ -38,6 +38,8 @@ interface Props {
   setPanel: (p: DetailPanel) => void
   now: string | undefined
   departed: FileDeparted | null
+  /** The server refused the last Approve of this item: its reason, said where the pane came back to. */
+  refused: string | null
   busy: boolean
   /** Why actions are locked (a run holds this claim), or null. */
   lock: { reason: string } | null
@@ -192,6 +194,11 @@ export function InboxDecision(p: Props) {
               </p>
             )}
             {p.departed && <p className="m-0 mt-1.5 max-w-[280px] text-sm">{p.departed.message}</p>}
+            {p.refused && (
+              <p role="alert" className="m-0 mt-1.5 max-w-[320px] text-sm font-medium text-risk-ink" data-testid="refused">
+                {p.refused}
+              </p>
+            )}
           </div>
           <div>
             <Touches title={item.tier === 3 ? 'What your signature does' : 'What this does'} touches={touches} />

@@ -57,6 +57,9 @@ export function entries(list: InboxList): Entry[] {
 /** Someone else signs it: the server sends `signer_note` only when the viewer cannot approve. */
 export const isBlocked = (item: InboxItem): boolean => item.signer_note !== null
 
+/** Approving starts a run, except an owner sign-off (the rule applies) and an eligibility flag (handed to the desk); the API's `_approve` branches the same way. */
+export const approveStartsRun = (item: InboxItem): boolean => item.kind !== 'owner_signoff' && item.kind !== 'eligibility_flag'
+
 /** "1 waiting on Dr. Morgan": the server's waiting rows (strip or list), in its order and words. */
 export const waitingLine = (rows: readonly InboxWaiting[]): string => rows.map((w) => `${w.count} waiting on ${w.label}`).join(' · ')
 
