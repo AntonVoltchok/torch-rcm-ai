@@ -40,7 +40,7 @@ const VERDICT: Record<PolicyVerdict, { label: string; tone: 'ok' | 'acc' | 'warn
 
 function StepDot({ status }: { status: RunStep['status'] }) {
   const base =
-    'relative z-[1] mt-0.5 flex size-4 flex-none items-center justify-center rounded-full text-[11px] font-bold leading-none text-white'
+    'relative z-[1] mt-0.5 flex size-4 flex-none items-center justify-center rounded-full text-xs font-bold leading-none text-white'
   if (status === 'ok') return <span className={cn(base, 'bg-agents')}>✓</span>
   if (status === 'failed') return <span className={cn(base, 'bg-risk')}>✕</span>
   if (status === 'running')
