@@ -19,7 +19,10 @@ const ruleRow = async (id: string) => {
   await waitFor(() => expect(table.querySelector(`tr[data-rule-id="${id}"]`)).not.toBeNull())
   return table.querySelector(`tr[data-rule-id="${id}"]`) as HTMLElement
 }
-const checked = (row: HTMLElement) => within(row).getAllByRole('radio').find((r) => r.getAttribute('aria-checked') === 'true')?.textContent
+const checked = (row: HTMLElement) =>
+  within(row)
+    .getAllByRole('radio')
+    .find((r) => r.getAttribute('aria-checked') === 'true')?.textContent
 
 describe('Settings › Agents', () => {
   it('renders tier 3 as Human only with no control', async () => {
@@ -31,9 +34,11 @@ describe('Settings › Agents', () => {
   })
 
   it('flips the mode optimistically, then keeps the server’s answer', async () => {
-    api.server.use(http.patch(/\/rules\/rule_t1_status_check$/, async () => {
-      await delay(150)
-    }))
+    api.server.use(
+      http.patch(/\/rules\/rule_t1_status_check$/, async () => {
+        await delay(150)
+      }),
+    )
     const user = userEvent.setup()
     renderApp('/settings/agents')
     const row = await ruleRow('rule_t1_status_check')

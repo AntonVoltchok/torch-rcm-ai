@@ -8,7 +8,11 @@ import { changeDiff, digestText, findRow, userName } from './selectors'
 export function ChangesTab({ changes, digest, rules }: { changes: RuleChange[]; digest: RuleDigest; rules: RulesOut | undefined }) {
   return (
     <div className="flex flex-col gap-3 p-5">
-      <p className="m-0 rounded-md border border-line bg-fill px-3 py-1.5 text-sm" data-testid="owner-digest" title="Sent Monday morning; counts this week from Monday, the same week as Activity">
+      <p
+        className="m-0 rounded-md border border-line bg-fill px-3 py-1.5 text-sm"
+        data-testid="owner-digest"
+        title="Sent Monday morning; counts this week from Monday, the same week as Activity"
+      >
         {digestText(digest)}
       </p>
       {changes.length === 0 ? (

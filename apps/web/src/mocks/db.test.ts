@@ -94,7 +94,11 @@ describe('mock API', () => {
     const { db, drain } = setup()
     const list = InboxList.parse(db.inbox({}))
     const pa = list.items.find((i) => i.id === 'itm_4821')
-    expect(pa).toMatchObject({ claim: { id: 'clm_4821', number: 4821, payer: { key: 'delta_ny' } }, patient: { display_name: 'K. Owens' }, evidence_ids: ['ev_4821_portal', 'ev_4821_pms', 'ev_4821_era', 'ev_4821_ivr', 'ev_4821_rep'] })
+    expect(pa).toMatchObject({
+      claim: { id: 'clm_4821', number: 4821, payer: { key: 'delta_ny' } },
+      patient: { display_name: 'K. Owens' },
+      evidence_ids: ['ev_4821_portal', 'ev_4821_pms', 'ev_4821_era', 'ev_4821_ivr', 'ev_4821_rep'],
+    })
     expect(pa).not.toHaveProperty('evidence')
     expect(list.items.find((i) => i.id === 'itm_elig_chen')).toMatchObject({ claim: null, patient: { id: 'pat_chen_j' } })
     const detail = InboxItemDetail.parse(db.inboxItem('itm_4821'))

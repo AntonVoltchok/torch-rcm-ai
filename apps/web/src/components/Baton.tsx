@@ -48,12 +48,7 @@ export function Baton({ who, size = 'sm', held = 'mine', next, count, label, dec
       ))}
       {next && next !== who && next !== 'nobody' && <b className="baton-ghost" data-who={next} style={{ ['--p' as string]: STOP[next] }} />}
       {who !== 'nobody' && (
-        <b
-          className={cn('baton-rod', `party-shape-${who}`)}
-          data-held={who === 'practice' ? held : undefined}
-          data-count={count}
-          style={{ ['--p' as string]: STOP[who] }}
-        >
+        <b className={cn('baton-rod', `party-shape-${who}`)} data-held={who === 'practice' ? held : undefined} data-count={count} style={{ ['--p' as string]: STOP[who] }}>
           {count}
         </b>
       )}

@@ -61,7 +61,15 @@ const counts = {
 const ending = [
   frame(12, 'status', { run_id: 'run_t', agent: 'followup', status: 'succeeded', claim_id: 'clm_4744', planner: 'recorded_plan' }),
   frame(13, 'counts', { ...counts, inbox_open: 99 }) +
-    frame(14, 'done', { run_id: 'run_t', status: 'succeeded', outcome: 'Done', result_summary: 'summary', audit_line: 'audit', planner: 'recorded_plan', model_situation_label: null }),
+    frame(14, 'done', {
+      run_id: 'run_t',
+      status: 'succeeded',
+      outcome: 'Done',
+      result_summary: 'summary',
+      audit_line: 'audit',
+      planner: 'recorded_plan',
+      model_situation_label: null,
+    }),
   frame(null, 'status', { status: 'succeeded' }) + frame(null, 'done', { run_id: 'run_t' }),
 ]
 

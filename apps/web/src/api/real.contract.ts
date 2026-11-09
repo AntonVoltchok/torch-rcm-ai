@@ -29,7 +29,7 @@ interface Frame {
   data: unknown
 }
 
-const load = <T,>(file: string) => JSON.parse(readFileSync(join(process.env.CONTRACT_DUMP ?? '', file), 'utf8')) as T
+const load = <T>(file: string) => JSON.parse(readFileSync(join(process.env.CONTRACT_DUMP ?? '', file), 'utf8')) as T
 const records = load<(HttpRecord | EvidenceRecord)[]>('http.json')
 const http = records.filter((r): r is HttpRecord => !('kind' in r))
 const refusals = http.filter((r) => r.refused)
@@ -77,7 +77,14 @@ describe('the real API', () => {
   it('streams run frames the reducer folds to a finished view', () => {
     const snapshot = http.find((r) => r.path === `/runs/${runId}`)
     const start = runViewOf(S.RunDetail.parse(snapshot?.body))
-    let run: RunView | undefined = { ...start, status: 'queued', evidence: [], last_event_id: null, audit_line: '', steps: start.steps.map((s) => ({ ...s, status: 'pending', evidence_ids: [] })) }
+    let run: RunView | undefined = {
+      ...start,
+      status: 'queued',
+      evidence: [],
+      last_event_id: null,
+      audit_line: '',
+      steps: start.steps.map((s) => ({ ...s, status: 'pending', evidence_ids: [] })),
+    }
     let result = 'continue'
     for (const [i, f] of runFrames.entries()) {
       const fx = reduceRunMessage(run, { id: i + 1, event: f.event, data: JSON.stringify(f.data) })

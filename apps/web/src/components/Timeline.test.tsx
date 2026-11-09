@@ -8,9 +8,29 @@ import type { RunDetail, TimelineEntry } from '@/api/schema'
 import { renderWithProviders } from '@/test/render'
 import { Timeline } from './Timeline'
 
-const entry: TimelineEntry = { id: 'run_a', at: '2026-10-27T16:02:00-04:00', lane: 'agent', kind: 'run:succeeded', title: 'IVR status check', run_id: 'run_a', evidence_ids: ['ev_ivr'] }
+const entry: TimelineEntry = {
+  id: 'run_a',
+  at: '2026-10-27T16:02:00-04:00',
+  lane: 'agent',
+  kind: 'run:succeeded',
+  title: 'IVR status check',
+  run_id: 'run_a',
+  evidence_ids: ['ev_ivr'],
+}
 const detail = (evidence: RunDetail['evidence']): RunDetail => ({
-  run: { id: 'run_a', agent: 'followup', trigger: 'rule', idempotency_key: 'k', status: 'succeeded', started_at: entry.at, steps: [], action_label: '', result_summary: '', audit_line: '', outcome: '' },
+  run: {
+    id: 'run_a',
+    agent: 'followup',
+    trigger: 'rule',
+    idempotency_key: 'k',
+    status: 'succeeded',
+    started_at: entry.at,
+    steps: [],
+    action_label: '',
+    result_summary: '',
+    audit_line: '',
+    outcome: '',
+  },
   evidence,
   last_event_id: 3,
 })
@@ -25,10 +45,12 @@ afterAll(() => server.close())
 describe('Timeline evidence', () => {
   it('fetches nothing until asked, then renders the run’s evidence', async () => {
     let fetched = 0
-    server.use(http.get(url, () => {
-      fetched++
-      return HttpResponse.json(detail([ivr]))
-    }))
+    server.use(
+      http.get(url, () => {
+        fetched++
+        return HttpResponse.json(detail([ivr]))
+      }),
+    )
     renderWithProviders(<Timeline entries={[entry]} />)
     const toggle = await screen.findByRole('button', { name: /1 evidence item/ })
     expect(fetched).toBe(0)

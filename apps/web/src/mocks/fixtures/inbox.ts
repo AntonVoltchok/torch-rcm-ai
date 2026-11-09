@@ -14,15 +14,16 @@ import { at } from './claims'
  */
 type Row = Omit<InboxItemDetail, 'claim' | 'patient' | 'priority' | 'stopped_by' | 'suspicious_evidence' | 'evidence' | 'hold_window' | 'payload' | 'summary'>
 type Always = 'id' | 'kind' | 'state' | 'title' | 'recommendation' | 'cents' | 'created_at' | 'evidence_ids' | 'plan_steps'
-export type MockInboxItem = Pick<Row, Always> & Partial<Omit<Row, Always>> & {
-  claim_id?: string | null
-  summary?: string | null
-  payload?: Record<string, unknown>
-  /** The classifier's situation key (the API reads it from the item's scripted run); feeds `headline`. */
-  situation?: string
-  /** Who rendered the item's claim (the API reads the claim's provider): signs a clinical sign-off (`signerOf`). */
-  treating_user_id?: string | null
-}
+export type MockInboxItem = Pick<Row, Always> &
+  Partial<Omit<Row, Always>> & {
+    claim_id?: string | null
+    summary?: string | null
+    payload?: Record<string, unknown>
+    /** The classifier's situation key (the API reads it from the item's scripted run); feeds `headline`. */
+    situation?: string
+    /** Who rendered the item's claim (the API reads the claim's provider): signs a clinical sign-off (`signerOf`). */
+    treating_user_id?: string | null
+  }
 
 export const GROUP_DELTA_PA = 'delta_ny:resubmit_with_attachment'
 
@@ -201,10 +202,10 @@ function paItem(n: number, patient: string, tooth: string, cents: number, create
     evidence_ids: [`ev_${n}_portal`, `ev_${n}_pms`, `ev_${n}_era`, ...(n === 4821 ? ['ev_4821_ivr', 'ev_4821_rep'] : [])],
     proposed_action: { action: 'resubmit_with_attachment', params: { attachment_kind: 'pa', tooth, file: 'delta_ny 11:15' }, cents, requires_hold_window: true },
     plan_steps: [
-        `Upload PA #${tooth} (PMS imaging, ${created} 10:41) to NEA FastAttach`,
-        'Resubmit: NEA# in the attachment field, note cites the ICN',
-        'Send in the 11:15 Delta file via Vyne (the NEA# misses 10:45)',
-        'Keep the day-30 status check',
+      `Upload PA #${tooth} (PMS imaging, ${created} 10:41) to NEA FastAttach`,
+      'Resubmit: NEA# in the attachment field, note cites the ICN',
+      'Send in the 11:15 Delta file via Vyne (the NEA# misses 10:45)',
+      'Keep the day-30 status check',
     ],
     tier: 1,
     group_key: GROUP_DELTA_PA,
@@ -310,12 +311,18 @@ export function buildInbox(): MockInboxItem[] {
       claim_id: 'clm_4772',
       agent: 'posting',
       title: '#4772 · D. Foster · underpaid $25.60',
-      recommendation: 'Cigna applied PR-1 $32 though the deductible was met 05/12. Post $108.80, bill the patient $33.60 (20% of $168), hold $25.60 and ask Cigna to reprocess at 80%. Not a write-off.',
+      recommendation:
+        'Cigna applied PR-1 $32 though the deductible was met 05/12. Post $108.80, bill the patient $33.60 (20% of $168), hold $25.60 and ask Cigna to reprocess at 80%. Not a write-off.',
       summary: 'Cigna ERA hold: PR-1 deductible applied though met 05/12.',
       confidence: trackRecord(3, 3, 'deductible corrections balanced'),
       situation: 'variance:deductible_misapplied',
       evidence_ids: ['ev_4772_era'],
-      proposed_action: { action: 'post_era_line', params: { post: 'patient_share_only', patient_cents: 3360, disputed_cents: 2560, then: 'reprocessing_request:deductible_misapplied' }, cents: 10880, requires_hold_window: false },
+      proposed_action: {
+        action: 'post_era_line',
+        params: { post: 'patient_share_only', patient_cents: 3360, disputed_cents: 2560, then: 'reprocessing_request:deductible_misapplied' },
+        cents: 10880,
+        requires_hold_window: false,
+      },
       tier: 2, // posting a line is tier 2 (rule_t2_post_era); the line was held because it does not match tracked benefits
       created_at: at('2026-10-28', '06:20'),
       cents: 3200,

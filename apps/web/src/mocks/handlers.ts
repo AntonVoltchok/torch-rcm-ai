@@ -15,8 +15,7 @@ const USERS: UserId[] = ['usr_dana', 'usr_morgan', 'usr_lee', 'usr_tasha']
 const enc = new TextEncoder()
 const frame = (r: SseRecord) => enc.encode(`id: ${r.id}\nevent: ${r.event}\ndata: ${JSON.stringify(r.data)}\n\n`)
 /** What the API's route appends, with no ids, once it sees the run terminal (routers/system.py). */
-const closing = (runId: string, status: string) =>
-  enc.encode(`event: status\ndata: ${JSON.stringify({ status })}\n\nevent: done\ndata: ${JSON.stringify({ run_id: runId })}\n\n`)
+const closing = (runId: string, status: string) => enc.encode(`event: status\ndata: ${JSON.stringify({ status })}\n\nevent: done\ndata: ${JSON.stringify({ run_id: runId })}\n\n`)
 
 const q = (url: URL, key: string) => url.searchParams.get(key)
 const qa = (url: URL, key: string) => url.searchParams.getAll(key)
@@ -83,10 +82,14 @@ const routes: Route[] = [
   ['GET', /^\/clock$/, ({ db }) => db.clock],
   ['POST', /^\/clock\/advance$/, ({ db, body, user }) => HttpResponse.json(db.advanceClock(str(body.to, db.now), user), { status: 202 })],
   ['GET', new RegExp(`^/clock/advance/${ID}$`), ({ db, m }) => db.advanceStatus(m[1] ?? '')],
-  ['POST', /^\/clock\/reset$/, ({ db }) => {
-    db.reset()
-    return { scenario: 'canonical', now: db.now, meta: { counts: db.strip() } }
-  }],
+  [
+    'POST',
+    /^\/clock\/reset$/,
+    ({ db }) => {
+      db.reset()
+      return { scenario: 'canonical', now: db.now, meta: { counts: db.strip() } }
+    },
+  ],
   ['GET', /^\/agents\/status$/, ({ db }) => db.agentsStatus()],
   ['POST', /^\/agents:pause$/, ({ db, user }) => db.pause(user)],
   ['POST', /^\/agents:resume$/, ({ db, user }) => db.resume(user)],
@@ -102,34 +105,50 @@ const routes: Route[] = [
   ['POST', new RegExp(`^/inbox/${ID}:reopen$`), ({ db, m, user }) => db.reopen(m[1] ?? '', user)],
   ['POST', new RegExp(`^/inbox/${ID}:always-auto-run$`), ({ db, m, user }) => HttpResponse.json(db.alwaysAutoRun(m[1] ?? '', user), { status: 201 })],
 
-  ['GET', /^\/claims$/, ({ db, url }) =>
-    db.claims({
-      status: qa(url, 'status').flatMap((s) => ClaimStatus.safeParse(s).data ?? []),
-      needs_action: q(url, 'needs_action') === 'true',
-      payer: PayerKey.safeParse(q(url, 'payer')).data,
-      provider: q(url, 'provider') ?? undefined,
-      age_bucket: AgeBucket.safeParse(q(url, 'age_bucket')).data,
-      q: q(url, 'q') ?? undefined,
-      sort: SortParam.safeParse(q(url, 'sort')).data,
-      cursor: q(url, 'cursor'),
-      limit: Number(q(url, 'limit') ?? 200),
-      location_id: q(url, 'location_id'),
-    })],
+  [
+    'GET',
+    /^\/claims$/,
+    ({ db, url }) =>
+      db.claims({
+        status: qa(url, 'status').flatMap((s) => ClaimStatus.safeParse(s).data ?? []),
+        needs_action: q(url, 'needs_action') === 'true',
+        payer: PayerKey.safeParse(q(url, 'payer')).data,
+        provider: q(url, 'provider') ?? undefined,
+        age_bucket: AgeBucket.safeParse(q(url, 'age_bucket')).data,
+        q: q(url, 'q') ?? undefined,
+        sort: SortParam.safeParse(q(url, 'sort')).data,
+        cursor: q(url, 'cursor'),
+        limit: Number(q(url, 'limit') ?? 200),
+        location_id: q(url, 'location_id'),
+      }),
+  ],
   ['GET', new RegExp(`^/claims/${ID}$`), ({ db, m }) => db.claim(m[1] ?? '')],
   ['POST', new RegExp(`^/claims/${ID}:triage$`), ({ db, m, user }) => HttpResponse.json(db.triage(m[1] ?? '', user), { status: 202 })],
   ['POST', new RegExp(`^/claims/${ID}:corrected$`), ({ db, m, user }) => db.corrected(m[1] ?? '', user)],
   ['GET', /^\/views$/, ({ db }) => db.views()],
-  ['POST', /^\/views$/, ({ db, body, user }) => HttpResponse.json(db.saveView(str(body.name, 'Untitled'), (body.search_params ?? {}) as Record<string, unknown>, user), { status: 201 })],
+  [
+    'POST',
+    /^\/views$/,
+    ({ db, body, user }) => HttpResponse.json(db.saveView(str(body.name, 'Untitled'), (body.search_params ?? {}) as Record<string, unknown>, user), { status: 201 }),
+  ],
 
   ['GET', /^\/runs\/stream$/, ({ db }) => firehose(db)],
-  ['GET', new RegExp(`^/runs/${ID}/events$`), ({ db, m, request }) => {
-    const last = request.headers.get('Last-Event-ID')
-    return runEvents(db, m[1] ?? '', last === null ? null : Number(last))
-  }],
+  [
+    'GET',
+    new RegExp(`^/runs/${ID}/events$`),
+    ({ db, m, request }) => {
+      const last = request.headers.get('Last-Event-ID')
+      return runEvents(db, m[1] ?? '', last === null ? null : Number(last))
+    },
+  ],
   ['GET', new RegExp(`^/runs/${ID}$`), ({ db, m }) => db.run(m[1] ?? '')],
 
-  ['GET', /^\/activity$/, ({ db, url, user }) =>
-    db.activity({ day: q(url, 'day'), agent: AgentKind.safeParse(q(url, 'agent')).data ?? null, outcome: ActivityOutcome.safeParse(q(url, 'outcome')).data ?? null }, user)],
+  [
+    'GET',
+    /^\/activity$/,
+    ({ db, url, user }) =>
+      db.activity({ day: q(url, 'day'), agent: AgentKind.safeParse(q(url, 'agent')).data ?? null, outcome: ActivityOutcome.safeParse(q(url, 'outcome')).data ?? null }, user),
+  ],
   ['GET', /^\/ledger\/today$/, ({ db }) => db.ledger()],
   ['GET', /^\/eligibility$/, ({ db, url }) => db.eligibility(q(url, 'date'))],
   ['GET', new RegExp(`^/eligibility/${ID}$`), ({ db, m }) => db.benefits(m[1] ?? '')],
@@ -166,10 +185,7 @@ export function makeHandlers(db: MockDb, extra: Route[] = []) {
           return out instanceof Response ? out : HttpResponse.json(out as Record<string, unknown>)
         } catch (err) {
           if (err instanceof MockError) {
-            return HttpResponse.json(
-              { error: { code: err.code, message: err.message, details: err.details }, alternatives: err.alternatives },
-              { status: err.status },
-            )
+            return HttpResponse.json({ error: { code: err.code, message: err.message, details: err.details }, alternatives: err.alternatives }, { status: err.status })
           }
           throw err
         }

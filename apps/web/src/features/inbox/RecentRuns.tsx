@@ -15,12 +15,7 @@ export function RecentRuns({ active, onOpen }: { active: string | undefined; onO
   if (launches.length === 0) return null
   return (
     <section aria-label="Runs you started" className="mt-2 border-t border-line">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-hover"
-      >
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-hover">
         <span className="font-semibold">Runs you started</span>
         <span className="text-sm text-mid">{launches.length}</span>
         <span aria-hidden className={cn('ml-auto inline-block size-1.5 rotate-45 border-b-[1.5px] border-r-[1.5px] border-soft', open && '-rotate-[135deg]')} />

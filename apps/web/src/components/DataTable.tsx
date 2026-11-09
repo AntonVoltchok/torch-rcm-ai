@@ -42,7 +42,10 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
   const rows = table.getRowModel().rows
   const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_HEIGHT, overscan: 10 })
   const items = virtualizer.getVirtualItems()
-  const grid = table.getVisibleLeafColumns().map((c) => c.columnDef.meta?.width ?? '1fr').join(' ')
+  const grid = table
+    .getVisibleLeafColumns()
+    .map((c) => c.columnDef.meta?.width ?? '1fr')
+    .join(' ')
 
   const lastIndex = items[items.length - 1]?.index ?? 0
   useEffect(() => {
@@ -55,7 +58,14 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
   }, [selectedIndex, virtualizer])
 
   return (
-    <div ref={scrollRef} role="table" aria-label={label} data-tour={tour} aria-rowcount={rows.length} className={cn('relative min-h-0 flex-1 overflow-auto', dimmed && 'opacity-60 transition-opacity')}>
+    <div
+      ref={scrollRef}
+      role="table"
+      aria-label={label}
+      data-tour={tour}
+      aria-rowcount={rows.length}
+      className={cn('relative min-h-0 flex-1 overflow-auto', dimmed && 'opacity-60 transition-opacity')}
+    >
       <div role="rowgroup" className="sticky top-0 z-10 border-b border-line bg-paper">
         {table.getHeaderGroups().map((hg) => (
           <div role="row" key={hg.id} className="grid h-8 items-center" style={{ gridTemplateColumns: grid }}>

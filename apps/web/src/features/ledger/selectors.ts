@@ -10,7 +10,11 @@ export interface AckChip {
 
 /** 999 (file) → Vyne 277CA (minutes) → payer 277CA (usually overnight). An A7 is a reject, not a denial. */
 export function ackChips(acks: AckEvent[], sent: boolean): { file: AckChip; vyne: AckChip; payer: AckChip } {
-  const last = (pred: (a: AckEvent) => boolean) => [...acks].filter(pred).sort((a, b) => a.at.localeCompare(b.at)).at(-1)
+  const last = (pred: (a: AckEvent) => boolean) =>
+    [...acks]
+      .filter(pred)
+      .sort((a, b) => a.at.localeCompare(b.at))
+      .at(-1)
   const file = last((a) => a.stage === 'file_999_ok' || a.stage === 'file_999_reject')
   const vyneAll = acks.filter((a) => a.stage === 'ch_277ca_a1' || a.stage === 'ch_277ca_a7').sort((a, b) => a.at.localeCompare(b.at))
   const vyne = vyneAll.at(-1)
@@ -24,7 +28,11 @@ export function ackChips(acks: AckEvent[], sent: boolean): { file: AckChip; vyne
         ? { tone: 'ok', text: a7 ? `${a7.code ?? 'A7'} ${time(a7.at)} → A1 ${time(vyne.at)}` : `A1 · ${time(vyne.at)}` }
         : { tone: 'bad', text: `${vyne.code ?? 'A7'} · ${time(vyne.at)}` }
       : waiting,
-    payer: payer ? (payer.stage === 'payer_277ca_a1' ? { tone: 'ok', text: payer.message.includes('ICN') ? payer.message.replace(/^.*ICN/, 'A1 ICN') : 'A1' } : { tone: 'bad', text: payer.code ?? 'A7' }) : waiting,
+    payer: payer
+      ? payer.stage === 'payer_277ca_a1'
+        ? { tone: 'ok', text: payer.message.includes('ICN') ? payer.message.replace(/^.*ICN/, 'A1 ICN') : 'A1' }
+        : { tone: 'bad', text: payer.code ?? 'A7' }
+      : waiting,
   }
 }
 

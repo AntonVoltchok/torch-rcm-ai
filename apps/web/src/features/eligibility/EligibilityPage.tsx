@@ -126,9 +126,16 @@ export function EligibilityPage() {
               const days = byDay(d)
               return (
                 <div className="flex flex-col">
-                  <div className="flex flex-wrap items-center gap-3 border-b border-line bg-fill px-4 py-2 text-sm" data-testid="eligibility-summary" data-tour="eligibility-summary">
+                  <div
+                    className="flex flex-wrap items-center gap-3 border-b border-line bg-fill px-4 py-2 text-sm"
+                    data-testid="eligibility-summary"
+                    data-tour="eligibility-summary"
+                  >
                     <b className="font-semibold">
-                      {days.length ? `${weekday(days[0]?.day ?? d.date)} ${shortDate(days[0]?.day ?? d.date)}${days.length > 1 ? ` – ${weekday(days.at(-1)?.day ?? d.date)} ${shortDate(days.at(-1)?.day ?? d.date)}` : ''}` : shortDate(d.date)} · {plural(d.total, 'appt')}
+                      {days.length
+                        ? `${weekday(days[0]?.day ?? d.date)} ${shortDate(days[0]?.day ?? d.date)}${days.length > 1 ? ` – ${weekday(days.at(-1)?.day ?? d.date)} ${shortDate(days.at(-1)?.day ?? d.date)}` : ''}`
+                        : shortDate(d.date)}{' '}
+                      · {plural(d.total, 'appt')}
                     </b>
                     <span className="font-semibold text-practice-ink">⚑ {count(d.need_human)} need a human look</span>
                     <span className="text-sm text-mid">(= the eligibility items in the Inbox)</span>
@@ -159,7 +166,9 @@ export function EligibilityPage() {
                                 <button type="button" className="font-semibold text-ink hover:underline" onClick={() => void navigate({ search: (s) => ({ ...s, date: g.day }) })}>
                                   {weekday(g.day)} {shortDate(g.day)}
                                 </button>{' '}
-                                <span className="font-normal text-mid" data-testid="eligibility-day">· {dayLine(g.tally)}</span>
+                                <span className="font-normal text-mid" data-testid="eligibility-day">
+                                  · {dayLine(g.tally)}
+                                </span>
                               </th>
                             </tr>
                             {g.rows.map((r) => (

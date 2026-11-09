@@ -26,7 +26,14 @@ test('the main tour follows #4821 through the loop, Try-its included @demo', asy
   await expect(welcome.getByRole('heading', { name: 'Welcome to TorchRCM' })).toBeVisible()
   await welcome.getByRole('button', { name: 'Start the tour' }).click()
 
-  for (const title of ['Where the data comes from', 'The pipeline: nine statuses, one source', 'Whose move it is, decided by the server', 'How #4821 got here', 'What a model would see', 'Code decides whether it runs']) {
+  for (const title of [
+    'Where the data comes from',
+    'The pipeline: nine statuses, one source',
+    'Whose move it is, decided by the server',
+    'How #4821 got here',
+    'What a model would see',
+    'Code decides whether it runs',
+  ]) {
     await expect(heading(page, title)).toBeVisible()
     await expect(page.getByTestId('tour-hole')).toBeVisible()
     await expect(card(page).getByTestId('tour-missing')).toHaveCount(0)
@@ -104,7 +111,11 @@ test('a step whose element is gone says so instead of pointing at nothing', asyn
   await page.goto('/inbox?item=itm_4821')
   // A load opens the main tour again (dismissal lasts one load).
   await page.getByTestId('tour-modal').getByRole('button', { name: 'Skip, use the app' }).click()
-  await page.getByTestId('decision').getByRole('button', { name: /resubmit/i }).first().click()
+  await page
+    .getByTestId('decision')
+    .getByRole('button', { name: /resubmit/i })
+    .first()
+    .click()
   await expect(page.getByTestId('run-pane')).toBeVisible()
   await page.getByRole('button', { name: 'All tours' }).click()
   await page.getByRole('menuitem', { name: /Main tour/ }).click()

@@ -98,12 +98,7 @@ function Header({ d, today }: { d: ClaimDetail; today: string | undefined }) {
         )}
         {position && <span className="text-soft">{position} in this group</span>}
         {next && (
-          <Link
-            to="/claims/$claimId"
-            params={{ claimId: next.id }}
-            search={{ from: 'denials:' }}
-            className="ml-auto font-medium text-act no-underline hover:underline"
-          >
+          <Link to="/claims/$claimId" params={{ claimId: next.id }} search={{ from: 'denials:' }} className="ml-auto font-medium text-act no-underline hover:underline">
             Next denial: {next.label} <span className="font-normal text-soft">({next.position})</span>
           </Link>
         )}

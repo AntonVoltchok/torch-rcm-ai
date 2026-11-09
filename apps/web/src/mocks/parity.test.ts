@@ -26,7 +26,13 @@ function runnable() {
   return { db, drain }
 }
 
-const LATER_APPROVALS = [['itm_4705', 'usr_dana'], ['itm_4851', 'usr_dana'], ['itm_4772', 'usr_dana'], ['itm_4748', 'usr_dana'], ['itm_4611', 'usr_morgan']] as const
+const LATER_APPROVALS = [
+  ['itm_4705', 'usr_dana'],
+  ['itm_4851', 'usr_dana'],
+  ['itm_4772', 'usr_dana'],
+  ['itm_4748', 'usr_dana'],
+  ['itm_4611', 'usr_morgan'],
+] as const
 
 /** The mock's generated background population has the API's size and mix but its own claim numbers, so claims are
  * compared where both sides have the number (every pinned demo claim), and the population through the KPI rows. */
@@ -77,7 +83,16 @@ describe('mock ↔ API parity on the canonical seed', () => {
     const words = Object.fromEntries(
       inbox.items.map((i) => [
         i.id,
-        { action_label: i.action_label, touches: i.touches, lands: i.lands, signer_note: i.signer_note, signer_user_id: i.signer_user_id, headline: i.headline, learnable: i.learnable, confidence: i.confidence },
+        {
+          action_label: i.action_label,
+          touches: i.touches,
+          lands: i.lands,
+          signer_note: i.signer_note,
+          signer_user_id: i.signer_user_id,
+          headline: i.headline,
+          learnable: i.learnable,
+          confidence: i.confidence,
+        },
       ]),
     )
     expect(words).toEqual(parity.seed.items)

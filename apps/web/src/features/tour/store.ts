@@ -23,8 +23,7 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l)
 }
 
-const readSeen = (): Partial<Record<TourId, true>> =>
-  readJson(SEEN, (raw) => (typeof raw === 'object' && raw !== null ? (raw as Partial<Record<TourId, true>>) : {}), {})
+const readSeen = (): Partial<Record<TourId, true>> => readJson(SEEN, (raw) => (typeof raw === 'object' && raw !== null ? (raw as Partial<Record<TourId, true>>) : {}), {})
 
 let seen = readSeen()
 let codeOpen = readJson(CODE, (raw) => raw !== false, true)
@@ -53,7 +52,11 @@ export const tourStore = {
 }
 
 export function useSeen(): Partial<Record<TourId, true>> {
-  return useSyncExternalStore(subscribe, () => seen, () => seen)
+  return useSyncExternalStore(
+    subscribe,
+    () => seen,
+    () => seen,
+  )
 }
 
 export function useCodeOpen(): boolean {

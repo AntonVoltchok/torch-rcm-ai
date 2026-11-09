@@ -2,17 +2,17 @@
 
 `e2e/demo.spec.ts` is one Playwright test that calls these step functions in order, on one page. It is one test on purpose. The MSW db lives in the tab's sessionStorage, so state can't cross tests, files or browser contexts. A failure stops the story, as it did before the split. `test.step` still reports each step. Each file below has one owner, so parallel D1 sessions don't edit the same file. Only the coordinator edits `demo.spec.ts` (the order) and `shared.ts` (helpers).
 
-| File | Steps | Owner | Starts from |
-|---|---|---|---|
-| `01-inbox.ts` | 1, 2, 3 | d1-inbox | fresh demo, /inbox, Dana |
-| `02-claim-triage.ts` | 3b | d1-claim-denials | Inbox after the group approve |
-| `03-run-to-claim.ts` | 4 | d1-inbox | Claim #4744 after triage |
-| `04-claims-list.ts` | 5 | d1-rest | any page, Dana |
-| `05-settings.ts` | 6, 7 | d1-rest | claims list, Dana; step 6 returns Dr. Morgan's badge for step 7 |
-| `06-overnight.ts` | 8 | d1-rest | Dr. Morgan after step 7 |
-| `07-activity.ts` | 9 | d1-rest | Thursday 7:10 AM, Dana |
-| `08-cash.ts` | 10a | d1-rest | Thursday, Dana; leaves Dr. Morgan signed in |
-| `09-denials.ts` | 10b | d1-claim-denials | Thursday, Dr. Morgan |
+| File                 | Steps   | Owner            | Starts from                                                     |
+| -------------------- | ------- | ---------------- | --------------------------------------------------------------- |
+| `01-inbox.ts`        | 1, 2, 3 | d1-inbox         | fresh demo, /inbox, Dana                                        |
+| `02-claim-triage.ts` | 3b      | d1-claim-denials | Inbox after the group approve                                   |
+| `03-run-to-claim.ts` | 4       | d1-inbox         | Claim #4744 after triage                                        |
+| `04-claims-list.ts`  | 5       | d1-rest          | any page, Dana                                                  |
+| `05-settings.ts`     | 6, 7    | d1-rest          | claims list, Dana; step 6 returns Dr. Morgan's badge for step 7 |
+| `06-overnight.ts`    | 8       | d1-rest          | Dr. Morgan after step 7                                         |
+| `07-activity.ts`     | 9       | d1-rest          | Thursday 7:10 AM, Dana                                          |
+| `08-cash.ts`         | 10a     | d1-rest          | Thursday, Dana; leaves Dr. Morgan signed in                     |
+| `09-denials.ts`      | 10b     | d1-claim-denials | Thursday, Dr. Morgan                                            |
 
 The standalone specs are `../static-screens.spec.ts` (d1-rest) and `../reload-mid-run.spec.ts` (d1-inbox). Each starts from `freshDemo`.
 

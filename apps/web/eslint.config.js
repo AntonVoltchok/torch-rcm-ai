@@ -32,5 +32,8 @@ export default tseslint.config(
   // TanStack Router's redirect()/notFound() are thrown by design.
   { files: ['src/routes/**'], rules: { '@typescript-eslint/only-throw-error': 'off' } },
   { files: ['**/*.js', '**/*.mjs'], ...tseslint.configs.disableTypeChecked },
-  { files: ['src/mocks/**', 'e2e/**', 'src/**/*.test.{ts,tsx}', 'src/test/**', 'src/lib/sse.ts', 'src/hooks/useRunEvents.ts', 'src/hooks/useFirehose.ts'], rules: { 'no-restricted-syntax': 'off' } },
+  {
+    files: ['src/mocks/**', 'e2e/**', 'src/**/*.test.{ts,tsx}', 'src/test/**', 'src/lib/sse.ts', 'src/hooks/useRunEvents.ts', 'src/hooks/useFirehose.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
 )

@@ -31,11 +31,7 @@ const counts = {
   nav_badges: { payments: 3, eligibility: 3, activity: 41 },
 }
 
-const server = setupServer(
-  http.post(`${API_BASE}/clock/reset`, () =>
-    HttpResponse.json({ scenario: 'canonical', now: '2026-10-28T10:40:00-04:00', meta: { counts } }),
-  ),
-)
+const server = setupServer(http.post(`${API_BASE}/clock/reset`, () => HttpResponse.json({ scenario: 'canonical', now: '2026-10-28T10:40:00-04:00', meta: { counts } })))
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {

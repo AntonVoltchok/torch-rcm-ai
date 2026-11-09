@@ -80,19 +80,16 @@ export function TourProvider({ children }: { children: ReactNode }) {
     [router],
   )
 
-  const start = useCallback(
-    (id: TourId, from?: HTMLElement | null) => {
-      // A tour started from inside another (the finish modal) keeps the first opener.
-      if (!activeRef.current) opener.current = from ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
-      tryAbort.current?.abort()
-      tryAbort.current = null
-      setBusy(false)
-      unhover()
-      tourStore.markSeen(id)
-      setActive({ tour: TOURS[id], idx: 0 })
-    },
-    [],
-  )
+  const start = useCallback((id: TourId, from?: HTMLElement | null) => {
+    // A tour started from inside another (the finish modal) keeps the first opener.
+    if (!activeRef.current) opener.current = from ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+    tryAbort.current?.abort()
+    tryAbort.current = null
+    setBusy(false)
+    unhover()
+    tourStore.markSeen(id)
+    setActive({ tour: TOURS[id], idx: 0 })
+  }, [])
 
   const exit = useCallback(() => {
     tryAbort.current?.abort()
@@ -183,7 +180,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
       const { signal } = ctrl
       // Mutations that existed before the press; anything else in the cache was started by it (GC-safe, unlike an index).
       let before: Set<unknown> | null = null
-      const since = () => (before ? qc.getMutationCache().getAll().filter((m) => !before?.has(m)) : [])
+      const since = () =>
+        before
+          ? qc
+              .getMutationCache()
+              .getAll()
+              .filter((m) => !before?.has(m))
+          : []
       const live = () => {
         if (signal.aborted) throw new DOMException('Tour exited', 'AbortError')
       }
@@ -236,6 +239,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
     [navigate, switchUser, qc],
   )
 
-  const api = useMemo<TourApi>(() => ({ active, step, screenTour, start, exit, go, runTry, busy, changed, setChanged }), [active, step, screenTour, start, exit, go, runTry, busy, changed])
+  const api = useMemo<TourApi>(
+    () => ({ active, step, screenTour, start, exit, go, runTry, busy, changed, setChanged }),
+    [active, step, screenTour, start, exit, go, runTry, busy, changed],
+  )
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
 }

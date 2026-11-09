@@ -17,10 +17,7 @@ export function HolderTally({ rows, fill = false, className }: { rows: readonly 
     <span role="img" aria-label={text} title={text} className={cn(fill ? 'flex h-full flex-1 gap-px' : 'inline-flex gap-0.5 align-middle', className)}>
       {sorted.flatMap((r, i) =>
         Array.from({ length: r.count }, (_, j) => (
-          <i
-            key={`${i}-${j}`}
-            className={cn('party-tick', `party-shape-${r.who}`, fill && 'h-full! w-auto! flex-1', r.who === 'practice' && !r.mine && 'opacity-60')}
-          />
+          <i key={`${i}-${j}`} className={cn('party-tick', `party-shape-${r.who}`, fill && 'h-full! w-auto! flex-1', r.who === 'practice' && !r.mine && 'opacity-60')} />
         )),
       )}
     </span>

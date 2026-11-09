@@ -51,10 +51,7 @@ export function ClaimsPage() {
   const s = strip.data
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader
-        title="Claims"
-        sub={s ? `${count(s.open_count)} open · ${money(s.ar_cents)} in A/R · ${count(s.paid_month_count)} paid in ${s.paid_month_label}` : undefined}
-      />
+      <PageHeader title="Claims" sub={s ? `${count(s.open_count)} open · ${money(s.ar_cents)} in A/R · ${count(s.paid_month_count)} paid in ${s.paid_month_label}` : undefined} />
       <SavedViews search={search} strip={s} />
       <ClaimsFilters />
       {list.isPending ? (
@@ -62,7 +59,14 @@ export function ClaimsPage() {
       ) : list.isError ? (
         <QueryError error={list.error} what="claims" onRetry={() => void list.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState title="No claims match" action={<button type="button" className="font-semibold text-act underline" onClick={() => void navigate({ search: {} })}>Clear filters</button>}>
+        <EmptyState
+          title="No claims match"
+          action={
+            <button type="button" className="font-semibold text-act underline" onClick={() => void navigate({ search: {} })}>
+              Clear filters
+            </button>
+          }
+        >
           The filters are kept in the URL, so this link reproduces the empty result.
         </EmptyState>
       ) : (
@@ -85,10 +89,22 @@ export function ClaimsPage() {
       <div className="flex flex-none items-center gap-3 border-t border-line bg-fill px-3.5 py-1.5 text-xs text-mid">
         <span>{total !== undefined ? `${count(total)} claims match` : '…'}</span>
         <span>Age = days since sent ·</span>
-        <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-age-ok" />0–30</span>
-        <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-age-warn" />31–60</span>
-        <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-age-bad" />61–90</span>
-        <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-age-dark" />90+</span>
+        <span className="inline-flex items-center gap-1">
+          <i className="h-2 w-2 rounded-sm bg-age-ok" />
+          0–30
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <i className="h-2 w-2 rounded-sm bg-age-warn" />
+          31–60
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <i className="h-2 w-2 rounded-sm bg-age-bad" />
+          61–90
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <i className="h-2 w-2 rounded-sm bg-age-dark" />
+          90+
+        </span>
         <span className="ml-auto inline-flex items-center gap-1">
           <Kbd>J</Kbd>
           <Kbd>K</Kbd> rows · <Kbd>Enter</Kbd> open

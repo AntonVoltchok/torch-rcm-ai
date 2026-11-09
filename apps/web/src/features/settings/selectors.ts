@@ -134,7 +134,15 @@ export function tierViews(data: RulesOut, viewer: Role): TierView[] {
     if (!g) return []
     const rows = g.rows.map((r) => rowView(r, viewer))
     const n = `${g.count} rule${g.count === 1 ? '' : 's'}`
-    return [{ tier, label: g.label, description: g.description, rows, summary: tier === 3 ? `${n} · human only · no toggle` : `${n} · ran ${g.ran_without_review_7d} · ${g.waiting} waiting` }]
+    return [
+      {
+        tier,
+        label: g.label,
+        description: g.description,
+        rows,
+        summary: tier === 3 ? `${n} · human only · no toggle` : `${n} · ran ${g.ran_without_review_7d} · ${g.waiting} waiting`,
+      },
+    ]
   })
 }
 
@@ -183,7 +191,9 @@ export function previewView(p: Preview): PreviewView {
     total: p.total,
     held,
     headline: `${p.baseline_would_run} → ${to} of this week’s ${p.total} would have run`,
-    holdLine: p.held_total ? `but ${held.map((h, i) => (i === 0 ? `${h.count} of the ${to} are ${h.label}` : `${h.count} ${h.label}`)).join(', ')} → held for Dana · net ${p.would_run}` : null,
+    holdLine: p.held_total
+      ? `but ${held.map((h, i) => (i === 0 ? `${h.count} of the ${to} are ${h.label}` : `${h.count} ${h.label}`)).join(', ')} → held for Dana · net ${p.would_run}`
+      : null,
     changeLine: d === 0 ? 'No change this week.' : d > 0 ? `${d} more would have run without review.` : `${-d} fewer would have run without review.`,
   }
 }

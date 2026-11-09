@@ -96,7 +96,14 @@ export function SavedViews({ search, strip }: { search: ClaimsSearch; strip: Str
             setName('')
           }}
         >
-          <input autoFocus aria-label="View name" value={name} onChange={(e) => setName(e.target.value)} className="h-7 w-40 rounded-md border border-line-strong px-2 text-sm focus:outline-2 focus:outline-act" placeholder="Name this view" />
+          <input
+            autoFocus
+            aria-label="View name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="h-7 w-40 rounded-md border border-line-strong px-2 text-sm focus:outline-2 focus:outline-act"
+            placeholder="Name this view"
+          />
           <Button size="sm" type="submit" variant="primary" disabled={save.isPending}>
             Save
           </Button>

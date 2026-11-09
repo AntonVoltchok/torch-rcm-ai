@@ -17,9 +17,7 @@ export function RelayTable({ count, payer, children }: { count: number; payer?: 
     <div className="mt-4 rounded-lg border border-line" data-tour="relay">
       <div className={cn(RELAY_COLS, 'h-8 rounded-t-lg border-b border-line bg-fill text-xs font-medium text-soft')}>
         <span>{count > 1 ? `${count} claims` : 'Claim'}</span>
-        <span className="text-right">
-          Billed
-        </span>
+        <span className="text-right">Billed</span>
         <span>Status</span>
         <span>
           <BatonLegend payer={payer} />
@@ -40,16 +38,10 @@ export function RelayRow(p: {
 }) {
   return (
     <div className={cn(RELAY_COLS, 'min-h-[42px] border-b border-line py-1.5 last:border-b-0', p.selected && 'bg-act-bg', p.className)}>
-      <span className="min-w-0 truncate">
-        {p.name}
-      </span>
-      <span className="text-right tabular-nums">
-        {p.cents != null ? money(p.cents) : ''}
-      </span>
+      <span className="min-w-0 truncate">{p.name}</span>
+      <span className="text-right tabular-nums">{p.cents != null ? money(p.cents) : ''}</span>
       <span>{p.status ? <StatusChip status={p.status} /> : <span className="text-sm text-mid">Upcoming visit</span>}</span>
-      <span className="flex h-[22px] items-center">
-        {p.baton}
-      </span>
+      <span className="flex h-[22px] items-center">{p.baton}</span>
     </div>
   )
 }

@@ -33,7 +33,14 @@ export function ClockControl() {
       </span>
       {canSee.clock(user.role) ? (
         <>
-          <Button size="sm" className="self-start" data-tour="clock-advance" disabled={advancing || reset.isPending} onClick={() => advance.mutate(target)} title="Runs the scheduler: files leave, acks and 835s arrive, status checks fire">
+          <Button
+            size="sm"
+            className="self-start"
+            data-tour="clock-advance"
+            disabled={advancing || reset.isPending}
+            onClick={() => advance.mutate(target)}
+            title="Runs the scheduler: files leave, acks and 835s arrive, status checks fire"
+          >
             ⏭ Skip to {weekday(target)} 7:10 AM
           </Button>
           {advancing && (
@@ -48,8 +55,16 @@ export function ClockControl() {
               </span>
             </span>
           )}
-          {progress.data?.done && progress.data.state === 'failed' && <span className="text-xs text-risk-ink">Advance failed{progress.data.error ? `: ${progress.data.error}` : ''}.</span>}
-          <button type="button" data-tour="reset-demo" className="self-start text-xs text-soft underline underline-offset-2 hover:text-ink disabled:no-underline" onClick={() => reset.mutate(undefined, { onSuccess: () => advance.reset() })} disabled={reset.isPending || advancing}>
+          {progress.data?.done && progress.data.state === 'failed' && (
+            <span className="text-xs text-risk-ink">Advance failed{progress.data.error ? `: ${progress.data.error}` : ''}.</span>
+          )}
+          <button
+            type="button"
+            data-tour="reset-demo"
+            className="self-start text-xs text-soft underline underline-offset-2 hover:text-ink disabled:no-underline"
+            onClick={() => reset.mutate(undefined, { onSuccess: () => advance.reset() })}
+            disabled={reset.isPending || advancing}
+          >
             Reset demo to Wed 10:40
           </button>
         </>

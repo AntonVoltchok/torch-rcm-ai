@@ -33,7 +33,13 @@ function KpiTile({ k }: { k: Kpi }) {
     <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-line px-4 py-3" data-kpi={k.key}>
       <span className="flex min-h-10 items-start gap-1.5 text-sm text-mid">
         {k.label}
-        <span tabIndex={0} role="img" aria-label={`Formula: ${k.formula}. ${k.basis}`} title={`= ${k.formula}\n${k.basis}`} className="cursor-help rounded-full border border-line-strong px-1.5 text-xs text-soft">
+        <span
+          tabIndex={0}
+          role="img"
+          aria-label={`Formula: ${k.formula}. ${k.basis}`}
+          title={`= ${k.formula}\n${k.basis}`}
+          className="cursor-help rounded-full border border-line-strong px-1.5 text-xs text-soft"
+        >
           ƒ
         </span>
       </span>
@@ -87,7 +93,17 @@ export function CashPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title="Cash" sub="owner view · every KPI shows its formula" />
       <Scroll>
-        <Load q={q} what="cash" skeleton={<div className="grid grid-cols-6 gap-3 p-4">{Array.from({ length: 6 }, (_, i) => <SkeletonBlock key={i} className="h-24" />)}</div>}>
+        <Load
+          q={q}
+          what="cash"
+          skeleton={
+            <div className="grid grid-cols-6 gap-3 p-4">
+              {Array.from({ length: 6 }, (_, i) => (
+                <SkeletonBlock key={i} className="h-24" />
+              ))}
+            </div>
+          }
+        >
           {(d) => {
             const byKey = new Map(d.kpis.map((k) => [k.key, k]))
             const tiles = HEADLINE_KPIS.flatMap((k) => byKey.get(k) ?? [])
@@ -137,7 +153,11 @@ export function CashPage() {
                       </div>
                     </div>
                     <p className="m-0 text-sm text-mid">
-                      Appeals, 12 mo: <b className="text-ink">{count(ap.won)} of {count(ap.total)} won</b> · reconsiderations {count(ap.reconsideration_won)} of {count(ap.reconsideration_total)} · formal {count(ap.formal_won)} of {count(ap.formal_total)}
+                      Appeals, 12 mo:{' '}
+                      <b className="text-ink">
+                        {count(ap.won)} of {count(ap.total)} won
+                      </b>{' '}
+                      · reconsiderations {count(ap.reconsideration_won)} of {count(ap.reconsideration_total)} · formal {count(ap.formal_won)} of {count(ap.formal_total)}
                     </p>
                   </Card>
                 </div>
@@ -158,7 +178,8 @@ export function CashPage() {
                       </tbody>
                     </table>
                     <p className="m-0 text-sm text-mid">
-                      Agents can propose a write-off, never post one (tier 3). Contractual write-offs post with balanced ERAs (tier 2){contractual ? `: ${kpiValue(contractual)} this month` : ''}.
+                      Agents can propose a write-off, never post one (tier 3). Contractual write-offs post with balanced ERAs (tier 2)
+                      {contractual ? `: ${kpiValue(contractual)} this month` : ''}.
                     </p>
                   </Card>
                   <Card title="Patient A/R" sub="aged from DOS">

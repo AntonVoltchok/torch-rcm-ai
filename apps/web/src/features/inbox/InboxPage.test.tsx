@@ -36,9 +36,11 @@ describe('Inbox approve', () => {
     const held = new Promise<void>((r) => {
       release = r
     })
-    api.server.use(http.post(approveUrl, async () => {
-      await held
-    }))
+    api.server.use(
+      http.post(approveUrl, async () => {
+        await held
+      }),
+    )
     const user = userEvent.setup()
     await openBrooks()
     await user.click(within(await decision('4705')).getByRole('button', { name: SEND }))
@@ -134,7 +136,13 @@ describe('Inbox approve', () => {
     renderApp('/inbox?item=itm_4821&group=delta_ny%3Aresubmit_with_attachment')
     const article = await screen.findByRole('article', { name: /#4821/ })
     await waitFor(() => expect(article.querySelectorAll('[data-evidence-kind]')).toHaveLength(5))
-    expect([...article.querySelectorAll('[data-evidence-kind]')].map((e) => e.getAttribute('data-evidence-kind'))).toEqual(['portal_screenshot', 'pms_record', 'era_line', 'ivr_transcript', 'rep_call'])
+    expect([...article.querySelectorAll('[data-evidence-kind]')].map((e) => e.getAttribute('data-evidence-kind'))).toEqual([
+      'portal_screenshot',
+      'pms_record',
+      'era_line',
+      'ivr_transcript',
+      'rep_call',
+    ])
     const record = within(article).getByTestId('track-record')
     expect(record.querySelector('strong')).toHaveTextContent(/^23 of 25$/) // bolded from k and n, not parsed from the basis
     expect(record).toHaveTextContent('23 of 25 Delta CO-16 · N29 denials paid within 30 days after a PA resubmit (12 mo) (92%)')
@@ -161,10 +169,14 @@ describe('Inbox approve', () => {
     expect(within(other).getByRole('button', { name: /Update ID and resend/ })).toBeEnabled()
   })
 
-  it('after Approve the run owns the pane: steps live, then the server\'s changes, then Next', async () => {
+  it("after Approve the run owns the pane: steps live, then the server's changes, then Next", async () => {
     let served: { key: string; before: number; after: number }[] = []
     api.server.events.on('response:mocked', ({ request, response }) => {
-      if (approveUrl.test(request.url)) void response.clone().json().then((b: { changes: typeof served }) => (served = b.changes))
+      if (approveUrl.test(request.url))
+        void response
+          .clone()
+          .json()
+          .then((b: { changes: typeof served }) => (served = b.changes))
     })
     const user = userEvent.setup()
     await openBrooks()

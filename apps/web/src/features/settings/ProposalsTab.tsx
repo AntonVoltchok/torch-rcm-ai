@@ -29,7 +29,10 @@ function ProposalCard({ p }: { p: RuleProposal }) {
     <article
       aria-label={`Proposal ${p.title}`}
       data-proposal-id={p.id}
-      className={cn('flex flex-col gap-2 rounded-lg border px-4 py-3', p.root_cause_guard ? 'border-risk-line bg-risk-bg' : p.watching ? 'border-dashed border-line-strong bg-paper' : 'border-agents-line bg-agents-bg')}
+      className={cn(
+        'flex flex-col gap-2 rounded-lg border px-4 py-3',
+        p.root_cause_guard ? 'border-risk-line bg-risk-bg' : p.watching ? 'border-dashed border-line-strong bg-paper' : 'border-agents-line bg-agents-bg',
+      )}
     >
       <header className="flex flex-wrap items-center gap-2">
         <span className={cn('text-sm font-semibold', p.root_cause_guard ? 'text-risk-ink' : p.watching ? 'text-mid' : 'text-agents-ink')}>
@@ -46,7 +49,11 @@ function ProposalCard({ p }: { p: RuleProposal }) {
         {p.evidence.outcome_n > 0 ? (
           <>
             {' '}
-            · <b>{count(p.evidence.outcome_k)} of {count(p.evidence.outcome_n)}</b> paid ≤ 30 d
+            ·{' '}
+            <b>
+              {count(p.evidence.outcome_k)} of {count(p.evidence.outcome_n)}
+            </b>{' '}
+            paid ≤ 30 d
           </>
         ) : (
           <span className="text-mid"> · no outcomes yet</span>
@@ -54,11 +61,21 @@ function ProposalCard({ p }: { p: RuleProposal }) {
       </p>
       {p.note && <p className="m-0 text-sm text-mid">{p.note}</p>}
       <div className="flex flex-wrap items-center gap-2 pt-0.5">
-        <Button variant="primary" size="sm" disabled={Boolean(blocked) || busy} title={blocked ?? 'Creates a learned tier-1 rule that runs without review, signed by you'} onClick={() => accept.mutate(p.id)}>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={Boolean(blocked) || busy}
+          title={blocked ?? 'Creates a learned tier-1 rule that runs without review, signed by you'}
+          onClick={() => accept.mutate(p.id)}
+        >
           Accept
         </Button>
         {ruleId ? (
-          <Link to="/settings/agents" search={{ tab: 'rules', rule: ruleId }} className="inline-flex h-7 items-center rounded-md border border-line-strong bg-paper px-2.5 text-sm font-medium text-ink no-underline hover:bg-hover">
+          <Link
+            to="/settings/agents"
+            search={{ tab: 'rules', rule: ruleId }}
+            className="inline-flex h-7 items-center rounded-md border border-line-strong bg-paper px-2.5 text-sm font-medium text-ink no-underline hover:bg-hover"
+          >
             Edit
           </Link>
         ) : null}
@@ -81,7 +98,11 @@ export function ProposalsTab({ proposals }: { proposals: RuleProposal[] }) {
   return (
     <div className="flex max-w-[860px] flex-col gap-3 p-4">
       <p className="m-0 text-sm text-mid">Learned rules are tier 1 only, need an outcome metric, and never include a slice whose root cause is ours.</p>
-      {open.length === 0 ? <EmptyState title="No open proposals">They appear when your approvals and their outcomes make a case for a rule.</EmptyState> : open.map((p) => <ProposalCard key={p.id} p={p} />)}
+      {open.length === 0 ? (
+        <EmptyState title="No open proposals">They appear when your approvals and their outcomes make a case for a rule.</EmptyState>
+      ) : (
+        open.map((p) => <ProposalCard key={p.id} p={p} />)
+      )}
       {resolved.length > 0 && (
         <section aria-label="Resolved proposals" className="text-sm text-mid">
           <h3 className="m-0 mb-1 text-sm font-semibold text-ink">Resolved</h3>

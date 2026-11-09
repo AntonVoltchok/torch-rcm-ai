@@ -44,7 +44,12 @@ export function PracticeCapEditor({ cents, canEdit }: { cents: number; canEdit: 
     >
       <label className="inline-flex items-center gap-1 text-mid">
         Practice cap $
-        <input {...register('dollars', { validate: (v) => toCents(v) !== null || 'Enter a dollar amount' })} inputMode="decimal" className="h-7 w-20 rounded-md border border-line-strong px-2 text-ink" aria-invalid={Boolean(formState.errors.dollars)} />
+        <input
+          {...register('dollars', { validate: (v) => toCents(v) !== null || 'Enter a dollar amount' })}
+          inputMode="decimal"
+          className="h-7 w-20 rounded-md border border-line-strong px-2 text-ink"
+          aria-invalid={Boolean(formState.errors.dollars)}
+        />
         / item
       </label>
       <Button type="submit" size="sm" variant="primary" disabled={save.isPending}>

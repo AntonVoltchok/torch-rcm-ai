@@ -47,11 +47,7 @@ function Item({ it, payer }: { it: InboxItem; payer: string }) {
           <>
             <p className="m-0 max-w-[300px] text-right text-sm text-mid">{it.signer_note}</p>
             <b className="text-sm font-semibold text-practice-ink">{signer ? `${signer.name} signs this` : 'Someone else signs this'}</b>
-            {signer && (
-              <Button onClick={() => session.set({ userId: signer.id })}>
-                Switch to {signer.name} (demo)
-              </Button>
-            )}
+            {signer && <Button onClick={() => session.set({ userId: signer.id })}>Switch to {signer.name} (demo)</Button>}
           </>
         ) : it.kind === 'review_draft' ? (
           <Link to="/inbox" search={{ item: it.id, group: it.group_key ?? undefined }} className={cn(linkBtn, 'bg-act text-white hover:bg-act-hover')}>
@@ -87,7 +83,11 @@ export function OpenItemsPanel({ claim }: { claim: ClaimDetail }) {
   if (items.length === 0) {
     const flight = claim.claim.in_flight
     return (
-      <section aria-label="Open inbox items" data-tour="open-items" className={cn('rounded-[7px] border px-4 py-3', flight ? 'border-agents-line bg-agents-bg' : 'border-line bg-paper')}>
+      <section
+        aria-label="Open inbox items"
+        data-tour="open-items"
+        className={cn('rounded-[7px] border px-4 py-3', flight ? 'border-agents-line bg-agents-bg' : 'border-line bg-paper')}
+      >
         <p className="m-0 text-sm text-mid" data-testid="no-open-items">
           {flight ? (
             <>

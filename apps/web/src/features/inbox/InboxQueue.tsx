@@ -13,8 +13,7 @@ import { entries, groupLands, groupRowId, isBlocked, waitingSections, type Entry
 import { INBOX_TABS } from './search'
 import { RecentRuns } from './RecentRuns'
 
-const rowBase =
-  'grid w-[calc(100%-16px)] mx-2 grid-cols-[66px_1fr_auto] items-center gap-x-3 rounded-lg px-2 text-left focus-visible:outline-2 focus-visible:outline-act'
+const rowBase = 'grid w-[calc(100%-16px)] mx-2 grid-cols-[66px_1fr_auto] items-center gap-x-3 rounded-lg px-2 text-left focus-visible:outline-2 focus-visible:outline-act'
 const rowSel = 'bg-act-bg shadow-[inset_0_0_0_1px_var(--color-act-line)]'
 
 function ItemBaton({ item }: { item: InboxItem }) {
@@ -45,7 +44,14 @@ function ItemRow({ item, selected, member = false, onSelect }: { item: InboxItem
   )
 }
 
-function GroupRows(p: { entry: Extract<Entry, { type: 'group' }>; expanded: boolean; selectedId: string | undefined; keyOnGroup: boolean; onOpen: () => void; onSelect: (id: string) => void }) {
+function GroupRows(p: {
+  entry: Extract<Entry, { type: 'group' }>
+  expanded: boolean
+  selectedId: string | undefined
+  keyOnGroup: boolean
+  onOpen: () => void
+  onSelect: (id: string) => void
+}) {
   const { group, members } = p.entry
   const memberSelected = members.some((m) => m.id === p.selectedId)
   return (

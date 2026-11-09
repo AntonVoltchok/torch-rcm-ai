@@ -78,9 +78,7 @@ export const groupRowId = (key: string) => `group:${key}`
 
 /** j/k order: a collapsed group is one stop; an expanded group is its members. */
 export function keyOrder(list: InboxList, expandedGroup: string | undefined): string[] {
-  return entries(list).flatMap((e) =>
-    e.type === 'item' ? [e.item.id] : e.group.group_key === expandedGroup ? e.members.map((m) => m.id) : [groupRowId(e.group.group_key)],
-  )
+  return entries(list).flatMap((e) => (e.type === 'item' ? [e.item.id] : e.group.group_key === expandedGroup ? e.members.map((m) => m.id) : [groupRowId(e.group.group_key)]))
 }
 
 /** Every item id in display order (used to pick the next selection after a removal). */
@@ -119,7 +117,12 @@ export function withoutItems(list: InboxList, ids: readonly string[]): InboxList
     waiting: list.waiting
       .map((w) => {
         const gone = w.item_ids.filter((id) => drop.has(id))
-        return { ...w, item_ids: w.item_ids.filter((id) => !drop.has(id)), count: w.count - gone.length, cents: w.cents - gone.reduce((a, id) => a + (removedCents.get(id) ?? 0), 0) }
+        return {
+          ...w,
+          item_ids: w.item_ids.filter((id) => !drop.has(id)),
+          count: w.count - gone.length,
+          cents: w.cents - gone.reduce((a, id) => a + (removedCents.get(id) ?? 0), 0),
+        }
       })
       .filter((w) => w.count > 0),
     groups: inboxGroups(list)

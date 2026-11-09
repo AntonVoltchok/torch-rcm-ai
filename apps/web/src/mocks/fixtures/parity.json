@@ -1,1502 +1,1457 @@
 {
- "approve_4733": {
-  "changes": [
-   {
-    "after": 7,
-    "before": 8,
-    "key": "inbox",
-    "label": "Your Inbox",
-    "note": null
-   },
-   {
-    "after": 4,
-    "before": 5,
-    "key": "inbox_claims",
-    "label": "Claims in your Inbox",
-    "note": null
-   },
-   {
-    "after": 5,
-    "before": 5,
-    "key": "tile.denied",
-    "label": "Denied",
-    "note": "Stays denied until Delta replies"
-   }
-  ]
- },
- "approve_runs": {
-  "itm_4611": {
-   "claim_move": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Denied, nothing filed",
-    "mine": true,
-    "who": "practice"
-   },
-   "move_to": "practice",
-   "status": "succeeded"
-  },
-  "itm_4705": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "move_to": "payer",
-   "status": "succeeded"
-  },
-  "itm_4733": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "move_to": "payer",
-   "status": "succeeded"
-  },
-  "itm_4748": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Finished",
-    "mine": false,
-    "who": "nobody"
-   },
-   "move_to": "nobody",
-   "status": "succeeded"
-  },
-  "itm_4772": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "move_to": "payer",
-   "status": "succeeded"
-  },
-  "itm_4821": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 11:15 AM Delta file",
-    "mine": false,
-    "who": "agents"
-   },
-   "move_to": "agents",
-   "status": "succeeded"
-  },
-  "itm_4836": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 11:15 AM Delta file",
-    "mine": false,
-    "who": "agents"
-   },
-   "move_to": "agents",
-   "status": "succeeded"
-  },
-  "itm_4840": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 11:15 AM Delta file",
-    "mine": false,
-    "who": "agents"
-   },
-   "move_to": "agents",
-   "status": "succeeded"
-  },
-  "itm_4851": {
-   "claim_move": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 10:45 AM Cigna file",
-    "mine": false,
-    "who": "agents"
-   },
-   "move_to": "agents",
-   "status": "succeeded"
-  }
- },
- "group_approve": {
-  "changes": [
-   {
-    "after": 8,
-    "before": 11,
-    "key": "inbox",
-    "label": "Your Inbox",
-    "note": null
-   },
-   {
-    "after": 5,
-    "before": 8,
-    "key": "inbox_claims",
-    "label": "Claims in your Inbox",
-    "note": null
-   },
-   {
-    "after": 5,
-    "before": 5,
-    "key": "tile.denied",
-    "label": "Denied",
-    "note": "Stays denied until Delta processes the resubmission"
-   }
-  ],
-  "claims": {
-   "4821": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "With the agents",
-    "mine": false,
-    "who": "agents"
-   },
-   "4836": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "With the agents",
-    "mine": false,
-    "who": "agents"
-   },
-   "4840": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "With the agents",
-    "mine": false,
-    "who": "agents"
-   }
-  },
-  "moves": [
-   {
-    "by_status": [
-     {
-      "count": 2,
-      "status": "ready"
-     },
-     {
-      "count": 1,
-      "status": "rejected"
-     },
-     {
-      "count": 1,
-      "status": "pending"
-     },
-     {
-      "count": 2,
-      "status": "denied"
-     },
-     {
-      "count": 5,
-      "status": "partial"
-     }
-    ],
-    "cents": 554500,
-    "count": 11,
-    "who": "practice"
-   },
-   {
-    "by_status": [
-     {
-      "count": 3,
-      "status": "ready"
-     },
-     {
-      "count": 1,
-      "status": "rejected"
-     },
-     {
-      "count": 3,
-      "status": "denied"
-     }
-    ],
-    "cents": 671500,
-    "count": 7,
-    "who": "agents"
-   },
-   {
-    "by_status": [
-     {
-      "count": 1,
-      "status": "ready"
-     },
-     {
-      "count": 5,
-      "status": "sent"
-     },
-     {
-      "count": 24,
-      "status": "accepted"
-     },
-     {
-      "count": 56,
-      "status": "pending"
-     },
-     {
-      "count": 3,
-      "status": "appealed"
-     }
-    ],
-    "cents": 6645000,
-    "count": 89,
-    "who": "payer"
-   },
-   {
-    "by_status": [],
-    "cents": 0,
-    "count": 0,
-    "who": "nobody"
-   }
-  ]
- },
- "seed": {
-  "claims": {
-   "3561": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4342": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Aetna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4343": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4347": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Aetna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4373": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4444": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Aetna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4475": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4490": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4496": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4562": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Aetna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4605": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4610": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4611": {
-    "holder_role": "owner",
-    "holder_user_id": "usr_morgan",
-    "label": "Dr. Morgan signs",
-    "mine": false,
-    "who": "practice"
-   },
-   "4615": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4624": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4644": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4651": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4656": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4657": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4690": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4699": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4700": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4701": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4704": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4705": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4709": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4716": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4718": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Aetna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4731": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4733": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4744": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4745": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4748": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4758": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4760": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4764": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4769": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4772": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4780": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4787": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4791": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4793": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4795": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Underpaid, nothing filed",
-    "mine": true,
-    "who": "practice"
-   },
-   "4796": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4797": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4799": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4800": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Aetna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4801": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4803": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4805": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Underpaid, nothing filed",
-    "mine": true,
-    "who": "practice"
-   },
-   "4806": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4807": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Underpaid, nothing filed",
-    "mine": true,
-    "who": "practice"
-   },
-   "4809": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4810": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4812": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4814": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4815": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4816": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Underpaid, nothing filed",
-    "mine": true,
-    "who": "practice"
-   },
-   "4817": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4818": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4819": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4820": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4821": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4822": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4823": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4824": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4825": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4826": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4827": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4828": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4829": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4830": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4831": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4832": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4833": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4834": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4835": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4836": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4837": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4838": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4839": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4840": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4841": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4842": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on the primary payer's EOB",
-    "mine": false,
-    "who": "payer"
-   },
-   "4843": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4844": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4845": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4846": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4847": {
-    "holder_role": "billing",
-    "holder_user_id": "usr_dana",
-    "label": "Waiting on Dana S.",
-    "mine": true,
-    "who": "practice"
-   },
-   "4848": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4849": {
-    "holder_role": "dentist",
-    "holder_user_id": "usr_lee",
-    "label": "Waiting on Dr. Lee",
-    "mine": false,
-    "who": "practice"
-   },
-   "4850": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4851": {
-    "holder_role": "billing",
-    "holder_user_id": null,
-    "label": "Waiting on billing",
-    "mine": true,
-    "who": "practice"
-   },
-   "4852": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4853": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Guardian",
-    "mine": false,
-    "who": "payer"
-   },
-   "4854": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 10:45 AM MetLife file",
-    "mine": false,
-    "who": "agents"
-   },
-   "4855": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 10:45 AM Delta file",
-    "mine": false,
-    "who": "agents"
-   },
-   "4856": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 10:45 AM MetLife file",
-    "mine": false,
-    "who": "agents"
-   },
-   "4857": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Sent 10/28, no reply yet",
-    "mine": false,
-    "who": "payer"
-   },
-   "4858": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Cigna",
-    "mine": false,
-    "who": "payer"
-   },
-   "4859": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "In the 10:45 AM Delta file",
-    "mine": false,
-    "who": "agents"
-   },
-   "4860": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Sent 10/28, no reply yet",
-    "mine": false,
-    "who": "payer"
-   },
-   "4861": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4862": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on Delta",
-    "mine": false,
-    "who": "payer"
-   },
-   "4863": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Sent 10/28, no reply yet",
-    "mine": false,
-    "who": "payer"
-   },
-   "4864": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Sent 10/28, no reply yet",
-    "mine": false,
-    "who": "payer"
-   },
-   "4865": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Waiting on MetLife",
-    "mine": false,
-    "who": "payer"
-   },
-   "4866": {
-    "holder_role": null,
-    "holder_user_id": null,
-    "label": "Sent 10/28, no reply yet",
-    "mine": false,
-    "who": "payer"
-   }
-  },
-  "denials_matrix": {
-   "columns": [
-    {
-     "key": "doc",
-     "label": "Doc"
-    },
-    {
-     "key": "freq",
-     "label": "Freq"
-    },
-    {
-     "key": "cob",
-     "label": "COB"
-    },
-    {
-     "key": "tf",
-     "label": "TF"
-    },
-    {
-     "key": "med_nec",
-     "label": "Med. nec."
-    },
-    {
-     "key": "other",
-     "label": "Other"
-    }
-   ],
-   "excluded": 1,
-   "payers": [
-    {
-     "cells": [
+  "approve_4733": {
+    "changes": [
       {
-       "count": 3,
-       "reason": "doc"
+        "after": 7,
+        "before": 8,
+        "key": "inbox",
+        "label": "Your Inbox",
+        "note": null
       },
       {
-       "count": 1,
-       "reason": "freq"
+        "after": 4,
+        "before": 5,
+        "key": "inbox_claims",
+        "label": "Claims in your Inbox",
+        "note": null
       },
       {
-       "count": 0,
-       "reason": "cob"
-      },
-      {
-       "count": 0,
-       "reason": "tf"
-      },
-      {
-       "count": 0,
-       "reason": "med_nec"
-      },
-      {
-       "count": 0,
-       "reason": "other"
+        "after": 5,
+        "before": 5,
+        "key": "tile.denied",
+        "label": "Denied",
+        "note": "Stays denied until Delta replies"
       }
-     ],
-     "payer": {
-      "key": "delta_ny",
-      "name": "Delta Dental of New York",
-      "short_name": "Delta"
-     },
-     "total": 4
+    ]
+  },
+  "approve_runs": {
+    "itm_4611": {
+      "claim_move": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Denied, nothing filed",
+        "mine": true,
+        "who": "practice"
+      },
+      "move_to": "practice",
+      "status": "succeeded"
+    },
+    "itm_4705": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "move_to": "payer",
+      "status": "succeeded"
+    },
+    "itm_4733": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "move_to": "payer",
+      "status": "succeeded"
+    },
+    "itm_4748": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Finished",
+        "mine": false,
+        "who": "nobody"
+      },
+      "move_to": "nobody",
+      "status": "succeeded"
+    },
+    "itm_4772": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "move_to": "payer",
+      "status": "succeeded"
+    },
+    "itm_4821": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 11:15 AM Delta file",
+        "mine": false,
+        "who": "agents"
+      },
+      "move_to": "agents",
+      "status": "succeeded"
+    },
+    "itm_4836": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 11:15 AM Delta file",
+        "mine": false,
+        "who": "agents"
+      },
+      "move_to": "agents",
+      "status": "succeeded"
+    },
+    "itm_4840": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 11:15 AM Delta file",
+        "mine": false,
+        "who": "agents"
+      },
+      "move_to": "agents",
+      "status": "succeeded"
+    },
+    "itm_4851": {
+      "claim_move": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 10:45 AM Cigna file",
+        "mine": false,
+        "who": "agents"
+      },
+      "move_to": "agents",
+      "status": "succeeded"
     }
-   ],
-   "total": 4,
-   "totals": [
-    {
-     "count": 3,
-     "reason": "doc"
+  },
+  "group_approve": {
+    "changes": [
+      {
+        "after": 8,
+        "before": 11,
+        "key": "inbox",
+        "label": "Your Inbox",
+        "note": null
+      },
+      {
+        "after": 5,
+        "before": 8,
+        "key": "inbox_claims",
+        "label": "Claims in your Inbox",
+        "note": null
+      },
+      {
+        "after": 5,
+        "before": 5,
+        "key": "tile.denied",
+        "label": "Denied",
+        "note": "Stays denied until Delta processes the resubmission"
+      }
+    ],
+    "claims": {
+      "4821": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "With the agents",
+        "mine": false,
+        "who": "agents"
+      },
+      "4836": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "With the agents",
+        "mine": false,
+        "who": "agents"
+      },
+      "4840": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "With the agents",
+        "mine": false,
+        "who": "agents"
+      }
     },
-    {
-     "count": 1,
-     "reason": "freq"
+    "moves": [
+      {
+        "by_status": [
+          {
+            "count": 2,
+            "status": "ready"
+          },
+          {
+            "count": 1,
+            "status": "rejected"
+          },
+          {
+            "count": 1,
+            "status": "pending"
+          },
+          {
+            "count": 2,
+            "status": "denied"
+          },
+          {
+            "count": 5,
+            "status": "partial"
+          }
+        ],
+        "cents": 554500,
+        "count": 11,
+        "who": "practice"
+      },
+      {
+        "by_status": [
+          {
+            "count": 3,
+            "status": "ready"
+          },
+          {
+            "count": 1,
+            "status": "rejected"
+          },
+          {
+            "count": 3,
+            "status": "denied"
+          }
+        ],
+        "cents": 671500,
+        "count": 7,
+        "who": "agents"
+      },
+      {
+        "by_status": [
+          {
+            "count": 1,
+            "status": "ready"
+          },
+          {
+            "count": 5,
+            "status": "sent"
+          },
+          {
+            "count": 24,
+            "status": "accepted"
+          },
+          {
+            "count": 56,
+            "status": "pending"
+          },
+          {
+            "count": 3,
+            "status": "appealed"
+          }
+        ],
+        "cents": 6645000,
+        "count": 89,
+        "who": "payer"
+      },
+      {
+        "by_status": [],
+        "cents": 0,
+        "count": 0,
+        "who": "nobody"
+      }
+    ]
+  },
+  "seed": {
+    "claims": {
+      "3561": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4342": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Aetna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4343": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4347": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Aetna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4373": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4444": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Aetna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4475": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4490": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4496": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4562": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Aetna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4605": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4610": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4611": {
+        "holder_role": "owner",
+        "holder_user_id": "usr_morgan",
+        "label": "Dr. Morgan signs",
+        "mine": false,
+        "who": "practice"
+      },
+      "4615": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4624": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4644": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4651": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4656": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4657": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4690": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4699": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4700": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4701": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4704": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4705": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4709": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4716": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4718": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Aetna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4731": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4733": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4744": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4745": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4748": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4758": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4760": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4764": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4769": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4772": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4780": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4787": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4791": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4793": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4795": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Underpaid, nothing filed",
+        "mine": true,
+        "who": "practice"
+      },
+      "4796": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4797": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4799": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4800": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Aetna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4801": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4803": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4805": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Underpaid, nothing filed",
+        "mine": true,
+        "who": "practice"
+      },
+      "4806": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4807": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Underpaid, nothing filed",
+        "mine": true,
+        "who": "practice"
+      },
+      "4809": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4810": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4812": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4814": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4815": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4816": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Underpaid, nothing filed",
+        "mine": true,
+        "who": "practice"
+      },
+      "4817": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4818": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4819": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4820": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4821": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4822": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4823": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4824": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4825": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4826": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4827": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4828": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4829": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4830": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4831": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4832": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4833": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4834": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4835": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4836": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4837": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4838": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4839": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4840": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4841": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4842": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on the primary payer's EOB",
+        "mine": false,
+        "who": "payer"
+      },
+      "4843": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4844": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4845": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4846": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4847": {
+        "holder_role": "billing",
+        "holder_user_id": "usr_dana",
+        "label": "Waiting on Dana S.",
+        "mine": true,
+        "who": "practice"
+      },
+      "4848": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4849": {
+        "holder_role": "dentist",
+        "holder_user_id": "usr_lee",
+        "label": "Waiting on Dr. Lee",
+        "mine": false,
+        "who": "practice"
+      },
+      "4850": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4851": {
+        "holder_role": "billing",
+        "holder_user_id": null,
+        "label": "Waiting on billing",
+        "mine": true,
+        "who": "practice"
+      },
+      "4852": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4853": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Guardian",
+        "mine": false,
+        "who": "payer"
+      },
+      "4854": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 10:45 AM MetLife file",
+        "mine": false,
+        "who": "agents"
+      },
+      "4855": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 10:45 AM Delta file",
+        "mine": false,
+        "who": "agents"
+      },
+      "4856": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 10:45 AM MetLife file",
+        "mine": false,
+        "who": "agents"
+      },
+      "4857": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Sent 10/28, no reply yet",
+        "mine": false,
+        "who": "payer"
+      },
+      "4858": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Cigna",
+        "mine": false,
+        "who": "payer"
+      },
+      "4859": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "In the 10:45 AM Delta file",
+        "mine": false,
+        "who": "agents"
+      },
+      "4860": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Sent 10/28, no reply yet",
+        "mine": false,
+        "who": "payer"
+      },
+      "4861": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4862": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on Delta",
+        "mine": false,
+        "who": "payer"
+      },
+      "4863": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Sent 10/28, no reply yet",
+        "mine": false,
+        "who": "payer"
+      },
+      "4864": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Sent 10/28, no reply yet",
+        "mine": false,
+        "who": "payer"
+      },
+      "4865": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Waiting on MetLife",
+        "mine": false,
+        "who": "payer"
+      },
+      "4866": {
+        "holder_role": null,
+        "holder_user_id": null,
+        "label": "Sent 10/28, no reply yet",
+        "mine": false,
+        "who": "payer"
+      }
     },
-    {
-     "count": 0,
-     "reason": "cob"
+    "denials_matrix": {
+      "columns": [
+        {
+          "key": "doc",
+          "label": "Doc"
+        },
+        {
+          "key": "freq",
+          "label": "Freq"
+        },
+        {
+          "key": "cob",
+          "label": "COB"
+        },
+        {
+          "key": "tf",
+          "label": "TF"
+        },
+        {
+          "key": "med_nec",
+          "label": "Med. nec."
+        },
+        {
+          "key": "other",
+          "label": "Other"
+        }
+      ],
+      "excluded": 1,
+      "payers": [
+        {
+          "cells": [
+            {
+              "count": 3,
+              "reason": "doc"
+            },
+            {
+              "count": 1,
+              "reason": "freq"
+            },
+            {
+              "count": 0,
+              "reason": "cob"
+            },
+            {
+              "count": 0,
+              "reason": "tf"
+            },
+            {
+              "count": 0,
+              "reason": "med_nec"
+            },
+            {
+              "count": 0,
+              "reason": "other"
+            }
+          ],
+          "payer": {
+            "key": "delta_ny",
+            "name": "Delta Dental of New York",
+            "short_name": "Delta"
+          },
+          "total": 4
+        }
+      ],
+      "total": 4,
+      "totals": [
+        {
+          "count": 3,
+          "reason": "doc"
+        },
+        {
+          "count": 1,
+          "reason": "freq"
+        },
+        {
+          "count": 0,
+          "reason": "cob"
+        },
+        {
+          "count": 0,
+          "reason": "tf"
+        },
+        {
+          "count": 0,
+          "reason": "med_nec"
+        },
+        {
+          "count": 0,
+          "reason": "other"
+        }
+      ]
     },
-    {
-     "count": 0,
-     "reason": "tf"
+    "filed_since_remit": [4733, 4821, 4836, 4840],
+    "groups": {
+      "delta_ny:denied:CO-16:N29:pa_missing": {
+        "action_label": "Send 3 x-rays and resubmit",
+        "headline": "Delta needs the PA x-ray for these 3 crowns",
+        "touches": ["3 x-rays uploaded to NEA", "3 claims in the 11:15 AM Delta file", "Can be pulled from the file until 11:15 AM"]
+      }
     },
-    {
-     "count": 0,
-     "reason": "med_nec"
+    "items": {
+      "itm_4611": {
+        "action_label": "Sign $228 write-off, $1,012 to patient",
+        "confidence": {
+          "basis": "A person decides this one. Annual max confirmed on the Delta portal 10/27.",
+          "k": 0,
+          "n": 0,
+          "outcome": "",
+          "pct": null
+        },
+        "headline": "The annual maximum is used up, so the balance goes to the patient",
+        "lands": "practice",
+        "learnable": {
+          "code": "tier_not_learnable",
+          "ok": false,
+          "reason": "A person always does this one. It never runs on its own."
+        },
+        "signer_note": "Writing off money commits the practice, so Dr. Morgan signs this.",
+        "signer_user_id": "usr_morgan",
+        "touches": ["Signed decision recorded on the claim", "$228 write-off to post in the PMS", "$1,012 to move to patient balance"]
+      },
+      "itm_4705": {
+        "action_label": "Send prompt-pay request",
+        "confidence": {
+          "basis": "22 of 25 prompt-pay requests paid within 30 days",
+          "k": 22,
+          "n": 25,
+          "outcome": "prompt-pay requests paid within 30 days",
+          "pct": 88
+        },
+        "headline": "MetLife hasn't paid in 64 days, past the prompt-pay limit",
+        "lands": "payer",
+        "learnable": {
+          "code": null,
+          "ok": true,
+          "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["1 prompt-pay request sent to MetLife", "Cannot be recalled once sent"]
+      },
+      "itm_4733": {
+        "action_label": "Send this note to Delta",
+        "confidence": {
+          "basis": "9 of 11 tooth-history reconsiderations paid (12 mo)",
+          "k": 9,
+          "n": 11,
+          "outcome": "tooth-history reconsiderations paid (12 mo)",
+          "pct": 82
+        },
+        "headline": "Delta denied this crown as too frequent; its tooth history doesn't match our chart",
+        "lands": "payer",
+        "learnable": {
+          "code": "tier_not_learnable",
+          "ok": false,
+          "reason": "The agents wrote this text, so a person reads it before it goes out."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["1 note sent to Delta", "Delta EOB \u00b7 03/2022 enclosed", "Cannot be recalled once sent"]
+      },
+      "itm_4748": {
+        "action_label": "Move $38 to patient",
+        "confidence": {
+          "basis": "4 of 4 alternate-benefit transfers balanced, too few for a rate",
+          "k": 4,
+          "n": 4,
+          "outcome": "alternate-benefit transfers balanced",
+          "pct": null
+        },
+        "headline": "Aetna paid the alternate benefit; the difference may be billable to the patient",
+        "lands": "nobody",
+        "learnable": {
+          "code": "tier_not_learnable",
+          "ok": false,
+          "reason": "The owner sets this rule. It isn't learned from approvals."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["$38 moved to patient balance", "Can be undone until day close"]
+      },
+      "itm_4772": {
+        "action_label": "Post Cigna's payment, ask Cigna to reprocess $25.60",
+        "confidence": {
+          "basis": "3 of 3 deductible corrections balanced, too few for a rate",
+          "k": 3,
+          "n": 3,
+          "outcome": "deductible corrections balanced",
+          "pct": null
+        },
+        "headline": "Cigna applied a deductible the patient already met",
+        "lands": "payer",
+        "learnable": {
+          "code": "tier_not_learnable",
+          "ok": false,
+          "reason": "The owner sets this rule. It isn't learned from approvals."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": [
+          "Cigna payment posted, patient share only",
+          "$33.60 moved to patient balance",
+          "$25.60 held as disputed",
+          "Can be undone until day close",
+          "1 reprocessing request sent to Cigna",
+          "Cannot be recalled once sent"
+        ]
+      },
+      "itm_4821": {
+        "action_label": "Send x-ray and resubmit",
+        "confidence": {
+          "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+          "k": 23,
+          "n": 25,
+          "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+          "pct": 92
+        },
+        "headline": "Delta needs the PA x-ray for this crown",
+        "lands": "agents",
+        "learnable": {
+          "code": "root_cause_guard",
+          "ok": false,
+          "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["1 x-ray uploaded to NEA", "1 claim in the 11:15 AM Delta file", "Can be pulled from the file until 11:15 AM"]
+      },
+      "itm_4836": {
+        "action_label": "Send x-ray and resubmit",
+        "confidence": {
+          "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+          "k": 23,
+          "n": 25,
+          "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+          "pct": 92
+        },
+        "headline": "Delta needs the PA x-ray for this crown",
+        "lands": "agents",
+        "learnable": {
+          "code": "root_cause_guard",
+          "ok": false,
+          "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["1 x-ray uploaded to NEA", "1 claim in the 11:15 AM Delta file", "Can be pulled from the file until 11:15 AM"]
+      },
+      "itm_4840": {
+        "action_label": "Send x-ray and resubmit",
+        "confidence": {
+          "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+          "k": 23,
+          "n": 25,
+          "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
+          "pct": 92
+        },
+        "headline": "Delta needs the PA x-ray for this crown",
+        "lands": "agents",
+        "learnable": {
+          "code": "root_cause_guard",
+          "ok": false,
+          "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["1 x-ray uploaded to NEA", "1 claim in the 11:15 AM Delta file", "Can be pulled from the file until 11:15 AM"]
+      },
+      "itm_4851": {
+        "action_label": "Update ID and resend",
+        "confidence": {
+          "basis": "16 of 19 demographic resends accepted",
+          "k": 16,
+          "n": 19,
+          "outcome": "demographic resends accepted",
+          "pct": 84
+        },
+        "headline": "Cigna rejected the subscriber ID, and the eligibility response has a different one",
+        "lands": "agents",
+        "learnable": {
+          "code": null,
+          "ok": true,
+          "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["Subscriber ID on this claim changed", "1 claim in the 10:45 AM Cigna file", "Can be pulled from the file until 10:45 AM"]
+      },
+      "itm_elig_chen": {
+        "action_label": "Note it for the front desk",
+        "confidence": {
+          "basis": "As of 10/28 6:12 AM \u00b7 portal",
+          "k": 0,
+          "n": 0,
+          "outcome": "",
+          "pct": null
+        },
+        "headline": "J. Chen reaches the annual maximum at tomorrow's 9:00 AM visit",
+        "lands": null,
+        "learnable": {
+          "code": "tier_not_learnable",
+          "ok": false,
+          "reason": "No rule covers this, so a person decides each time."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["Note added for the front desk"]
+      },
+      "itm_elig_kim": {
+        "action_label": "Note it for the front desk",
+        "confidence": {
+          "basis": "As of 10/28 6:12 AM \u00b7 portal",
+          "k": 0,
+          "n": 0,
+          "outcome": "",
+          "pct": null
+        },
+        "headline": "Too soon for S. Kim's plan to cover bitewings at tomorrow's 1:00 PM visit",
+        "lands": null,
+        "learnable": {
+          "code": "tier_not_learnable",
+          "ok": false,
+          "reason": "No rule covers this, so a person decides each time."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["Note added for the front desk"]
+      },
+      "itm_elig_park": {
+        "action_label": "Note it for the front desk",
+        "confidence": {
+          "basis": "Unverified \u00b7 portal down",
+          "k": 0,
+          "n": 0,
+          "outcome": "",
+          "pct": null
+        },
+        "headline": "N. Park's coverage couldn't be verified for Friday's 9:00 AM visit",
+        "lands": null,
+        "learnable": {
+          "code": "tier_not_learnable",
+          "ok": false,
+          "reason": "No rule covers this, so a person decides each time."
+        },
+        "signer_note": null,
+        "signer_user_id": null,
+        "touches": ["Note added for the front desk"]
+      }
     },
-    {
-     "count": 0,
-     "reason": "other"
+    "moves": [
+      {
+        "by_status": [
+          {
+            "count": 2,
+            "status": "ready"
+          },
+          {
+            "count": 1,
+            "status": "rejected"
+          },
+          {
+            "count": 1,
+            "status": "pending"
+          },
+          {
+            "count": 5,
+            "status": "denied"
+          },
+          {
+            "count": 5,
+            "status": "partial"
+          }
+        ],
+        "cents": 927500,
+        "count": 14,
+        "who": "practice"
+      },
+      {
+        "by_status": [
+          {
+            "count": 3,
+            "status": "ready"
+          },
+          {
+            "count": 1,
+            "status": "rejected"
+          }
+        ],
+        "cents": 298500,
+        "count": 4,
+        "who": "agents"
+      },
+      {
+        "by_status": [
+          {
+            "count": 1,
+            "status": "ready"
+          },
+          {
+            "count": 5,
+            "status": "sent"
+          },
+          {
+            "count": 24,
+            "status": "accepted"
+          },
+          {
+            "count": 56,
+            "status": "pending"
+          },
+          {
+            "count": 3,
+            "status": "appealed"
+          }
+        ],
+        "cents": 6645000,
+        "count": 89,
+        "who": "payer"
+      },
+      {
+        "by_status": [],
+        "cents": 0,
+        "count": 0,
+        "who": "nobody"
+      }
+    ],
+    "signer_note_morgan": {
+      "itm_4611": null,
+      "itm_4705": null,
+      "itm_4733": null,
+      "itm_4748": null,
+      "itm_4772": null,
+      "itm_4821": null,
+      "itm_4836": null,
+      "itm_4840": null,
+      "itm_4851": null,
+      "itm_elig_chen": null,
+      "itm_elig_kim": null,
+      "itm_elig_park": null
     }
-   ]
-  },
-  "filed_since_remit": [
-   4733,
-   4821,
-   4836,
-   4840
-  ],
-  "groups": {
-   "delta_ny:denied:CO-16:N29:pa_missing": {
-    "action_label": "Send 3 x-rays and resubmit",
-    "headline": "Delta needs the PA x-ray for these 3 crowns",
-    "touches": [
-     "3 x-rays uploaded to NEA",
-     "3 claims in the 11:15 AM Delta file",
-     "Can be pulled from the file until 11:15 AM"
-    ]
-   }
-  },
-  "items": {
-   "itm_4611": {
-    "action_label": "Sign $228 write-off, $1,012 to patient",
-    "confidence": {
-     "basis": "A person decides this one. Annual max confirmed on the Delta portal 10/27.",
-     "k": 0,
-     "n": 0,
-     "outcome": "",
-     "pct": null
-    },
-    "headline": "The annual maximum is used up, so the balance goes to the patient",
-    "lands": "practice",
-    "learnable": {
-     "code": "tier_not_learnable",
-     "ok": false,
-     "reason": "A person always does this one. It never runs on its own."
-    },
-    "signer_note": "Writing off money commits the practice, so Dr. Morgan signs this.",
-    "signer_user_id": "usr_morgan",
-    "touches": [
-     "Signed decision recorded on the claim",
-     "$228 write-off to post in the PMS",
-     "$1,012 to move to patient balance"
-    ]
-   },
-   "itm_4705": {
-    "action_label": "Send prompt-pay request",
-    "confidence": {
-     "basis": "22 of 25 prompt-pay requests paid within 30 days",
-     "k": 22,
-     "n": 25,
-     "outcome": "prompt-pay requests paid within 30 days",
-     "pct": 88
-    },
-    "headline": "MetLife hasn't paid in 64 days, past the prompt-pay limit",
-    "lands": "payer",
-    "learnable": {
-     "code": null,
-     "ok": true,
-     "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "1 prompt-pay request sent to MetLife",
-     "Cannot be recalled once sent"
-    ]
-   },
-   "itm_4733": {
-    "action_label": "Send this note to Delta",
-    "confidence": {
-     "basis": "9 of 11 tooth-history reconsiderations paid (12 mo)",
-     "k": 9,
-     "n": 11,
-     "outcome": "tooth-history reconsiderations paid (12 mo)",
-     "pct": 82
-    },
-    "headline": "Delta denied this crown as too frequent; its tooth history doesn't match our chart",
-    "lands": "payer",
-    "learnable": {
-     "code": "tier_not_learnable",
-     "ok": false,
-     "reason": "The agents wrote this text, so a person reads it before it goes out."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "1 note sent to Delta",
-     "Delta EOB \u00b7 03/2022 enclosed",
-     "Cannot be recalled once sent"
-    ]
-   },
-   "itm_4748": {
-    "action_label": "Move $38 to patient",
-    "confidence": {
-     "basis": "4 of 4 alternate-benefit transfers balanced, too few for a rate",
-     "k": 4,
-     "n": 4,
-     "outcome": "alternate-benefit transfers balanced",
-     "pct": null
-    },
-    "headline": "Aetna paid the alternate benefit; the difference may be billable to the patient",
-    "lands": "nobody",
-    "learnable": {
-     "code": "tier_not_learnable",
-     "ok": false,
-     "reason": "The owner sets this rule. It isn't learned from approvals."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "$38 moved to patient balance",
-     "Can be undone until day close"
-    ]
-   },
-   "itm_4772": {
-    "action_label": "Post Cigna's payment, ask Cigna to reprocess $25.60",
-    "confidence": {
-     "basis": "3 of 3 deductible corrections balanced, too few for a rate",
-     "k": 3,
-     "n": 3,
-     "outcome": "deductible corrections balanced",
-     "pct": null
-    },
-    "headline": "Cigna applied a deductible the patient already met",
-    "lands": "payer",
-    "learnable": {
-     "code": "tier_not_learnable",
-     "ok": false,
-     "reason": "The owner sets this rule. It isn't learned from approvals."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "Cigna payment posted, patient share only",
-     "$33.60 moved to patient balance",
-     "$25.60 held as disputed",
-     "Can be undone until day close",
-     "1 reprocessing request sent to Cigna",
-     "Cannot be recalled once sent"
-    ]
-   },
-   "itm_4821": {
-    "action_label": "Send x-ray and resubmit",
-    "confidence": {
-     "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
-     "k": 23,
-     "n": 25,
-     "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
-     "pct": 92
-    },
-    "headline": "Delta needs the PA x-ray for this crown",
-    "lands": "agents",
-    "learnable": {
-     "code": "root_cause_guard",
-     "ok": false,
-     "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "1 x-ray uploaded to NEA",
-     "1 claim in the 11:15 AM Delta file",
-     "Can be pulled from the file until 11:15 AM"
-    ]
-   },
-   "itm_4836": {
-    "action_label": "Send x-ray and resubmit",
-    "confidence": {
-     "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
-     "k": 23,
-     "n": 25,
-     "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
-     "pct": 92
-    },
-    "headline": "Delta needs the PA x-ray for this crown",
-    "lands": "agents",
-    "learnable": {
-     "code": "root_cause_guard",
-     "ok": false,
-     "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "1 x-ray uploaded to NEA",
-     "1 claim in the 11:15 AM Delta file",
-     "Can be pulled from the file until 11:15 AM"
-    ]
-   },
-   "itm_4840": {
-    "action_label": "Send x-ray and resubmit",
-    "confidence": {
-     "basis": "23 of 25 Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
-     "k": 23,
-     "n": 25,
-     "outcome": "Delta CO-16 \u00b7 N29 denials paid within 30 days after a PA resubmit (12 mo)",
-     "pct": 92
-    },
-    "headline": "Delta needs the PA x-ray for this crown",
-    "lands": "agents",
-    "learnable": {
-     "code": "root_cause_guard",
-     "ok": false,
-     "reason": "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "1 x-ray uploaded to NEA",
-     "1 claim in the 11:15 AM Delta file",
-     "Can be pulled from the file until 11:15 AM"
-    ]
-   },
-   "itm_4851": {
-    "action_label": "Update ID and resend",
-    "confidence": {
-     "basis": "16 of 19 demographic resends accepted",
-     "k": 16,
-     "n": 19,
-     "outcome": "demographic resends accepted",
-     "pct": 84
-    },
-    "headline": "Cigna rejected the subscriber ID, and the eligibility response has a different one",
-    "lands": "agents",
-    "learnable": {
-     "code": null,
-     "ok": true,
-     "reason": "You can propose running this without review. Nothing changes until the proposal is accepted."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "Subscriber ID on this claim changed",
-     "1 claim in the 10:45 AM Cigna file",
-     "Can be pulled from the file until 10:45 AM"
-    ]
-   },
-   "itm_elig_chen": {
-    "action_label": "Note it for the front desk",
-    "confidence": {
-     "basis": "As of 10/28 6:12 AM \u00b7 portal",
-     "k": 0,
-     "n": 0,
-     "outcome": "",
-     "pct": null
-    },
-    "headline": "J. Chen reaches the annual maximum at tomorrow's 9:00 AM visit",
-    "lands": null,
-    "learnable": {
-     "code": "tier_not_learnable",
-     "ok": false,
-     "reason": "No rule covers this, so a person decides each time."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "Note added for the front desk"
-    ]
-   },
-   "itm_elig_kim": {
-    "action_label": "Note it for the front desk",
-    "confidence": {
-     "basis": "As of 10/28 6:12 AM \u00b7 portal",
-     "k": 0,
-     "n": 0,
-     "outcome": "",
-     "pct": null
-    },
-    "headline": "Too soon for S. Kim's plan to cover bitewings at tomorrow's 1:00 PM visit",
-    "lands": null,
-    "learnable": {
-     "code": "tier_not_learnable",
-     "ok": false,
-     "reason": "No rule covers this, so a person decides each time."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "Note added for the front desk"
-    ]
-   },
-   "itm_elig_park": {
-    "action_label": "Note it for the front desk",
-    "confidence": {
-     "basis": "Unverified \u00b7 portal down",
-     "k": 0,
-     "n": 0,
-     "outcome": "",
-     "pct": null
-    },
-    "headline": "N. Park's coverage couldn't be verified for Friday's 9:00 AM visit",
-    "lands": null,
-    "learnable": {
-     "code": "tier_not_learnable",
-     "ok": false,
-     "reason": "No rule covers this, so a person decides each time."
-    },
-    "signer_note": null,
-    "signer_user_id": null,
-    "touches": [
-     "Note added for the front desk"
-    ]
-   }
-  },
-  "moves": [
-   {
-    "by_status": [
-     {
-      "count": 2,
-      "status": "ready"
-     },
-     {
-      "count": 1,
-      "status": "rejected"
-     },
-     {
-      "count": 1,
-      "status": "pending"
-     },
-     {
-      "count": 5,
-      "status": "denied"
-     },
-     {
-      "count": 5,
-      "status": "partial"
-     }
-    ],
-    "cents": 927500,
-    "count": 14,
-    "who": "practice"
-   },
-   {
-    "by_status": [
-     {
-      "count": 3,
-      "status": "ready"
-     },
-     {
-      "count": 1,
-      "status": "rejected"
-     }
-    ],
-    "cents": 298500,
-    "count": 4,
-    "who": "agents"
-   },
-   {
-    "by_status": [
-     {
-      "count": 1,
-      "status": "ready"
-     },
-     {
-      "count": 5,
-      "status": "sent"
-     },
-     {
-      "count": 24,
-      "status": "accepted"
-     },
-     {
-      "count": 56,
-      "status": "pending"
-     },
-     {
-      "count": 3,
-      "status": "appealed"
-     }
-    ],
-    "cents": 6645000,
-    "count": 89,
-    "who": "payer"
-   },
-   {
-    "by_status": [],
-    "cents": 0,
-    "count": 0,
-    "who": "nobody"
-   }
-  ],
-  "signer_note_morgan": {
-   "itm_4611": null,
-   "itm_4705": null,
-   "itm_4733": null,
-   "itm_4748": null,
-   "itm_4772": null,
-   "itm_4821": null,
-   "itm_4836": null,
-   "itm_4840": null,
-   "itm_4851": null,
-   "itm_elig_chen": null,
-   "itm_elig_kim": null,
-   "itm_elig_park": null
   }
- }
 }
