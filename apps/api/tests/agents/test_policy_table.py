@@ -11,6 +11,7 @@ from agent_world import CLAIM, PATIENT, ctx, ev, rule
 from torch_rcm.agents.catalog.actions import ACTIONS, AGENT_ACTIONS, TIER3_ACTIONS
 from torch_rcm.agents.policy import (
     ROWS,
+    UNNAMED_BASIS,
     Policy,
     PolicyInvariantError,
     RootCauseGuardError,
@@ -22,7 +23,7 @@ from torch_rcm.agents.policy import (
     match_rule,
     route_rule_patch,
 )
-from torch_rcm.agents.types import BaseRate, GuardResult, ProposedAction, RuleScope
+from torch_rcm.agents.types import UNKNOWN, BaseRate, GuardResult, ProposedAction, RuleScope
 
 RESUBMIT = ProposedAction(
     action="resubmit_with_attachment",
@@ -259,6 +260,21 @@ def test_row12_no_base_rate_with_floor() -> None:
     assert d.confidence.basis == "Only 4 past cases like this, too few for a track record yet."
     no_floor = rule("resubmit_with_attachment", 1, "auto", base_rate=BaseRate(n=4, k=4))
     assert verdict(ctx(no_floor)) == ("execute", 15)
+
+
+def test_unknown_situation_has_no_borrowed_track_record() -> None:
+    """Final D1 red team #5: an `all` rule still gates an unnamed situation, but its 23 of 25 is other cases'."""
+    general = rule("resubmit_with_attachment", 1, "auto", item_type="all", confidence_floor=0.5)
+    c = ctx(general, classifier_situation=UNKNOWN, item_type=UNKNOWN)
+    d = decide(c, RESUBMIT)
+    assert (d.verdict, d.policy_row, d.rule_id) == ("propose", 5, general.id)  # the audit line still names the rule
+    assert d.confidence and (d.confidence.pct, d.confidence.k, d.confidence.n) == (None, 0, 0)
+    assert d.confidence.basis == UNNAMED_BASIS
+    row12 = next(r for r in ROWS if r.number == 12)
+    assert row12.predicate(c, RESUBMIT, ACTIONS["resubmit_with_attachment"], general) == (
+        "no base rate for a rule with a confidence floor"
+    )
+    assert decide(ctx(general, item_type="all"), RESUBMIT).confidence.pct == 92  # type: ignore[union-attr]
 
 
 def test_row13_model_and_classifier_disagree() -> None:

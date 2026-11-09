@@ -106,10 +106,21 @@ def match_rule(
     return max(candidates, key=_specificity, default=None)
 
 
-def confidence(rule: RuleView | None) -> Confidence | None:
-    """The rule's base rate, never a model number (`domain.values.track_record`: no percent under five cases)."""
+UNNAMED_BASIS = (
+    "No track record. TorchRCM couldn't match this to a known situation, so there are no past cases to compare."
+)
+UNNAMED_LEARN_REASON = "TorchRCM couldn't match this to a known situation, so there are no past cases to learn from."
+
+
+def confidence(rule: RuleView | None, situation: str | None = None) -> Confidence | None:
+    """The rule's base rate, never a model number (`domain.values.track_record`: no percent under five cases).
+
+    A situation the classifier couldn't name has no base rate of its own. The rule it falls to (an `all` rule)
+    still gates the action, but its track record counts other situations, so it is never shown as this one's."""
     if rule is None:
         return None
+    if situation == UNKNOWN:
+        return Confidence(pct=None, k=0, n=0, outcome=metric_phrase(rule.outcome_metric), basis=UNNAMED_BASIS)
     rate = rule.base_rate
     record = track_record(rate.k if rate else 0, rate.n if rate else 0, metric_phrase(rule.outcome_metric))
     return Confidence(**record.model_dump())
@@ -297,7 +308,7 @@ def _row11(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None)
 def _row12(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
     if r is None or r.confidence_floor is None:
         return None
-    conf = confidence(r)
+    conf = confidence(r, ctx.classifier_situation)
     if conf is None or conf.pct is None:
         return "no base rate for a rule with a confidence floor"
     floor = round(r.confidence_floor * 100)
@@ -383,7 +394,7 @@ def decide(ctx: PolicyCtx, action: ProposedAction) -> Decision:
             policy_row=row.number,
             rule_id=rule.id if rule else None,
             rule_version=rule.version if rule else None,
-            confidence=confidence(rule),
+            confidence=confidence(rule, ctx.classifier_situation),
             as_review_draft=row.review_draft or (row.verdict == "propose" and _carries_text(spec, ctx)),
             alternatives=("corrected_claim",) if row.number == 14 else (),
         )
@@ -492,9 +503,11 @@ def learnable(
     n: int,
     causes: Iterable[str | None],
     drafted: bool = False,
+    unnamed: bool = False,
 ) -> Learnable:
-    """First match wins: tier 3, agent-written text, tier 2, no rule, root cause ours, no outcome metric, too few
-    cases. `drafted` is a `review_draft` item: the agent wrote what would go out (CLAUDE.md: always tier 2)."""
+    """First match wins: tier 3, agent-written text, tier 2, no rule, root cause ours, a situation the classifier
+    couldn't name, no outcome metric, too few cases. `drafted` is a `review_draft` item: the agent wrote what would
+    go out (CLAUDE.md: always tier 2). `unnamed` has no past cases of its own, whatever its rule's count says."""
 
     def no(code: LearnCode, reason: str) -> Learnable:
         return Learnable(ok=False, code=code, reason=reason)
@@ -511,6 +524,8 @@ def learnable(
         guard_causes(causes)
     except RootCauseGuardError:
         return no("root_cause_guard", ROOT_CAUSE_OURS_REASON)
+    if unnamed:
+        return no("not_enough_evidence", UNNAMED_LEARN_REASON)
     if outcome_metric in (None, "none"):
         return no("tier_not_learnable", f"“{rule_label}” has no outcome to measure, so it is never learned.")
     if n < MIN_BASE_RATE_N:

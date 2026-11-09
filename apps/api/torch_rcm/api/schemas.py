@@ -89,6 +89,20 @@ class NavBadges(Schema):
     activity: int  # this week's decisions that ran without review
 
 
+class InboxWaiting(Schema):
+    """Open items in the viewer's queue that only someone else can sign, one row per set of signers. The server
+    writes `label` (the same names everywhere); `signer_ids` is who has the item in their own `inbox_open`."""
+
+    signer_ids: list[str]
+    label: str  # "Dr. Morgan": who it waits on
+    count: int
+    cents: int
+
+
+class InboxWaitingGroup(InboxWaiting):
+    item_ids: list[str]  # the listed items behind this row, so the Inbox draws them under it
+
+
 class StatusCount(Schema):
     status: ClaimStatus
     count: int
@@ -109,10 +123,14 @@ class Strip(Schema):
 
     tiles: list[StripTile]
     moves: list[MoveCount]  # one row per `MoveWho`; counts sum to `open_count`
+    # "N items need you": open items in the viewer's queue that the viewer can act on (`moves.can_act`). The
+    # badge, the Inbox header and the "Yours" card all read it. Items someone else signs are `inbox_waiting`, so
+    # `inbox_open + Σ inbox_waiting.count` is the whole queue.
     inbox_open: int
     inbox_open_cents: int
     inbox_claims: int  # distinct claims behind the viewer's `inbox_open` items
     inbox_visits: int  # distinct appointments behind the viewer's claimless items (eligibility flags)
+    inbox_waiting: list[InboxWaiting]
     paid_month_count: int
     paid_month_cents: int
     open_count: int
@@ -316,8 +334,10 @@ class InboxGroup(Schema):
 
 class InboxList(Schema):
     items: list[InboxItemOut]
-    total: int
+    total: int  # len(items)
     total_cents: int
+    actionable: int  # items the viewer can act on (the "Yours" tab); actionable + Σ waiting.count == total
+    waiting: list[InboxWaitingGroup]  # the rest, by who signs them
     next_cursor: str | None = None
     groups: list[InboxGroup] | None = None
 

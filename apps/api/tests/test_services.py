@@ -39,7 +39,8 @@ def code(exc: pytest.ExceptionInfo[ApiError]) -> tuple[int, str]:
 
 def test_inbox_open_is_12_with_the_delta_group(rt: Runtime) -> None:
     out = inbox_svc.get_inbox(ctx(rt), "open", None, None, True)
-    assert (out.total, out.total_cents) == (12, 969_700)
+    assert (out.total, out.total_cents, out.actionable) == (12, 969_700, 11)
+    assert [(w.label, w.count, w.item_ids) for w in out.waiting] == [("Dr. Morgan", 1, ["itm_4611"])]
     assert (
         out.groups and out.groups[0].title == "Delta Dental · missing PA x-ray (3)" and out.groups[0].cents == 373_000
     )
@@ -52,7 +53,7 @@ def test_inbox_open_is_12_with_the_delta_group(rt: Runtime) -> None:
 def test_approve_group_creates_three_runs_and_moves_the_badges(rt: Runtime) -> None:
     out = inbox_svc.approve_group(ctx(rt), GROUP)
     assert len(out.runs) == 3 and all(r.status.value == "queued" and r.trigger.value == "approval" for r in out.runs)
-    assert out.meta.counts.inbox_open == 9
+    assert out.meta.counts.inbox_open == 8
     tiles = {t.status: t for t in out.meta.counts.tiles}
     assert tiles[ClaimStatus.DENIED].count == 5 and tiles[ClaimStatus.DENIED].flagged == 2
     jobs = rt.store.find(Job, {"kind": K.RUN_START})
@@ -102,7 +103,7 @@ def test_file_departed_offers_a_corrected_claim(rt: Runtime) -> None:
 def test_snooze_and_wake(rt: Runtime) -> None:
     until = rt.clock.now() + timedelta(hours=2)
     out = inbox_svc.snooze(ctx(rt), "itm_4748", until)
-    assert out.item.state is InboxItemState.SNOOZED and out.meta.counts.inbox_open == 11
+    assert out.item.state is InboxItemState.SNOOZED and out.meta.counts.inbox_open == 10
     asyncio.run(rt.scheduler.run_due(until + timedelta(minutes=1)))
     assert rt.store.require(InboxItem, "itm_4748").state is InboxItemState.OPEN
 
@@ -353,7 +354,7 @@ def test_world_inject_and_reseed(rt: Runtime) -> None:
     assert any(p.portal_down for p in system.world_payers(ctx(rt)) if p.key.value == "delta_ny")
     inbox_svc.approve_group(ctx(rt), GROUP)
     re = asyncio.run(system.reseed(ctx(rt), "canonical"))
-    assert re.meta.counts.inbox_open == 12 and re.now == datetime.fromisoformat("2026-10-28T10:40:00-04:00")
+    assert re.meta.counts.inbox_open == 11 and re.now == datetime.fromisoformat("2026-10-28T10:40:00-04:00")
     with pytest.raises(ApiError) as exc:
         asyncio.run(system.reseed(ctx(rt), "nope"))
     assert code(exc) == (422, "unknown_scenario")

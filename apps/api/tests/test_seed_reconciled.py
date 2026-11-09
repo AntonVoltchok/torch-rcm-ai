@@ -39,7 +39,11 @@ def test_flagged_claims(canonical: Snapshot) -> None:
 
 def test_inbox_open(canonical: Snapshot) -> None:
     s = strip(canonical, "usr_dana")
-    assert (s.inbox_open, s.inbox_open_cents) == (12, usd(9_697))
+    # Dana acts on 11; R. Diaz #4611 (tier 3) waits on Dr. Morgan. Together they are her whole queue.
+    assert (s.inbox_open, s.inbox_open_cents) == (11, usd(9_697 - 1_240))
+    assert [(w.label, w.signer_ids, w.count, w.cents) for w in s.inbox_waiting] == [
+        ("Dr. Morgan", ["usr_morgan"], 1, usd(1_240))
+    ]
     kinds = [i.kind.value for i in canonical.open_items]
     assert sum(k == "eligibility_flag" for k in kinds) == 3
     assert sum(i.claim_id is not None for i in canonical.open_items) == 9

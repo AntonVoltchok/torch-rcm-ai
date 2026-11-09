@@ -79,4 +79,6 @@ def test_cli_advance_runs_the_agents_like_the_api(db: Path) -> None:
     )
     unhandled = done.stdout.rsplit("unhandled", 1)[1]
     assert "era.arrived" not in unhandled and "claim.status_check_due" not in unhandled
-    assert Ctx.for_user(Runtime.open(settings(db)), "usr_dana").meta().counts.inbox_open == 19
+    assert (
+        Ctx.for_user(Runtime.open(settings(db)), "usr_dana").meta().counts.inbox_open == 16
+    )  # 19 in the queue; 3 wait on Dr. Morgan

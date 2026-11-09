@@ -7,11 +7,12 @@ from collections import defaultdict
 from datetime import date
 
 from torch_rcm.agents.policy import learnable
+from torch_rcm.agents.types import UNKNOWN
 from torch_rcm.api.schemas import HoldWindow, InboxGroup, InboxItemDetail, InboxItemOut, InboxList, Learnable
 from torch_rcm.domain.entities import FileEntry, InboxItem, Run
 from torch_rcm.domain.enums import FileEntryState, InboxItemKind, InboxItemState, RootCause, RuleMode, Tier
-from torch_rcm.readmodels.claims import patient_ref, summarize, visible_inbox
-from torch_rcm.readmodels.headline import group_headline, headline
+from torch_rcm.readmodels.claims import patient_ref, split_inbox, summarize, visible_inbox
+from torch_rcm.readmodels.headline import group_headline, headline, situation
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.readmodels.wording import action_label, item_touches, lands, signer_note
 
@@ -127,6 +128,7 @@ def item_learnable(snap: Snapshot, item: InboxItem) -> Learnable:
         outcome_metric=rule.outcome_metric.value if rule else None,
         n=rule.base_rate.n if rule else 0,
         drafted=item.kind is InboxItemKind.REVIEW_DRAFT,
+        unnamed=situation(snap, item) == UNKNOWN,
         causes=(
             stated if isinstance(stated, str) else None,
             claim.denial.root_cause.value if claim and claim.denial else None,
@@ -187,7 +189,15 @@ def list_inbox(
         items = [i for i in items if i.agent is not None and i.agent.value == agent]
     outs = sorted((item_out(snap, i, user_id) for i in items), key=lambda o: (-o.priority, o.created_at, o.id))
     groups = _groups(snap, outs, {i.id: i for i in items}) if group else None
-    return InboxList(items=outs, total=len(outs), total_cents=sum(o.cents for o in outs), groups=groups)
+    yours, waiting = split_inbox(snap, user_id, items)
+    return InboxList(
+        items=outs,
+        total=len(outs),
+        total_cents=sum(o.cents for o in outs),
+        actionable=len(yours),
+        waiting=waiting,
+        groups=groups,
+    )
 
 
 def _groups(snap: Snapshot, items: list[InboxItemOut], raw: dict[str, InboxItem]) -> list[InboxGroup]:

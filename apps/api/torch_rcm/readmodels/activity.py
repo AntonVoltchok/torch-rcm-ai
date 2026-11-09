@@ -9,6 +9,7 @@ from torch_rcm.api.schemas import ActivityDay, ActivityOut, ActivityRow, Activit
 from torch_rcm.clock import to_practice_tz
 from torch_rcm.domain.entities import AuditEvent, Run
 from torch_rcm.domain.enums import ROUTINE_ACTIONS, PolicyVerdict, RuleAction, RunStatus
+from torch_rcm.readmodels.claims import actionable_inbox
 from torch_rcm.readmodels.moves import claim_move
 from torch_rcm.readmodels.snapshot import Snapshot
 
@@ -112,7 +113,7 @@ def activity(
     week_runs = [r for r in snap.of(Run) if r.started_at.date() >= start]
     summary = ActivitySummary(
         ran_without_you=week["ran"],
-        awaiting_you=len(snap.open_items),
+        awaiting_you=len(actionable_inbox(snap, viewer_id)),  # the strip's `inbox_open`
         decisions=week["total"],
         status_checks=sum(1 for r in week_runs if r.action is RuleAction.STATUS_CHECK),
         payer_calls=sum(1 for r in week_runs if r.action is RuleAction.PAYER_REP_CALL),
