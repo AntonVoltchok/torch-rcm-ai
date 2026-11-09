@@ -26,6 +26,7 @@ import { Timeline } from '@/components/Timeline'
 import { ReadinessChecklist } from '@/components/ReadinessChecklist'
 import { ProgressPanel } from '@/components/ProgressPanel'
 import { TriageButton } from '@/components/TriageButton'
+import { TourHeaderButton } from '@/features/tour/TourEntry'
 import { QueryError } from '@/components/QueryError'
 import { EmptyState } from '@/components/EmptyState'
 import { SkeletonBlock, SkeletonRows } from '@/components/ui/Skeleton'
@@ -106,6 +107,10 @@ function Header({ d, today }: { d: ClaimDetail; today: string | undefined }) {
             Next denial: {next.label} <span className="font-normal text-soft">({next.position})</span>
           </Link>
         )}
+        {/* This screen has no PageHeader; its tour button sits at the right of the breadcrumb row instead. */}
+        <span className={next ? undefined : 'ml-auto'}>
+          <TourHeaderButton />
+        </span>
       </nav>
       <div className="mt-2 flex flex-wrap items-start gap-x-8 gap-y-3">
         <div className="min-w-[280px] max-w-[540px] flex-1">

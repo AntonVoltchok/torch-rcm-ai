@@ -12,12 +12,12 @@ import { freshDemo, nav, real } from './demo/shared'
 async function freshWithTours(page: Page) {
   await freshDemo(page)
   await page.evaluate(() => localStorage.removeItem('torchrcm.tour.autoopen'))
-  await page.reload()
+  await page.goto('/inbox')
 }
 
 const card = (page: Page) => page.getByTestId('tour-card')
 const heading = (page: Page, name: string) => card(page).getByRole('heading', { name })
-const next = (page: Page) => card(page).getByRole('button', { name: 'Next' })
+const next = (page: Page) => card(page).getByRole('button', { name: 'Next', exact: true })
 
 test('the main tour follows #4821 through the loop, Try-its included @demo', async ({ page }) => {
   test.setTimeout(180_000)
@@ -31,7 +31,7 @@ test('the main tour follows #4821 through the loop, Try-its included @demo', asy
     await expect(page.getByTestId('tour-hole')).toBeVisible()
     await expect(card(page).getByTestId('tour-missing')).toHaveCount(0)
     // Every number in the copy has resolved from the server.
-    await expect(card(page).getByTestId('tour-copy')).not.toContainText('…')
+    await expect(card(page).locator('[data-server-number]', { hasText: /^…$/ })).toHaveCount(0)
     await next(page).click()
   }
   await expect(page).toHaveURL(/\/inbox\?item=itm_4821/)
@@ -102,6 +102,8 @@ test('a step whose element is gone says so instead of pointing at nothing', asyn
   await page.getByTestId('tour-modal').getByRole('button', { name: 'Skip, use the app' }).click()
   // Take #4821's group off the Inbox the ordinary way, then open the main tour at "How #4821 got here".
   await page.goto('/inbox?item=itm_4821')
+  // A load opens the main tour again (dismissal lasts one load).
+  await page.getByTestId('tour-modal').getByRole('button', { name: 'Skip, use the app' }).click()
   await page.getByTestId('decision').getByRole('button', { name: /resubmit/i }).first().click()
   await expect(page.getByTestId('run-pane')).toBeVisible()
   await page.getByRole('button', { name: 'All tours' }).click()

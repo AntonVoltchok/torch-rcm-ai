@@ -5,6 +5,7 @@
  * J/K move the selected row (`?row=`), Enter opens it. The payer × reason panel is the prevention view.
  * Decisions: docs/adr/0008-d1-dashboard.md, decision 8.
  */
+import { TourHeaderButton } from '@/features/tour/TourEntry'
 import { useEffect } from 'react'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import type { DenialRow, DenialsOut, HolderCount, Role } from '@/api/schema'
@@ -72,6 +73,10 @@ function Summary({ d }: { d: DenialsOut }) {
           Review {first.claim.patient.display_name} #{first.claim.number}
         </Link>
       )}
+      {/* No PageHeader on this screen: the tour button closes the summary row. */}
+      <span className={first ? undefined : 'ml-auto'}>
+        <TourHeaderButton />
+      </span>
     </section>
   )
 }
