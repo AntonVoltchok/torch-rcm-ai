@@ -20,14 +20,14 @@ export function ModeControl({
 }) {
   if (row.control === 'human_only') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-bold text-ink" data-testid="human-only" title="Tier 3 commits the practice: a person, always. Agents may draft.">
+      <span className="inline-flex items-center gap-1 text-sm font-semibold text-ink" data-testid="human-only" title="Tier 3 commits the practice: a person, always. Agents may draft.">
         Human only
       </span>
     )
   }
   return (
     <div className="flex flex-col gap-0.5">
-      <div role="radiogroup" aria-label={`Mode for ${row.label}`} className="inline-flex overflow-hidden rounded-md border border-line" onMouseLeave={() => onPreview(null)}>
+      <div role="radiogroup" aria-label={`Mode for ${row.label}`} data-rule={row.id} className="inline-flex overflow-hidden rounded-md border border-line-strong" onMouseLeave={() => onPreview(null)}>
         {row.options.map((m) => {
           const on = m === row.mode
           return (
@@ -36,6 +36,7 @@ export function ModeControl({
               type="button"
               role="radio"
               aria-checked={on}
+              data-mode={m}
               disabled={busy}
               title={row.needsOwner && !on ? `${MODE_LABEL[m]} · needs Dr. Morgan’s sign-off` : MODE_LABEL[m]}
               onMouseEnter={() => onPreview(m)}
@@ -45,8 +46,9 @@ export function ModeControl({
                 if (!on) onChange(m)
               }}
               className={cn(
-                'whitespace-nowrap border-l border-line px-1.5 py-px text-2xs font-semibold first:border-l-0 disabled:cursor-wait',
-                on ? (m === 'auto' ? 'bg-ok-bg text-ok' : m === 'observe' ? 'bg-light text-mid' : 'bg-acc-bg text-acc') : 'bg-white text-soft hover:bg-fill hover:text-ink',
+                'whitespace-nowrap border-l border-line-strong px-2 py-0.5 text-xs font-medium first:border-l-0 disabled:cursor-wait',
+                // Ask is the practice's move, so it takes the practice hue; auto is green; observe is neutral.
+                on ? (m === 'auto' ? 'bg-ok-bg text-ok' : m === 'observe' ? 'bg-light text-ink' : 'bg-practice-bg text-practice-ink') : 'bg-paper text-mid hover:bg-hover hover:text-ink',
               )}
             >
               {MODE_LABEL[m]}
@@ -54,7 +56,7 @@ export function ModeControl({
           )
         })}
       </div>
-      {row.needsOwner && <span className="text-2xs font-semibold text-warn">Needs Dr. Morgan</span>}
+      {row.needsOwner && <span className="text-xs font-medium text-mid">Needs Dr. Morgan</span>}
     </div>
   )
 }

@@ -634,7 +634,7 @@ class LivePlanner:
             raise PlanRejected(errors)
         draft = Draft(
             kind=kind,
-            audience=audience,  # type: ignore[arg-type]
+            audience=audience,
             segments=tuple(segments),
             human_must_complete=tuple(str(x) for x in raw.get("human_must_complete") or ()),
             source="agent",

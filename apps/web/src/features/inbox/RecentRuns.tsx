@@ -1,43 +1,53 @@
-import { useQueries } from '@tanstack/react-query'
-import { runQueryOptions } from '@/hooks/useRun'
-import { isTerminal } from '@/lib/runEvents'
+import { useState } from 'react'
 import { cn } from '@/lib/cn'
+import { useActiveLaunch } from '@/hooks/useActiveLaunch'
 import { useLaunches } from '@/state/launches'
 
 /**
- * "Runs you started" — reads ['run', id] (fetched once if not cached) without subscribing to SSE; the
- * ProgressPanel subscribes when opened and replays what it missed via Last-Event-ID.
+ * "Runs you started", collapsed under the queue. Status is the server's (`useActiveLaunch` reads and polls
+ * ['run', id]); opening one puts it in the pane, where the ProgressPanel streams it and replays what it missed.
+ * Open/closed is ephemeral: the launch you are looking at is in the URL.
  */
 export function RecentRuns({ active, onOpen }: { active: string | undefined; onOpen: (id: string) => void }) {
   const launches = useLaunches()
-  const runIds = launches.flatMap((l) => l.runs.map((r) => r.run_id))
-  const runs = useQueries({
-    queries: runIds.map((id) => runQueryOptions(id)),
-  })
+  const runs = useActiveLaunch()
+  const [open, setOpen] = useState(false)
   if (launches.length === 0) return null
-  const statusOf = (id: string) => runs[runIds.indexOf(id)]?.data?.status
   return (
-    <section aria-label="Runs you started" className="border-t border-line bg-fill px-3 py-2">
-      <div className="mb-1 text-2xs font-extrabold uppercase tracking-[.05em] text-soft">Runs you started</div>
-      <ul className="m-0 flex list-none flex-col gap-1 p-0">
-        {[...launches].reverse().map((l) => {
-          const statuses = l.runs.map((r) => statusOf(r.run_id))
-          const done = statuses.every((s) => s !== undefined && isTerminal(s))
-          return (
-            <li key={l.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(l.id)}
-                className={cn('flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-sm hover:bg-white', active === l.id && 'bg-white font-semibold')}
-              >
-                <span className="text-acc">✦</span>
-                <span className="truncate">{l.title}</span>
-                <span className={cn('ml-auto text-xs', done ? 'text-ok' : 'text-acc')}>{done ? 'done' : 'running'}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+    <section aria-label="Runs you started" className="mt-2 border-t border-line">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-hover"
+      >
+        <span className="font-semibold">Runs you started</span>
+        <span className="text-sm text-mid">{launches.length}</span>
+        <span aria-hidden className={cn('ml-auto inline-block size-1.5 rotate-45 border-b-[1.5px] border-r-[1.5px] border-soft', open && '-rotate-[135deg]')} />
+      </button>
+      {open && (
+        <ul className="m-0 list-none px-2 pb-1">
+          {[...launches].reverse().map((l) => {
+            const running = runs.isRunning(l)
+            const stopped = l.runs.some((r) => runs.statusOf(r.run_id) === 'failed')
+            return (
+              <li key={l.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(l.id)}
+                  aria-current={active === l.id ? 'true' : undefined}
+                  className={cn('flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-hover', active === l.id && 'bg-act-bg')}
+                >
+                  <span className="truncate">{l.title}</span>
+                  <span className={cn('ml-auto flex-none text-xs', running ? 'font-medium text-agents-ink' : stopped ? 'font-medium text-risk-ink' : 'text-mid')}>
+                    {running ? 'Running' : stopped ? 'Stopped' : 'Done'}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }

@@ -10,17 +10,25 @@ from typing import Literal
 
 from torch_rcm.api.schemas import (
     ClaimList,
+    ClaimMove,
     ClaimRow,
     ClaimSummary,
+    HolderCount,
+    InboxWaiting,
+    InboxWaitingGroup,
+    MoveCount,
     NavBadges,
     PatientRef,
     PayerRef,
+    StatusCount,
     Strip,
     StripTile,
 )
-from torch_rcm.domain.entities import Claim, InboxItem, Patient, Remittance
-from torch_rcm.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, RemitStatus, Role
+from torch_rcm.domain.entities import Claim, InboxItem, Patient, Remittance, User
+from torch_rcm.domain.enums import AR_STATUSES, OPEN_STATUSES, ClaimStatus, InboxItemKind, MoveWho, RemitStatus, Role
+from torch_rcm.readmodels.moves import approver_roles, can_act, claim_move, sees, signer
 from torch_rcm.readmodels.snapshot import Snapshot
+from torch_rcm.world.fees import plain_procedures
 
 S = ClaimStatus
 TILE_LABELS: dict[ClaimStatus, str] = {
@@ -87,7 +95,8 @@ def payer_ref(snap: Snapshot, key: str) -> PayerRef:
     return PayerRef(key=payer.key, name=payer.name, short_name=payer.short_name)
 
 
-def summarize(snap: Snapshot, claim: Claim) -> ClaimSummary:
+def summarize(snap: Snapshot, claim: Claim, viewer_id: str | None = None) -> ClaimSummary:
+    """`viewer_id` decides only `move.mine`; every other field is the same for everyone."""
     return ClaimSummary(
         id=claim.id,
         number=claim.number,
@@ -97,6 +106,7 @@ def summarize(snap: Snapshot, claim: Claim) -> ClaimSummary:
         payer=payer_ref(snap, claim.payer_key.value),
         dos=claim.dos,
         procedures=claim.procedures_summary,
+        procedures_plain=plain_procedures([(line.cdt, line.tooth) for line in claim.lines]),
         billed_cents=claim.billed_cents,
         allowed_cents=claim.allowed_cents,
         paid_cents=claim.paid_cents,
@@ -105,6 +115,7 @@ def summarize(snap: Snapshot, claim: Claim) -> ClaimSummary:
         in_flight=claim.in_flight,
         age_days=age_days(claim, snap.today),
         file_time=claim.file_time,
+        move=claim_move(snap, claim, viewer_id),
     )
 
 
@@ -112,33 +123,91 @@ def summarize(snap: Snapshot, claim: Claim) -> ClaimSummary:
 
 
 def visible_inbox(snap: Snapshot, user_id: str | None) -> list[InboxItem]:
-    """The viewer's open queue: the shared billing queue plus items assigned to them; front desk sees
-    eligibility flags; dentists see only items assigned to them."""
+    """The viewer's open queue (`moves.sees`): the shared billing queue plus items assigned to them; front desk sees
+    eligibility flags; dentists see only items assigned to them. No user reads as billing."""
     user = snap.users.get(user_id or "")
-    role = user.role if user else Role.BILLING
-    out: list[InboxItem] = []
-    for item in snap.open_items:
-        mine = item.assignee_user_id is not None and item.assignee_user_id == (user.id if user else None)
-        shared = item.assignee_user_id is None
-        if role in (Role.BILLING, Role.OWNER):
-            visible = shared or mine
-        elif role is Role.FRONT_DESK:
-            visible = mine or (shared and item.kind.value == "eligibility_flag")
+    if user is None:
+        return [i for i in snap.open_items if i.assignee_user_id is None]
+    return [i for i in snap.open_items if sees(snap, user, i)]
+
+
+def split_inbox(
+    snap: Snapshot, user_id: str | None, items: Iterable[InboxItem]
+) -> tuple[list[InboxItem], list[InboxWaitingGroup]]:
+    """The items the viewer can act on, and the rest grouped by who can (`moves.can_act`). Waiting rows come in the
+    order of their oldest item (the longest wait first); each names the users who have that item in their own
+    `inbox_open`: an item's named signer (`moves.signer`) when it has one, so the row says the same person as its
+    move and its signer note. No user reads as billing, as in `visible_inbox`."""
+    viewer = snap.users.get(user_id or "")
+    users = sorted(snap.of(User), key=lambda u: u.id)
+    yours: list[InboxItem] = []
+    waiting: dict[tuple[str, ...], list[InboxItem]] = {}
+    for item in sorted(items, key=lambda i: (i.created_at, i.id)):
+        if _yours(snap, viewer, item):
+            yours.append(item)
         else:
-            visible = mine
-        if visible:
-            out.append(item)
+            named = signer(snap, item)
+            ids = (named.id,) if named else tuple(u.id for u in users if can_act(snap, u, item))
+            waiting.setdefault(ids, []).append(item)
+    rows = [
+        InboxWaitingGroup(
+            signer_ids=list(ids),
+            label=" or ".join(snap.users[u].name for u in ids) or "the owner",
+            count=len(group),
+            cents=sum(i.cents for i in group),
+            item_ids=[i.id for i in group],
+        )
+        for ids, group in waiting.items()
+    ]
+    return yours, rows
+
+
+def actionable_inbox(snap: Snapshot, user_id: str | None) -> list[InboxItem]:
+    """What "N items need you" counts: the viewer's queue less what someone else signs."""
+    return split_inbox(snap, user_id, visible_inbox(snap, user_id))[0]
+
+
+def _yours(snap: Snapshot, viewer: User | None, item: InboxItem) -> bool:
+    if viewer is not None:
+        return can_act(snap, viewer, item)
+    roles = approver_roles(item)
+    return item.assignee_user_id is None and (roles is None or Role.BILLING in roles)
+
+
+def _by_holder(moves: list[ClaimMove]) -> list[HolderCount]:
+    """A tile's claims split by holder, in first-seen order of MoveWho then holder (the Denied tally)."""
+    counts: dict[tuple[MoveWho, Role | None, str | None, bool], int] = {}
+    for m in moves:
+        key = (m.who, m.holder_role, m.holder_user_id, m.mine)
+        counts[key] = counts.get(key, 0) + 1
+    order = list(MoveWho)
+    return [
+        HolderCount(who=who, holder_role=role, holder_user_id=uid, mine=mine, count=n)
+        for (who, role, uid, mine), n in sorted(
+            counts.items(), key=lambda kv: (order.index(kv[0][0]), not kv[0][3], kv[0][1] or "", kv[0][2] or "")
+        )
+    ]
+
+
+def _moves(open_rows: list[Claim], move_of: dict[str, ClaimMove]) -> list[MoveCount]:
+    out = []
+    for who in MoveWho:
+        rows = [c for c in open_rows if move_of[c.id].who is who]
+        by_status = [StatusCount(status=s, count=n) for s in OPEN_STATUSES if (n := sum(c.status is s for c in rows))]
+        out.append(MoveCount(who=who, count=len(rows), cents=sum(c.billed_cents for c in rows), by_status=by_status))
     return out
 
 
 def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = None) -> Strip:
     """GET /summary/strip: one GROUP BY status over claims, plus the viewer's inbox count."""
     claims = [c for c in snap.of(Claim) if location_id is None or c.location_id == location_id]
+    move_of = {c.id: claim_move(snap, c, user_id) for c in claims if is_open(c) or c.status is S.PAID}
     tiles: list[StripTile] = []
     flagged_total = flagged_cents = 0
     for status in TILE_ORDER:
         if status is S.PAID:
-            rows = [c for c in claims if paid_this_month(c, snap.today)]
+            # The same predicate as GET /claims?status=paid, so the tile and the Paid quick view agree.
+            rows = [c for c in claims if _matches(snap, c, PAID_MONTH)]
             cents = sum(c.paid_cents or 0 for c in rows)
             basis: Literal["billed", "paid"] = "paid"
         else:
@@ -157,16 +226,22 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
                 flagged=len(flagged),
                 cents_basis=basis,
                 label=label,
+                by_holder=_by_holder([move_of[c.id] for c in rows]),
             )
         )
-    inbox = visible_inbox(snap, user_id)
+    queue = visible_inbox(snap, user_id)
+    inbox, waiting = split_inbox(snap, user_id, queue)
     open_rows = [c for c in claims if is_open(c)]
     ar_rows = [c for c in claims if in_ar(c)]
     paid = tiles[-1]
     return Strip(
         tiles=tiles,
+        moves=_moves(open_rows, move_of),
         inbox_open=len(inbox),
         inbox_open_cents=sum(i.cents for i in inbox),
+        inbox_claims=len({i.claim_id for i in inbox if i.claim_id}),
+        inbox_visits=len({i.appointment_id for i in inbox if i.claim_id is None and i.appointment_id}),
+        inbox_waiting=[InboxWaiting(**w.model_dump(exclude={"item_ids"})) for w in waiting],
         paid_month_count=paid.count,
         paid_month_cents=paid.cents,
         open_count=len(open_rows),
@@ -175,9 +250,10 @@ def strip(snap: Snapshot, user_id: str | None = None, location_id: str | None = 
         ar_cents=sum(c.billed_cents for c in ar_rows),
         flagged_count=flagged_total,
         flagged_cents=flagged_cents,
+        all_count=sum(1 for c in claims if _matches(snap, c, ALL_CLAIMS)),
         as_of=snap.now,
         paid_month_label=f"{snap.today:%b}",
-        nav_badges=nav_badges(snap, inbox),
+        nav_badges=nav_badges(snap, queue),
     )
 
 
@@ -228,6 +304,8 @@ class ClaimQuery:
     include_paid_all: bool = False
 
 
+ALL_CLAIMS = ClaimQuery()
+PAID_MONTH = ClaimQuery(status=(S.PAID,))
 SORT_KEYS = {"number", "patient", "payer", "dos", "billed", "status", "age", "last_activity"}
 
 
@@ -251,19 +329,18 @@ def _sort_key(snap: Snapshot, key: str, claim: Claim) -> tuple[object, ...]:
 
 
 def _matches(snap: Snapshot, c: Claim, q: ClaimQuery) -> bool:
+    """The one list predicate. Paid claims are month-to-date ("Paid · Oct", as the strip) unless the query asks
+    for every paid claim; a search always does, so a patient's August EOB can still be found by name."""
     if c.closed_reason is not None:
         return False
     if q.status and c.status not in q.status:
         return False
-    if (
-        not q.status
-        and c.status is S.PAID
-        and not (q.include_paid_all or paid_this_month(c, snap.today) or q.needs_action)
-    ):
+    all_paid = q.include_paid_all or bool(q.q and q.q.strip())
+    if not q.status and c.status is S.PAID and not (all_paid or paid_this_month(c, snap.today) or q.needs_action):
         return False
     if q.needs_action is not None and snap.needs_action(c.id) != q.needs_action:
         return False
-    if q.status == (S.PAID,) and not q.include_paid_all and not paid_this_month(c, snap.today):
+    if q.status == (S.PAID,) and not all_paid and not paid_this_month(c, snap.today):
         return False
     checks = (
         q.payer is None or c.payer_key.value == q.payer,
@@ -295,7 +372,7 @@ def decode_cursor(cursor: str | None) -> int:
         return 0
 
 
-def query_claims(snap: Snapshot, q: ClaimQuery) -> ClaimList:
+def query_claims(snap: Snapshot, q: ClaimQuery, viewer_id: str | None = None) -> ClaimList:
     rows = [c for c in snap.of(Claim) if _matches(snap, c, q)]
     desc = q.sort.startswith("-")
     key = q.sort.lstrip("-")
@@ -306,7 +383,7 @@ def query_claims(snap: Snapshot, q: ClaimQuery) -> ClaimList:
     flagged = [c for c in rows if snap.needs_action(c.id)]
     nxt = encode_cursor(offset + q.limit) if offset + q.limit < len(rows) else None
     return ClaimList(
-        items=[claim_row(snap, c) for c in page],
+        items=[claim_row(snap, c, viewer_id) for c in page],
         total=len(rows),
         total_cents=sum(c.billed_cents for c in rows),
         flagged_count=len(flagged),
@@ -326,12 +403,12 @@ def _last_activity(snap: Snapshot, claim: Claim) -> tuple[datetime | None, str |
     return at, text
 
 
-def claim_row(snap: Snapshot, claim: Claim) -> ClaimRow:
+def claim_row(snap: Snapshot, claim: Claim, viewer_id: str | None = None) -> ClaimRow:
     at, text = _last_activity(snap, claim)
     items = snap.open_items_by_claim.get(claim.id, [])
     provider = snap.providers[claim.provider_id]
     return ClaimRow(
-        **summarize(snap, claim).model_dump(),
+        **summarize(snap, claim, viewer_id).model_dump(),
         provider_id=claim.provider_id,
         provider_name=provider.name,
         location_id=claim.location_id,

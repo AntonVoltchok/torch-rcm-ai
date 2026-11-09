@@ -9,6 +9,7 @@ import { api } from '@/api/endpoints'
 import { isApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import type { AdvanceSnapshot } from '@/api/schema'
+import { launchStore } from '@/state/launches'
 import { useFirehoseState } from '@/state/live'
 import { toast } from '@/state/toast'
 
@@ -31,7 +32,7 @@ export function useAdvanceProgress(advanceId: string | undefined) {
   const firehose = useFirehoseState()
   return useQuery({
     queryKey: qk.advance(advanceId ?? 'none'),
-    queryFn: () => api.advanceStatus(advanceId ?? ''),
+    queryFn: (): Promise<AdvanceSnapshot> => api.advanceStatus(advanceId ?? ''),
     enabled: Boolean(advanceId),
     refetchInterval: (q) => (q.state.data?.done || firehose === 'live' ? false : 1000),
   })
@@ -78,9 +79,13 @@ export function useResetDemo() {
   return useMutation({
     mutationFn: api.resetClock,
     onSuccess: async () => {
+      launchStore.clear() // their runs no longer exist on the server
       qc.removeQueries()
       await qc.invalidateQueries()
       toast('Demo reset to Wed 10/28 10:40.', { tone: 'ok' })
+    },
+    onError: (err) => {
+      toast(isApiError(err) ? err.message : 'Could not reset the demo.', { tone: 'bad' })
     },
   })
 }

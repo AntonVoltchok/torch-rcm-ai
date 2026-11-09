@@ -64,7 +64,7 @@ This spec covers how the five agents plan, act, persist, stream and resume, and 
 | **Eligibility** | `eligibility.sweep` 17:00 for the next business day, 07:00 re-check, manual | coverage, rulebook, history | `eligibility_check` (1, portal → 271 → IVR), `update_pms_benefits` (2) | internal flag only | none (owner-authored, never learned) | `eligibility_flag` (J. Chen: "remaining max $180 of $1,500; planned $650 → ins $180 / pt $470 · as of 10/28 · portal"), `approve_action` | no (opt-in Haiku parse, §3.1) |
 | **Claims** | `visit.checked_out`, Vyne 277CA A7, `hold.age` | visit, images, coverage, rulebook, history | `send_claim_pms_codes` (1), `fix_demographics_resend` (1, value must equal a PMS field), `send_claim_agent_text` (2), `corrected_claim` (2), `cob_order_change` (2), `hold_claim` (no tier; creates a Hold) | narratives, remarks (t2) | `accepted` | `review_draft`, `approve_action`, Hold rows | yes |
 | **Followup** | `claim.status_check_due` (day 30, then +15), Router reconsiderations, `prompt_pay.due` (§3224-a, insured plans only), manual triage | visit, images, coverage, rulebook, history | `status_check`, `payer_rep_call` (bounded), `records_request`, `resubmit_with_attachment`, `reprocessing_request`, `request_835` (all 1), `cob_order_change` (2) | reconsideration notes (t2) | `paid_30d` | `approve_action` grouped by `payer × item_type` | yes |
-| **Appeals** | Router `formal_appeal` (Ito CO-50·N10, Morris CO-29), appeal window T-14 d | all claim reads | none: `formal_appeal` is tier 3, so the agent prepares only | appeal letter (Opus) with attestation placeholders it never fills | overturned (Cash only) | `review_draft`, tier 3, assigned to the rendering dentist with an ERISA authorization checklist | drafting only |
+| **Appeals** | Router `formal_appeal` (Ito CO-50·N10, Morris CO-29), appeal window T-14 d | all claim reads | none: `formal_appeal` is tier 3, so the agent prepares only | appeal letter (Opus) with attestation placeholders it never fills | overturned (Cash only) | `review_draft`, tier 3, signed by the treating dentist (`moves.signer`: the claim's rendering provider; the owner may approve in their place) with an ERISA authorization checklist | drafting only |
 | **Posting** | `era.arrived`, `paper_eob.received`, unmatched deposit | remittance, history, coverage | `post_era_line` (2, owner-signed "balanced & patient resp matches tracked benefits"), `patient_transfer` (2), `mechanical_refund` (2, ≤ $100 to original tender), `request_835` (1), `reprocessing_request` (1) | internal variance notes | `balanced` | `variance` (Foster PR-1), `approve_action` (paper check #208841) | no |
 
 **May not.**
@@ -96,7 +96,7 @@ All three are pinned in `04-seed.md` as pending claims with no open item, so the
 - `investigate` streams the reads the model chose ("read portal correspondence 10/22", "pms_get_visit 2019-03-02 · D7140 #14").
 - `decide` shows the model's label ("payer asks for missing-tooth history"), its rationale, and the verdict ("records request · Ask Dana → inbox").
 - No thinking text is shown, because `between_tools` rejects `display`. The visible reasoning is the chosen reads plus the rationale.
-- Deterministic mode replays the reviewed plan recorded from a live run (`planner=recorded_plan`, labeled "recorded agent plan").
+- Deterministic mode replays a plan written by hand in the live format (`planner=recorded_plan`, labeled "hand-written plan, replayed"); its cassette is marked `synthetic: true` until a live recording replaces it.
 - Both modes end with exactly one open InboxItem on the claim.
 
 ---
@@ -180,7 +180,7 @@ for turn in 1..max_turns (8):
 Rules of the loop:
 - **One plan per run.** If an executed `payer_rep_call` or `status_check` changes the picture, the transcript becomes evidence and a new triage run (`parent_run_id`) is enqueued.
 - **Budget.** Each run is capped at `TORCH_RUN_TOKEN_BUDGET=60000` total tokens (input + cache + output) and `TORCH_RUN_COST_CAP_USD=0.25`, checked before every call.
-- **Validation.** Strict mode guarantees the shape. Pydantic then checks the semantics: ids exist in the case, evidence ids exist in the run, the action is in the catalog, and params match the world. One repair turn (`is_error` with the error list), then the labeled fallback (§9).
+- **Validation.** Strict mode guarantees the shape of `submit_plan` and `submit_draft`; read inputs are parsed by Pydantic models with `extra="forbid"`. Pydantic then checks the semantics: ids exist in the case, evidence ids exist in the run, the action is in the catalog, and params match the world. One repair turn (`is_error` with the error list), then the labeled fallback (§9).
 
 ### 3.4 Retries
 
@@ -190,20 +190,21 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
 
 ### 3.5 Core tool schemas (model-facing)
 
-- Every tool is `strict: true` with `additionalProperties: false`.
+- `submit_plan` and `submit_draft` are `strict: true`; reads and `submit_result` are not (ADR-0010). A request carries at most one strict tool: `submit_plan` alone sits near the API's compiled-grammar ceiling, and adding any other enum-bearing strict tool returns 400 "compiled grammar is too large" although the counts below are within limits. Read inputs go through Pydantic (`extra="forbid"`) and the scope check, so a malformed read gets `is_error`.
+- Every schema, strict or not, has `additionalProperties: false` on every object.
 - All properties are required, nullable where optional. This is our choice, not an API rule.
-- API limits: ≤ 20 strict tools (followup's plan conversation uses 7), ≤ 24 optional params, ≤ 16 `anyOf` or type-array params (followup uses 4).
+- API limits: ≤ 20 strict tools (each request uses 1), ≤ 24 optional params, ≤ 16 `anyOf` or type-array params (followup uses 4), and an unpublished compiled-grammar size (above).
 - No numeric or length keywords; Pydantic enforces those.
 - **No ids, names or other PHI in `enum` or `const`**, because compiled grammars are cached outside PHI protections.
 
 ```json
 [
-{"name":"pms_get_visit","strict":true,
+{"name":"pms_get_visit",
  "description":"Read a completed visit from the practice management system: procedure lines, rendering provider, note signature, and the clinical note text (returned as untrusted world_content).",
  "input_schema":{"type":"object","additionalProperties":false,"required":["visit_id"],
    "properties":{"visit_id":{"type":"string","description":"Visit id from CASE FACTS"}}}},
 
-{"name":"pms_find_images","strict":true,
+{"name":"pms_find_images",
  "description":"List imaging records for the patient on or before a date. Returns image ids, kind as stored in the PMS, tooth, taken_at. An image may be mislabeled; compare kind to the payer rule.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["patient_id","on_or_before","kinds","tooth"],
    "properties":{"patient_id":{"type":"string"},
@@ -211,25 +212,25 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
      "kinds":{"type":"array","items":{"type":"string","enum":["pa","bwx","fmx","pano","perio_chart","intraoral_photo"]}},
      "tooth":{"type":["string","null"],"description":"Universal tooth number 1-32, or null for all"}}}},
 
-{"name":"pms_get_coverage","strict":true,
+{"name":"pms_get_coverage",
  "description":"Coverages on file (primary/secondary order from intake), tracked plan benefits including missing-tooth clause, verified_at and verified_via.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["patient_id"],
    "properties":{"patient_id":{"type":"string"}}}},
 
-{"name":"payer_rulebook_lookup","strict":true,
+{"name":"payer_rulebook_lookup",
  "description":"Torch's maintained rulebook for a payer (not a payer contact). Returns rule text and rule ids.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["payer_key","topic","cdt_codes"],
    "properties":{"payer_key":{"type":"string","enum":["delta_ny","metlife","cigna","aetna","guardian","ny_medicaid"]},
      "topic":{"type":"string","enum":["attachments","frequency","alternate_benefit","missing_tooth","cob","timely_filing","appeal","prompt_pay","medical_necessity"]},
      "cdt_codes":{"type":"array","items":{"type":"string"}}}}},
 
-{"name":"claim_get_history","strict":true,
+{"name":"claim_get_history",
  "description":"The claim's acks, remittance lines with CARC/RARC, attachments sent (source agent|user|pms_imaging), payer correspondence, prior EOBs, prior Torch runs.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["claim_id","include"],
    "properties":{"claim_id":{"type":"string"},
      "include":{"type":"array","items":{"type":"string","enum":["acks","remits","attachments","correspondence","prior_eobs","runs","payer_tooth_history"]}}}}},
 
-{"name":"era_get_remittance","strict":true,
+{"name":"era_get_remittance",
  "description":"A remittance (835 or scanned paper EOB) with lines, adjustments, and Torch's match and balance per line.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["remittance_id"],
    "properties":{"remittance_id":{"type":"string"}}}},
@@ -283,7 +284,7 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
           "evidence_ids":{"type":"array","items":{"type":"string"}}}}},
      "human_must_complete":{"type":"array","items":{"type":"string"}}}}},
 
-{"name":"submit_result","strict":true,
+{"name":"submit_result",
  "description":"Finish the run. Call alone. Explain the outcome for the reviewer.",
  "input_schema":{"type":"object","additionalProperties":false,"required":["outcome","recommendation","explanation","evidence_ids","injection_suspected"],
    "properties":{"outcome":{"type":"string","enum":["executed","sent_to_person","observed","no_action_needed","cannot_decide"]},
@@ -292,7 +293,7 @@ The SDK runs with `max_retries=0`, and `LlmClient` owns retries:
 ]
 ```
 
-`submit_plan`'s enum and union are generated per agent from the catalog, so each schema is static (followup's is shown). No schema has a confidence, tier, root-cause or amount field. `status_check` and `payer_rep_call` are actions, not reads, so Observe mode never contacts a payer.
+`submit_plan`'s enum and union are generated per agent from the catalog, so each schema is static (followup's is shown). No schema has a confidence, tier, root-cause or amount field. `status_check` and `payer_rep_call` are actions, not reads, and the one read that reaches a payer (`claim_get_history`'s `correspondence`) is withheld while any rule that could decide the run is on `observe`, so Observe mode never contacts a payer.
 
 ---
 
@@ -316,8 +317,8 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 ```
 
 **`unknown` keys.**
-- `RecordedPlanPlanner` loads `planner/recorded/<claim_id>.plan.json` if it exists. That is a plan recorded from a live run, reviewed by a person and committed (it exists for the three §2.1 cases). Its label reads "recorded agent plan".
-- If no fixture exists, the run ends `cannot_decide`, with one `run_failed` item: "Needs a person: Torch couldn't classify this".
+- `RecordedPlanPlanner` loads `planner/recorded/<claim_id>.plan.json` if it exists. That is a plan written by hand in the live wire format and committed (it exists for the three §2.1 cases; their cassettes are `synthetic: true`). Its label reads "hand-written plan, replayed".
+- If no fixture exists, the run ends `cannot_decide`, with one `run_failed` item: "Needs a person: TorchRCM couldn't classify this".
 
 **Templates.** Drafts and result text come from Jinja templates (`templates/<agent>/<situation>.<kind>.j2`). Slots are filled only from `CaseFile` and evidence. The output is the same segmented `Draft`, so the text guard runs on deterministic drafts too.
 
@@ -356,8 +357,8 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 | 1 | Action not in the agent's catalog; params fail validation; subject outside the run's scope; a demographic or amount param differs from its evidence value | **refuse** (step `failed`, guardrail logged; other actions continue) |
 | 2 | Tier 3, agent-started | **propose** to a role holder; never executes |
 | 3 | Tier 3, human-started by an actor with the role | **execute** |
-| 4 | Posting from a paper EOB | **propose** |
-| 5 | Classifier returned `unknown` (the model named the situation) | **propose**: never executes, whatever the rule says |
+| 4 | Posting from a paper EOB, unless the matching rule is `observe` (row 7) | **propose** |
+| 5 | Classifier returned `unknown` (the model named the situation), unless the matching rule is `observe` (row 7) | **propose**: never executes, whatever the rule says |
 | 6 | No matching rule | **propose** ("no rule") |
 | 7 | `mode=observe` | **observe**: run `would_have_run`, recipe steps `skipped` ("would have: upload PA to NEA") |
 | 8 | `mode=human_only` or `ask` | **propose** |
@@ -375,11 +376,13 @@ def pa_missing(case: CaseFile) -> ScriptedPlan:
 - No tier-3 rule leaves `human_only`.
 A violation raises `PolicyInvariantError` at boot and in the rules repository.
 
+**Observe opens no item.** Rows 4 and 5 yield to row 7 under an `observe` rule: Observe does nothing except record `would_have_run` runs, and that outranks sending the case to a person. Row 6 still proposes, because no rule is observing. The plan does not exist when the run reads, so the rule that will decide it is not known yet: a portal read is withheld if any rule that could decide this run (each of the agent's actions, matched on payer and item type) is on `observe`. The run says so on `investigate` ("portal correspondence not read · Observe mode"). The cost is that an unrelated action's `observe` rule costs a run its portal evidence, even if the run then proposes under another rule. `make eval` holds all of this with every rule on `observe`.
+
 **Approval runs** re-check rows 0, 1, 3, 7 and 14 at execution time (then row 15). Row 7 is re-checked because Observe mode does nothing: approving an item whose governing rule has since become `observe` records a `would_have_run` run, executes nothing, and marks the item `approval_outcome: would_have_run`. **"Propose"** creates or updates exactly one open InboxItem per `(claim_id, action)`.
 
 ### 5.2 Owner sign-off and rep-call bounds
 
-- **Sign-off.** A non-owner `PATCH /rules/{id}` on a tier-2 row returns `409 owner_signoff_required` and creates an `owner_signoff` item for Dr. Morgan. The item shows before → after and this week's preview. Her approval writes a `RuleChange{by: usr_morgan}` with `signed_by/signed_at`. Any later change to scope, cap or mode clears the signature and drops the row to `ask`. Tier-3 rows reject every PATCH (`403 human_only`, plus a DB check constraint).
+- **Sign-off.** A non-owner `PATCH /rules/{id}` on a tier-2 row returns `409 owner_signoff_required` and creates an `owner_signoff` item for Dr. Morgan. The item shows before → after and this week's preview. The request pins the rule's version and its `before` values, and her approval of a rule that has since changed is `409 signoff_stale`: she signs what she read, or Dana asks again. Her approval writes a `RuleChange{by: usr_morgan}` with `signed_by/signed_at`. Any later change to scope, cap or mode clears the signature and drops the row to `ask`. Tier-3 rows reject every PATCH (`403 human_only`, plus a DB check constraint).
 - **Rep calls.** The `payer.call_rep` adapter receives the plan's `asks` and a hard `may_agree_to = {reprocessing, send_records, resubmit, confirm_status, send_835}`. If the simulated rep offers anything else (refund offset, recoupment, "write it off and rebill"), the **adapter** answers "I'll need to confirm with the practice" and returns `requires_human=true`, which produces an `approve_action` quoting the offer. Call references (`DD-1027-88412`) and transcripts become `rep_call` and `ivr_transcript` evidence.
 
 ### 5.3 Text guard
@@ -684,7 +687,7 @@ class AgentConfig(BaseSettings):
 |---|---|
 | Policy (`test_policy.py`) | one case per table row; rule specificity; invariant asserts raise at load |
 | Request builder (`test_profiles.py`) | per-profile snapshot: never `temperature/top_p/top_k`; `between_tools` has no `display`; Sonnet and Opus use `auto`, Haiku is forced; top-level `cache_control` + one system breakpoint |
-| Schemas (`test_schemas.py`) | JSON generated from Pydantic (snapshot); strict lint: `additionalProperties:false`, no numeric/length keywords, ≤ 20 strict tools, ≤ 16 union params, no `enum`/`const` value that matches a seeded id or name |
+| Schemas (`test_schemas.py`) | JSON generated from Pydantic (snapshot); strict lint: `additionalProperties:false`, no numeric/length keywords, one strict tool per request and `submit_plan`/`submit_draft` strict, ≤ 16 union params, no `enum`/`const` value that matches a seeded id or name |
 | Loop (`test_loop.py`, fake transport) | terminal tool sent with reads → `is_error` + repair → fallback; `end_turn` nudge; budget stop |
 | Guards, learning | text guard (unsourced number, attestation, other patient's id); injection detector; rep bounds; `proposal_eligible` edges (19/20, 89.9%, 84.9%, one reversal); edits not counted; `ours` guarded |
 | Contract (`tests/contract/`) | every ToolSpec against the canonical world: output validates, produces its evidence kind, a repeat key is a no-op, an out-of-scope subject is refused |
@@ -703,7 +706,7 @@ class AgentConfig(BaseSettings):
 3. **Live mode is for claims, followup and appeals drafting.** Eligibility and posting stay scripted. Posting variance is the next live candidate.
 4. **Static model profiles, no sampling parameters, no thinking text in the UI** (`between_tools` rejects `display`). The chosen reads and the rationale are the visible reasoning.
 5. **One plan per run.** New payer information spawns a child triage run instead of a second round.
-6. **Payer contact is an action**, so Observe mode never calls a payer.
+6. **Payer contact is rule-governed**, so Observe mode never calls a payer: status checks and rep calls are actions, and a portal read is withheld while a rule that could decide the run is on `observe`.
 7. **Labeled scripted fallback** instead of a failed run when the model misbehaves or the API is down.
 8. **Mechanical fields are not agent text.** This keeps the Owens resubmit and the Webb inquiry tier 1.
 9. **`clock/advance` is async with per-event barriers.** Causality wins over speed. Live runs per advance are capped.

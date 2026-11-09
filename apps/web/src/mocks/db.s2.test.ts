@@ -32,7 +32,8 @@ function invariants(db: MockDb) {
     const group = claims.filter((c) => c.status === s)
     expect(strip.tiles.find((t) => t.status === s)).toMatchObject({ count: group.length, cents: s === 'paid' ? strip.paid_month_cents : group.reduce((a, c) => a + c.billed_cents, 0) })
   }
-  expect(strip.inbox_open).toBe(db.inbox({}).items.length)
+  expect(strip.inbox_open + strip.inbox_waiting.reduce((a, w) => a + w.count, 0)).toBe(db.inbox({}).items.length)
+  expect(db.inbox({}).actionable).toBe(strip.inbox_open)
   expect(strip.ar_cents).toBe(strip.tiles.filter((t) => !['ready', 'paid'].includes(t.status)).reduce((a, t) => a + t.cents, 0))
 }
 
@@ -53,7 +54,7 @@ describe('mock Settings › Agents', () => {
     expect(db.rules().tiers.map((t) => t.rows.length)).toEqual([9, 7, 3])
     const a = db.activity({})
     expect(a.by_tier).toEqual({ '1': { ran: 29, to_dana: 5 }, '2': { ran: 12, to_dana: 3 }, '3': { ran: 0, to_dana: 1 }, none: { ran: 0, to_dana: 3 } })
-    expect(a.summary).toMatchObject({ ran_without_you: 41, awaiting_you: 12, decisions: 53 })
+    expect(a.summary).toMatchObject({ ran_without_you: 41, awaiting_you: 11, decisions: 53 }) // = the badge
   })
 
   it('demo step 6: the Delta missing-PA rule at “Runs without review” previews 41 → 44 of 54, the ours guard holding 3', () => {
@@ -79,7 +80,7 @@ describe('mock Settings › Agents', () => {
     const e = err(() => db.patchRule('rule_t2_post_era', { mode: 'ask' }, 'usr_dana'))
     expect(e.status).toBe(409)
     expect(e.code).toBe('owner_signoff_required')
-    expect(db.strip(undefined, 'usr_dana').inbox_open).toBe(12)
+    expect(db.strip(undefined, 'usr_dana').inbox_open).toBe(11)
     expect(db.strip(undefined, 'usr_morgan').inbox_open).toBe(13)
     expect(db.rules().tiers[1]?.rows.find((r) => r.rule.id === 'rule_t2_post_era')?.rule.mode).toBe('auto') // unchanged
     const res = db.patchRule('rule_t2_post_era', { mode: 'ask' }, 'usr_morgan')
@@ -167,7 +168,7 @@ describe('mock static screens at Wed 10:40', () => {
 describe('mock demo step 8: skip to Thu 07:10', () => {
   it('plays the overnight: Owens group leaves 11:15 (stays denied, in flight), four denials, six paid, Inbox 17, Denied 9', () => {
     const { db, drain } = throughStep3b()
-    expect(db.strip().inbox_open).toBe(10)
+    expect(db.strip().inbox_open).toBe(9)
     expect(db.cash('usr_morgan').kpis.find((k) => k.key === 'insurance_collections_month')).toMatchObject({ value: 6_130_000, basis: '118 claims paid' })
     const { advance_id } = db.advanceClock(THURSDAY_0710, 'usr_morgan')
     expect(err(() => db.advanceClock(THURSDAY_0710, 'usr_morgan')).code).toBe('advance_in_progress')
@@ -191,26 +192,43 @@ describe('mock demo step 8: skip to Thu 07:10', () => {
     expect(db.cash('usr_morgan').kpis.find((k) => k.key === 'collections_month')?.value).toBe(6_474_646 + 2_564_000)
     expect(strip.tiles.map((t) => `${t.status} ${t.count}`)).toEqual(['ready 3', 'sent 1', 'rejected 1', 'accepted 8', 'pending 71', 'denied 9', 'partial 5', 'paid 124', 'appealed 3'])
     expect(strip.nav_badges).toEqual({ payments: 7, eligibility: 3, activity: 41 })
-    expect(strip.inbox_open).toBe(17)
-    // 10 after step 3b + the four overnight denials + the three status-check proposals; no built or held-ERA items
+    // A queue of 17: 10 after step 3b + the four overnight denials + the three status-check proposals; no built or
+    // held-ERA items. Three of them wait on their signer: Diaz on Dr. Morgan (owner), and the Ito and Morris appeals
+    // on Dr. Lee, who treated both. So 14 need Dana.
+    expect(strip.inbox_open).toBe(14)
+    expect(strip.inbox_waiting.map((w) => [w.label, w.count, w.signer_ids])).toEqual([['Dr. Morgan', 1, ['usr_morgan']], ['Dr. Lee', 2, ['usr_lee']]])
     expect(
       db
         .inbox({})
         .items.map((i) => i.id)
-        .filter((id) => !id.startsWith('inb_elig_'))
+        .filter((id) => !id.startsWith('itm_elig_'))
         .sort(),
-    ).toEqual(['inb_3561', 'inb_4611', 'inb_4690', 'inb_4705', 'inb_4733', 'inb_4744', 'inb_4748', 'inb_4760', 'inb_4764', 'inb_4772', 'inb_4796', 'inb_4797', 'inb_4800', 'inb_4851'])
-    expect(db.inbox({}).items.find((i) => i.id === 'inb_4690')).toMatchObject({ agent: 'followup', tier: 1, proposed_action: { action: 'status_check' }, rule_id: 'rule_t1_status_check' })
-    expect(db.inbox({}).items.find((i) => i.id === 'inb_4800')).toMatchObject({ tier: 2, rule_id: null })
-    expect(db.inbox({}).items.find((i) => i.id === 'inb_4797')).toMatchObject({ tier: 1, root_cause: 'ours' })
+    ).toEqual(['itm_3561', 'itm_4611', 'itm_4690', 'itm_4705', 'itm_4733', 'itm_4744', 'itm_4748', 'itm_4760', 'itm_4764', 'itm_4772', 'itm_4796', 'itm_4797', 'itm_4800', 'itm_4851'])
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4690')).toMatchObject({ agent: 'followup', tier: 1, proposed_action: { action: 'status_check' }, rule_id: 'rule_t1_status_check' })
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4800')).toMatchObject({ tier: 2, rule_id: null })
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4797')).toMatchObject({ tier: 1, root_cause: 'ours' })
     for (const id of ['clm_4821', 'clm_4836', 'clm_4840']) {
-      const c = db.claim(id)
+      const { claim: c } = db.claim(id)
       expect(c.status).toBe('denied')
       expect(c.in_flight).toContain('11:15')
     }
     const denials = db.denials('usr_dana')
     const ito = denials.groups.find((g) => g.next_action === 'formal_appeal')?.rows.find((r) => r.claim.number === 4796)
     expect(ito).toMatchObject({ signer: 'Dr. Lee', erisa: true, checklist: ['rendering dentist signs the attestation', 'patient authorization required (ERISA)'] })
+    // rt-signer: one signer per item on every screen (the API's tests/test_signer.py)
+    const lee = db.inbox({}, 'usr_lee')
+    for (const id of ['itm_4796', 'itm_3561']) {
+      const item = db.inbox({}).items.find((i) => i.id === id)
+      expect(item).toMatchObject({ signer_user_id: 'usr_lee', signer_note: "A formal appeal goes out over the treating dentist's signature, so Dr. Lee signs this." })
+      expect(item?.claim?.move).toMatchObject({ label: 'Dr. Lee signs', holder_user_id: 'usr_lee' })
+      const row = denials.groups.flatMap((g) => g.rows).find((r) => r.claim.id === item?.claim?.id)
+      expect(row?.signer).toBe('Dr. Lee')
+      expect(lee.items.some((i) => i.id === id && i.signer_note === null)).toBe(true)
+      expect(() => db.approve(id, 'usr_dana')).toThrow(/Dr. Lee signs this one/)
+    }
+    expect(db.strip(undefined, 'usr_morgan').inbox_waiting.map((w) => [w.label, w.count])).toEqual([['Dr. Lee', 2]])
+    // rt-signer: Castillo shows its own situation's record, never the records-request rule's 91 of 97
+    expect(db.inbox({}).items.find((i) => i.id === 'itm_4797')?.confidence).toMatchObject({ pct: 86, k: 6, n: 7, basis: '6 of 7 paid within 30 days' })
     expect(denials.in_flight.map((c) => c.number).sort()).toEqual([4821, 4836, 4840])
     expect(db.ledger()).toMatchObject({ date: '2026-10-29', sent: [], leaving_next_file: [] })
     invariants(db)

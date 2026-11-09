@@ -130,7 +130,7 @@ def fake_case(agent: str = "followup", situation: str = "denied:CO-16:N29:pa_mis
     return CaseFile(
         run_id="run_test",
         practice_id="prc_test",
-        agent=agent,  # type: ignore[arg-type]
+        agent=agent,
         subject=Subject(kind="claim", id="clm_9001"),
         now=NOW,
         claim=claim,

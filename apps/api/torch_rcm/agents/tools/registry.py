@@ -15,6 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from torch_rcm.agents.guardrails import looks_like_injection
+from torch_rcm.agents.policy import observing_rule
 from torch_rcm.agents.ports import WorldPort
 from torch_rcm.agents.tools.schemas import AGENT_READS
 from torch_rcm.agents.types import AgentKind, CaseFile, EvidenceCandidate, Frozen, JsonValue, PayerKey
@@ -150,14 +151,26 @@ class ToolRegistry:
         problems = self.scope_errors(case, name, args)
         if problems:
             return ToolOutcome(ok=False, error="; ".join(problems))
+        withheld = self._withheld(case, args)
+        if withheld and isinstance(args, HistoryArgs):
+            args = args.model_copy(update={"include": [i for i in args.include if i != "correspondence"]})
         payload: dict[str, JsonValue] = args.model_dump(mode="json")
         result = self.world.read(tool.op, payload, run_id=run_id)
         return ToolOutcome(
             ok=True,
-            data=result.data,
+            data={**result.data, "correspondence_withheld": withheld} if withheld else result.data,
             evidence=result.evidence,
-            progress_line=tool.describe(payload, result.evidence),
+            progress_line=withheld or tool.describe(payload, result.evidence),
         )
+
+    @staticmethod
+    def _withheld(case: CaseFile, args: BaseModel) -> str | None:
+        """Observe never talks to a payer: the reason a portal read is not made, or None when it may be."""
+        if not isinstance(args, HistoryArgs) or "correspondence" not in args.include:
+            return None
+        payer_key = case.claim.payer_key if case.claim else (case.payer.key if case.payer else None)
+        rule = observing_rule(case.rules_snapshot, case.agent, payer_key, case.item_type)
+        return f"portal correspondence not read · Observe mode · rule {rule.label}" if rule else None
 
 
 def candidate_is_suspicious(c: EvidenceCandidate) -> bool:

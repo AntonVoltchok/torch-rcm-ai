@@ -93,7 +93,7 @@ Status-check cadence: **day 30** from send, then every 15 days.
 ## Invariants (write tests for these)
 
 - Σ `RemitLine.paid + adj + patient` = `billed` per line.
-- Strip counts = `GROUP BY status` of claims; inbox badge = count of open items; Activity "awaiting you" = same number.
+- Strip counts = `GROUP BY status` of claims; inbox badge = count of the viewer's open items they can act on (`inbox_open`); the rest of their queue is `inbox_waiting`, by who signs; Activity "awaiting you" = the badge.
 - `needs_action` is true iff an open InboxItem references the claim.
 - A Run with `status=would_have_run` exists iff the governing rule was in `observe`.
 - No Rule with `action ∈ Tier3Actions` has `mode ≠ human_only`.

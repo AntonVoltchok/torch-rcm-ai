@@ -281,6 +281,16 @@ class Role(StrEnum):
     FRONT_DESK = "front_desk"
 
 
+class MoveWho(StrEnum):
+    """Whose move a claim is waiting on (D1's baton). `practice` covers every person at the practice; the holder
+    fields on `ClaimMove` say which one, so the web can say "You" or name them."""
+
+    PRACTICE = "practice"
+    AGENTS = "agents"
+    PAYER = "payer"
+    NOBODY = "nobody"
+
+
 class ContactPref(StrEnum):
     TEXT = "text"
     EMAIL = "email"

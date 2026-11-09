@@ -2,6 +2,10 @@
 
 Uses pydantic-settings when installed (declared in pyproject.toml); falls back to reading the environment with
 the same field names so pure code and its tests run without it.
+
+The repo-root `.env` is loaded into the process environment by `load_env_file()` (from `get_settings()` and
+`AgentConfig.from_env()`), so `make api` (run from apps/api) and the `torch` CLI read the same file. Variables
+already set win. `TORCH_DOTENV=0` skips it; the test suite sets it so a developer's key never reaches a test.
 """
 
 from __future__ import annotations
@@ -9,6 +13,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -25,7 +30,7 @@ except ImportError:  # pragma: no cover
 
 class Settings(BaseSettings):  # type: ignore[misc,valid-type]
     if _HAVE_SETTINGS:
-        model_config = SettingsConfigDict(env_prefix="TORCH_", env_file=".env", extra="ignore")
+        model_config = SettingsConfigDict(env_prefix="TORCH_", extra="ignore")
 
     agent_mode: Literal["deterministic", "live"] = "deterministic"
     clock_start: datetime = datetime.fromisoformat("2026-10-28T10:40:00-04:00")
@@ -59,6 +64,26 @@ def _from_env() -> Settings:
     return Settings.model_validate(values)
 
 
+def _repo_env_file() -> Path | None:
+    """`<repo>/.env` from `<repo>/apps/api/torch_rcm/config.py`; None where the tree is flatter (the image)."""
+    parents = Path(__file__).resolve().parents
+    return parents[3] / ".env" if len(parents) > 3 else None
+
+
+def load_env_file(path: Path | None = None) -> bool:
+    """Load `.env` into `os.environ` without overriding what is set. True when a file was read."""
+    if os.environ.get("TORCH_DOTENV") == "0":
+        return False
+    path = path or _repo_env_file()
+    if path is None or not path.is_file():
+        return False
+    from dotenv import load_dotenv
+
+    load_dotenv(path, override=False)
+    return True
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    load_env_file()
     return _from_env()

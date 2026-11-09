@@ -42,6 +42,7 @@ from torch_rcm.agents.types import (
     PayerView,
     PriorProcedureView,
     Provenance,
+    RootCause,
     RuleScope,
     RuleView,
 )
@@ -343,7 +344,7 @@ class SimWorld:
         if op == "era.get_remittance":
             remit = self.store.require(Remittance, _s(args, "remittance_id"))
             return WorldRead(
-                data={"remittance": cast(JsonValue, _j(remit.model_dump(mode="json")))},
+                data={"remittance": _j(remit.model_dump(mode="json"))},
                 evidence=tuple(self._era_evidence(remit, None)),
             )
         raise ValueError(f"unknown read op {op}")
@@ -438,10 +439,13 @@ class SimWorld:
             data["payer_tooth_history"] = cast(JsonValue, dict(pc.tooth_history) if pc else {})
         if "runs" in include:
             from torch_rcm.domain.entities import Run
+            from torch_rcm.domain.enums import ACTIVE_RUN_STATUSES
 
+            # finished runs only: the run doing the reading (and any other still in flight) has no result yet
             data["runs"] = [
                 f"{r.started_at:%m/%d} {r.agent.value} · {r.result_summary}"
                 for r in self.store.find(Run, {"claim_id": claim.id}, order_by="started_at")
+                if r.id != run_id and r.status not in ACTIVE_RUN_STATUSES
             ]
         if "prior_eobs" in include:
             rows = self.store.find(EvidenceRow, {"claim_id": claim.id})
@@ -891,7 +895,7 @@ class StoreDomain:
             patient_id=c.patient_id,
             visit_id=c.visit_id or "",
             coverage_id=c.coverage_id,
-            payer_key=cast(PayerKey, c.payer_key.value),
+            payer_key=c.payer_key.value,
             status=c.status.value,
             dos=c.dos,
             billed_cents=c.billed_cents,
@@ -922,7 +926,7 @@ class StoreDomain:
             location_id=c.location_id,
         )
 
-    def stored_root_cause(self, claim_id: str) -> str | None:
+    def stored_root_cause(self, claim_id: str) -> RootCause | None:
         c = self.claim_entity(claim_id)
         return c.denial.root_cause.value if c.denial else None
 
@@ -935,7 +939,7 @@ class StoreDomain:
             CoverageView(
                 id=c.id,
                 patient_id=c.patient_id,
-                payer_key=cast(PayerKey, c.payer_key.value),
+                payer_key=c.payer_key.value,
                 order=cast(Any, c.order.value),
                 subscriber_id=c.subscriber_id,
                 group_no=c.group_no,
@@ -1134,7 +1138,7 @@ def rule_view(r: Rule) -> RuleView:
         action=r.action.value,
         label=r.label,
         scope=RuleScope(
-            payer_key=cast(PayerKey | None, r.scope.payer_key.value if r.scope.payer_key else None),
+            payer_key=r.scope.payer_key.value if r.scope.payer_key else None,
             item_type=r.scope.item_type,
             max_cents=r.scope.max_cents,
         ),
@@ -1146,5 +1150,6 @@ def rule_view(r: Rule) -> RuleView:
         signed_by=r.signed_by,
         signed_at=r.signed_at,
         base_rate=BaseRate(n=r.base_rate.n, k=r.base_rate.k),
+        situation_rates={key: BaseRate(n=v.n, k=v.k) for key, v in r.situation_rates.items()},
         covers_agent_text=r.action.value == "send_claim_agent_text",
     )

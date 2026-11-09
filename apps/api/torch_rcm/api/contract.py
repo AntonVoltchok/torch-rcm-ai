@@ -43,6 +43,7 @@ class Route:
     sse: bool = False
     response_list: bool = False
     idempotent: bool = False  # reads `Idempotency-Key` (services/idempotency.py)
+    body_optional: bool = False  # the body may be omitted (`{edits?}`, `{agent?}`, `{scenario?}`)
 
 
 STR = {"type": "string"}
@@ -52,6 +53,7 @@ DATE = {"type": "string", "format": "date"}
 DT = {"type": "string", "format": "date-time"}
 STATUSES = {"type": "array", "items": {"type": "string", "enum": [s.value for s in ClaimStatus]}}
 LOC = Param("location_id", STR)
+LAST_EVENT_ID = Param("Last-Event-ID", STR, location="header")
 
 ROUTES: tuple[Route, ...] = (
     Route("GET", "/clock", "clock", "Sim clock", S.ClockOut),
@@ -59,12 +61,11 @@ ROUTES: tuple[Route, ...] = (
         "POST",
         "/clock/advance",
         "clock",
-        "Advance the sim clock (async: 202 + advance_id; ?wait=true awaits)",
+        "Advance the sim clock (async: 202 + advance_id)",
         S.AdvanceAccepted,
         202,
         S.AdvanceIn,
-        (Param("wait", BOOL),),
-        (409, 422),
+        errors=(409, 422),
     ),
     Route(
         "GET",
@@ -100,6 +101,7 @@ ROUTES: tuple[Route, ...] = (
         S.ApproveIn,
         errors=(403, 404, 409, 422),
         idempotent=True,
+        body_optional=True,
     ),
     Route(
         "POST",
@@ -214,6 +216,7 @@ ROUTES: tuple[Route, ...] = (
         202,
         S.TriageIn,
         errors=(403, 404, 409),
+        body_optional=True,
     ),
     Route(
         "GET",
@@ -246,10 +249,19 @@ ROUTES: tuple[Route, ...] = (
         "runs",
         "SSE firehose: run status, advance progress, agents pause",
         None,
+        params=(LAST_EVENT_ID,),
         sse=True,
     ),
     Route("GET", "/runs/{run_id}", "runs", "Run with steps and evidence", S.RunDetail, errors=(404,)),
-    Route("GET", "/runs/{run_id}/events", "runs", "SSE for one run (Last-Event-ID replay)", None, sse=True),
+    Route(
+        "GET",
+        "/runs/{run_id}/events",
+        "runs",
+        "SSE for one run (Last-Event-ID replay)",
+        None,
+        params=(LAST_EVENT_ID,),
+        sse=True,
+    ),
     Route("POST", "/runs/{run_id}:cancel", "runs", "Cancel a queued run", Run, errors=(404, 409)),
     Route("GET", "/agents/status", "agents", "Agents status", S.AgentsStatus),
     Route("POST", "/agents:pause", "agents", "Pause agents (owner)", S.AgentsStatus, errors=(403,)),
@@ -343,6 +355,7 @@ ROUTES: tuple[Route, ...] = (
         S.ReseedOut,
         body=S.ReseedIn,
         errors=(409, 422),
+        body_optional=True,
     ),
     Route(
         "GET",
@@ -397,7 +410,10 @@ def _operation(route: Route) -> dict[str, Any]:
         params.append(Param("Idempotency-Key", STR, False, "header"))
     op["parameters"] = [{"name": p.name, "in": p.location, "required": p.required, "schema": p.schema} for p in params]
     if route.body is not None:
-        op["requestBody"] = {"required": True, "content": {"application/json": {"schema": _ref(route.body)}}}
+        op["requestBody"] = {
+            "required": not route.body_optional,
+            "content": {"application/json": {"schema": _ref(route.body)}},
+        }
     if route.sse:
         content: dict[str, Any] = {"text/event-stream": {"schema": STR}}
     elif route.response is None:
@@ -423,7 +439,7 @@ def table_document() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
         "info": {
-            "title": "Torch API",
+            "title": "TorchRCM API",
             "version": "0.1.0",
             "description": "Generated from torch_rcm/api/contract.py (FastAPI's document supersedes it wherever FastAPI is installed).",
         },

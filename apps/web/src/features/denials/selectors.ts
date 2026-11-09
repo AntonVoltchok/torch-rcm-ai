@@ -1,5 +1,5 @@
 /** Denials worklist view logic over GET /denials (rows already routed by the server's route_denial). */
-import type { DenialRow, NextAction, PayerKey, Tier } from '@/api/schema'
+import type { DenialRow, DenialsOut, NextAction, Tier } from '@/api/schema'
 
 /** The path chip and its tier: reconsideration is a portal action without a signature; a formal appeal commits the practice. */
 export const PATH: Record<NextAction, { label: string; tier: Tier }> = {
@@ -10,8 +10,9 @@ export const PATH: Record<NextAction, { label: string; tier: Tier }> = {
   write_off: { label: 'Write off', tier: 3 },
 }
 
-/** Path tier, raised where the row's own facts raise it: agent-written inquiry text is tier 2. */
+/** Path tier, raised where the row's own facts raise it: a signature is tier 3, agent-written inquiry text is tier 2. */
 export function pathTier(r: DenialRow): Tier {
+  if (r.signer) return 3
   const base = PATH[r.next_action].tier
   return r.next_action === 'reconsideration' && r.carc === 'CO-119' ? 2 : base
 }
@@ -29,47 +30,30 @@ export function ifWeLose(r: DenialRow): string {
 export function deadlineLabel(r: DenialRow, today: string): { text: string; days: number | null } {
   const d = r.deadline
   if (d.kind === 'none' || !d.due_on) return { text: d.basis || 'no deadline', days: null }
-  const days = Math.round((Date.parse(`${d.due_on}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000)
+  const days = daysUntil(d.due_on, today)
   return { text: `${d.kind === 'timely_filing' ? 'timely' : 'appeal'} · ${days} d`, days }
 }
 
-/** Reason classes for the payer × reason matrix; plan limits (max met, alternate benefit) are not denials of care. */
-export const REASONS = ['Doc', 'Freq', 'COB', 'TF', 'Med. nec.', 'Other'] as const
-export type ReasonClass = (typeof REASONS)[number] | 'plan_limit'
-export function reasonClass(carc: string): ReasonClass {
-  if (carc === 'CO-16') return 'Doc'
-  if (carc === 'CO-119') return 'Freq'
-  if (carc === 'CO-22') return 'COB'
-  if (carc === 'CO-29') return 'TF'
-  if (carc === 'CO-50') return 'Med. nec.'
-  if (carc.startsWith('PR-')) return 'plan_limit'
-  return 'Other'
+/** Whole days from the practice's today to a due date, both read at noon UTC so no timezone moves a day. */
+export function daysUntil(dueOn: string, today: string): number {
+  return Math.round((Date.parse(`${dueOn}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000)
 }
 
-export interface Matrix {
-  payers: { key: PayerKey; name: string; cells: Record<string, number>; total: number }[]
-  totals: Record<string, number>
-  total: number
-  excluded: number
+/** The deadline's verb from its kind: an appeal window, or the payer's filing limit for a corrected claim. */
+export function deadlineVerb(kind: DenialRow['deadline']['kind']): string {
+  return kind === 'appeal' ? 'Appeal by' : kind === 'timely_filing' ? 'File by' : 'Deadline'
 }
 
-/** Counts of the worklist's rows by payer × reason (a selector over server rows, never a stored count). */
-export function payerReasonMatrix(rows: DenialRow[]): Matrix {
-  const by = new Map<PayerKey, { key: PayerKey; name: string; cells: Record<string, number>; total: number }>()
-  const totals: Record<string, number> = {}
-  let excluded = 0
-  for (const r of rows) {
-    const cls = reasonClass(r.carc)
-    if (cls === 'plan_limit') {
-      excluded++
-      continue
-    }
-    const p = by.get(r.claim.payer.key) ?? { key: r.claim.payer.key, name: r.claim.payer.short_name, cells: {}, total: 0 }
-    p.cells[cls] = (p.cells[cls] ?? 0) + 1
-    p.total++
-    totals[cls] = (totals[cls] ?? 0) + 1
-    by.set(r.claim.payer.key, p)
-  }
-  const payers = [...by.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
-  return { payers, totals, total: payers.reduce((a, p) => a + p.total, 0), excluded }
+/** A row's place on the worklist: server group order, then soonest deadline, then claim number. */
+export function sortedRows(rows: readonly DenialRow[]): DenialRow[] {
+  const due = (r: DenialRow) => r.deadline.due_on ?? '9999-12-31'
+  return [...rows].sort((a, b) => due(a).localeCompare(due(b)) || a.claim.number - b.claim.number)
 }
+
+/** The worklist in screen order (the claim page's "Next denial" follows it). */
+export function worklistOrder(d: DenialsOut): DenialRow[] {
+  return d.groups.flatMap((g) => sortedRows(g.rows))
+}
+
+/** "Patient cannot be billed (CO)" etc.: the 835 group code decides who can be billed. */
+export const isPatientResp = (carc: string) => carc.startsWith('PR-')

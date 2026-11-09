@@ -15,20 +15,26 @@ const snapshot: RunDetail = {
   agent: 'followup',
   trigger: 'approval',
   claim_id: 'clm_4821',
-  inbox_item_id: 'inb_4821',
+  inbox_item_id: 'itm_4821',
+  idempotency_key: 'approve:itm_4821',
   status: 'queued',
   planner: 'scripted',
+  started_at: '2026-10-28T10:40:00-04:00',
   steps: [
-    { idx: 0, name: 'fetch_pa_from_pms_imaging', status: 'pending', progress_lines: [], evidence_ids: [] },
-    { idx: 1, name: 'upload_to_nea', status: 'pending', progress_lines: [], evidence_ids: [] },
+    { idx: 0, name: 'fetch_pa_from_pms_imaging', label: '', status: 'pending', tool: '', input_summary: '', output_summary: '', progress_lines: [], evidence_ids: [] },
+    { idx: 1, name: 'upload_to_nea', label: '', status: 'pending', tool: '', input_summary: '', output_summary: '', progress_lines: [], evidence_ids: [] },
   ],
+  action_label: '',
+  result_summary: '',
+  audit_line: '',
+  outcome: '',
   },
   evidence: [],
   last_event_id: 0,
 }
 
 const frame = (id: number, event: string, data: unknown) => `id: ${id}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-const nea = { id: 'ev_nea', kind: 'nea_attachment', title: 'PA #30 uploaded', excerpt: 'NEA# 47731888', captured_at: '2026-10-28T10:40:00-04:00', reference: '47731888' }
+const nea = [{ id: 'ev_nea', kind: 'nea_attachment', title: 'PA #30 uploaded' }]
 
 // Deliberately out of order: step 0 completes before its `started` arrives; a replayed duplicate follows.
 const events = [
@@ -66,7 +72,7 @@ const launch: Launch = {
   id: 'run_t',
   kind: 'approve',
   title: 'Approve #4821',
-  runs: [{ run_id: 'run_t', claim_id: 'clm_4821', item_id: 'inb_4821', label: '#4821 K. Owens' }],
+  runs: [{ run_id: 'run_t', claim_id: 'clm_4821', item_id: 'itm_4821', label: '#4821 K. Owens' }],
   started_at: '2026-10-28T10:40:00-04:00',
 }
 
@@ -79,7 +85,7 @@ describe('ProgressPanel', () => {
     expect([...steps].map((s) => s.getAttribute('data-status'))).toEqual(['ok', 'ok'])
     expect(within(panel).getByText('PA #30 · PMS imaging')).toBeInTheDocument()
     expect(within(panel).getAllByText('NEA# 47731888').length).toBeGreaterThan(0)
-    expect(within(panel).getByText('Open claim #4821 →')).toHaveAttribute('href', '/claims/clm_4821?from=inbox%3Ainb_4821')
+    expect(within(panel).getByText('Open claim #4821 →')).toHaveAttribute('href', '/claims/clm_4821?from=inbox%3Aitm_4821')
     expect(lastEventIdSeen).toBe('0') // resubscribed from the snapshot's cursor
   })
 })

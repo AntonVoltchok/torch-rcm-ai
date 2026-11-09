@@ -3,7 +3,34 @@
  * groups them; these functions only arrange that for display and keyboard order. No counting:
  * group counts and cents are the server's.
  */
-import type { InboxGroup, InboxItem, InboxList } from '@/api/schema'
+import { z } from 'zod'
+import type { Evidence, InboxGroup, InboxItem, InboxList, InboxWaiting, InboxWaitingGroup, MoveWho } from '@/api/schema'
+
+const DraftPayload = z.object({
+  draft: z.object({
+    segments: z.array(z.object({ text: z.string(), evidence_ids: z.array(z.string()) })),
+    human_must_complete: z.array(z.string()).optional(),
+  }),
+})
+
+export interface Draft {
+  segments: { text: string; cites: string[] }[]
+  mustComplete: string[]
+}
+
+/** The agent's text from `payload.draft`, each sentence with the titles of the evidence it cites. */
+export function draftOf(payload: Record<string, unknown> | undefined, evidence: Evidence[]): Draft | null {
+  const parsed = DraftPayload.safeParse(payload)
+  if (!parsed.success) return null
+  const title = new Map(evidence.map((e) => [e.id, e.title]))
+  return {
+    segments: parsed.data.draft.segments.map((s) => ({ text: s.text, cites: s.evidence_ids.flatMap((id) => title.get(id) ?? []) })),
+    mustComplete: parsed.data.draft.human_must_complete ?? [],
+  }
+}
+
+/** The API sends `groups` only for `?group=true`; every list here asks for them, so absent means none. */
+export const inboxGroups = (list: InboxList): InboxGroup[] => list.groups ?? []
 
 export type Entry = { type: 'item'; item: InboxItem } | { type: 'group'; group: InboxGroup; members: InboxItem[] }
 
@@ -11,7 +38,7 @@ export type Entry = { type: 'item'; item: InboxItem } | { type: 'group'; group: 
 export function entries(list: InboxList): Entry[] {
   const byId = new Map(list.items.map((i) => [i.id, i]))
   const groupOf = new Map<string, InboxGroup>()
-  for (const g of list.groups) for (const id of g.item_ids) groupOf.set(id, g)
+  for (const g of inboxGroups(list)) for (const id of g.item_ids) groupOf.set(id, g)
   const seen = new Set<string>()
   const out: Entry[] = []
   for (const item of list.items) {
@@ -25,6 +52,26 @@ export function entries(list: InboxList): Entry[] {
     out.push({ type: 'group', group: g, members: g.item_ids.map((id) => byId.get(id)).filter((i): i is InboxItem => Boolean(i)) })
   }
   return out
+}
+
+/** Someone else signs it: the server sends `signer_note` only when the viewer cannot approve. */
+export const isBlocked = (item: InboxItem): boolean => item.signer_note !== null
+
+/** Approving starts a run, except an owner sign-off (the rule applies) and an eligibility flag (handed to the desk); the API's `_approve` branches the same way. */
+export const approveStartsRun = (item: InboxItem): boolean => item.kind !== 'owner_signoff' && item.kind !== 'eligibility_flag'
+
+/** "1 waiting on Dr. Morgan": the server's waiting rows (strip or list), in its order and words. */
+export const waitingLine = (rows: readonly InboxWaiting[]): string => rows.map((w) => `${w.count} waiting on ${w.label}`).join(' · ')
+
+/** The list's items under each server waiting row ("Waiting on Dr. Morgan"), in list order; the rest are the viewer's. */
+export function waitingSections(list: InboxList): { row: InboxWaitingGroup; items: InboxItem[] }[] {
+  return list.waiting.map((row) => ({ row, items: list.items.filter((i) => row.item_ids.includes(i.id)) }))
+}
+
+/** Where a group's baton lands: the members' own `lands` when they agree (they do for a batch), else no ghost. */
+export function groupLands(members: readonly InboxItem[]): MoveWho | null {
+  const first = members[0]?.lands ?? null
+  return members.every((m) => m.lands === first) ? first : null
 }
 
 export const groupRowId = (key: string) => `group:${key}`
@@ -53,7 +100,7 @@ export function nextSelection(order: readonly string[], removed: readonly string
 
 export function groupFor(list: InboxList | undefined, item: InboxItem | undefined): { group: InboxGroup; position: number } | null {
   if (!list || !item?.group_key) return null
-  const group = list.groups.find((g) => g.group_key === item.group_key)
+  const group = inboxGroups(list).find((g) => g.group_key === item.group_key)
   if (!group) return null
   return { group, position: group.item_ids.indexOf(item.id) + 1 }
 }
@@ -68,13 +115,22 @@ export function withoutItems(list: InboxList, ids: readonly string[]): InboxList
     items: list.items.filter((i) => !drop.has(i.id)),
     total: Math.max(0, list.total - removed.length),
     total_cents: Math.max(0, list.total_cents - removed.reduce((a, i) => a + i.cents, 0)),
-    groups: list.groups
+    actionable: Math.max(0, list.actionable - removed.filter((i) => !list.waiting.some((w) => w.item_ids.includes(i.id))).length),
+    waiting: list.waiting
+      .map((w) => {
+        const gone = w.item_ids.filter((id) => drop.has(id))
+        return { ...w, item_ids: w.item_ids.filter((id) => !drop.has(id)), count: w.count - gone.length, cents: w.cents - gone.reduce((a, id) => a + (removedCents.get(id) ?? 0), 0) }
+      })
+      .filter((w) => w.count > 0),
+    groups: inboxGroups(list)
       .map((g) => {
         const gone = g.item_ids.filter((id) => drop.has(id))
+        const count = g.count - gone.length
         return {
           ...g,
+          title: g.title.replace(/\(\d+\)$/, `(${count})`), // the API's title carries the count
           item_ids: g.item_ids.filter((id) => !drop.has(id)),
-          count: g.count - gone.length,
+          count,
           cents: g.cents - gone.reduce((a, id) => a + (removedCents.get(id) ?? 0), 0),
         }
       })

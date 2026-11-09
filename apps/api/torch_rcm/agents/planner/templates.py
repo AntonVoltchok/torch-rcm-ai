@@ -94,11 +94,11 @@ def render(case: CaseFile, agent: str, situation: str, kind: DraftKind, evidence
         segments.append(
             DraftSegment(
                 text=Template(text).substitute(values),
-                fact_type=fact_type,  # type: ignore[arg-type]
+                fact_type=fact_type,
                 evidence_ids=tuple(dict.fromkeys(cited)),
             )
         )
-    return Draft(kind=kind, audience=audience, segments=tuple(segments), human_must_complete=must, source="template")  # type: ignore[arg-type]
+    return Draft(kind=kind, audience=audience, segments=tuple(segments), human_must_complete=must, source="template")
 
 
 __all__ = ["EvidenceKind", "has_template", "render", "slots", "structured_facts", "template_path"]

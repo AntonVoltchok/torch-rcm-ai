@@ -2,7 +2,7 @@ import type { ReadinessCheck } from '@/api/schema'
 import { cn } from '@/lib/cn'
 
 const ICON = { pass: '✓', warn: '!', fail: '✕', na: '–' } as const
-const TONE = { pass: 'text-ok', warn: 'text-warn', fail: 'text-bad', na: 'text-soft' } as const
+const TONE = { pass: 'text-ok', warn: 'text-ink', fail: 'text-risk-ink', na: 'text-soft' } as const
 const LABEL: Record<ReadinessCheck['key'], string> = {
   note_signed: 'Note signed',
   procs_match_note: 'Procedures match note',
@@ -29,7 +29,7 @@ export function ReadinessChecklist({ checks }: { checks: ReadinessCheck[] }) {
           <span className={cn('w-3 flex-none text-center font-bold', TONE[c.status])} aria-label={c.status}>
             {ICON[c.status]}
           </span>
-          <span className="flex-none font-semibold">{LABEL[c.key]}</span>
+          <span className="flex-none font-medium">{LABEL[c.key]}</span>
           <span className="truncate text-mid">{c.detail}</span>
         </li>
       ))}

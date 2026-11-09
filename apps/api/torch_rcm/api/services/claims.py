@@ -18,7 +18,7 @@ from torch_rcm.api.schemas import (
     ViewList,
 )
 from torch_rcm.api.services.context import Ctx
-from torch_rcm.domain.entities import Claim, ClaimLine, Coverage, FileEntry, Run, SavedView
+from torch_rcm.domain.entities import Claim, ClaimLine, Coverage, FileEntry, Remittance, Run, SavedView
 from torch_rcm.domain.enums import (
     ACTIVE_RUN_STATUSES,
     AgentKind,
@@ -55,7 +55,7 @@ TIMELINE_PAGE = 100
 
 
 def list_claims(ctx: Ctx, q: ClaimQuery) -> ClaimList:
-    return query_claims(ctx.snapshot(), q)
+    return query_claims(ctx.snapshot(), q, ctx.user.id)
 
 
 def coverage_out(cov: Coverage) -> CoverageOut:
@@ -81,11 +81,14 @@ def coverage_out(cov: Coverage) -> CoverageOut:
     )
 
 
-def money(claim: Claim, coverage: Coverage, schedules: ScheduleBook) -> MoneyMath:
+def money(claim: Claim, coverage: Coverage, schedules: ScheduleBook, *, held_variance: bool = False) -> MoneyMath:
     """The header money math: billed, contract allowed, contractual, and paid/patient per the 835 — or, before
-    the 835, the estimate the checkout used (same adjudication function, no denial)."""
+    the 835, the estimate the checkout used (same adjudication function, no denial). A partial payment held as a
+    benefit variance (the 835 balances but disagrees with tracked benefits, e.g. a deductible already met) shows
+    that same adjudication as the expected figures beside the 835's."""
     allowed = sum(line.allowed_cents or 0 for line in claim.lines)
-    if claim.paid_cents is not None and claim.status in (ClaimStatus.PAID, ClaimStatus.PARTIAL):
+    settled = claim.paid_cents is not None and claim.status in (ClaimStatus.PAID, ClaimStatus.PARTIAL)
+    if settled and not (held_variance and claim.status is ClaimStatus.PARTIAL):
         ins_est, pt_est, basis = claim.paid_cents, claim.patient_resp_cents, "per 835"
     else:
         est = adjudicate(
@@ -98,7 +101,9 @@ def money(claim: Claim, coverage: Coverage, schedules: ScheduleBook) -> MoneyMat
         ins_est, pt_est, basis = (
             est.paid,
             est.patient,
-            f"estimate from contract allowed · {coverage.plan_name}",
+            f"expected at tracked benefits · {coverage.plan_name}"
+            if settled
+            else f"estimate from contract allowed · {coverage.plan_name}",
         )
     return MoneyMath(
         billed_cents=claim.billed_cents,
@@ -121,7 +126,7 @@ def claim_detail(ctx: Ctx, claim_id: str) -> ClaimDetail:
     page = entries[-TIMELINE_PAGE:]
     provider = snap.providers[claim.provider_id]
     return ClaimDetail(
-        claim=summarize(snap, claim),
+        claim=summarize(snap, claim, ctx.user.id),
         provider_name=provider.name,
         location_name=snap.locations[claim.location_id].name,
         coverage=coverage_out(cov),
@@ -133,10 +138,17 @@ def claim_detail(ctx: Ctx, claim_id: str) -> ClaimDetail:
         readiness=claim.readiness,
         denial=claim.denial,
         deadline=claim.deadline,
-        money=money(claim, cov, ctx.rt.world.payers[claim.payer_key].schedules),
+        money=money(
+            claim,
+            cov,
+            ctx.rt.world.payers[claim.payer_key].schedules,
+            held_variance=any(
+                line.claim_id == claim.id and line.variance_cents for r in snap.of(Remittance) for line in r.lines
+            ),
+        ),
         timeline=page,
         timeline_next_cursor=encode_cursor(len(entries) - len(page)) if len(entries) > len(page) else None,
-        open_inbox_items=[item_out(snap, i) for i in snap.open_items_by_claim.get(claim.id, [])],
+        open_inbox_items=[item_out(snap, i, ctx.user.id) for i in snap.open_items_by_claim.get(claim.id, [])],
         holds=snap.holds_by_subject.get(claim.id, []),
         file_entries=snap.file_entries_by_claim.get(claim.id, []),
         parent_claim_id=claim.parent_claim_id,
@@ -181,7 +193,7 @@ def void_claim(ctx: Ctx, claim_id: str, reason: str) -> ClaimMutationOut:
         claim.closed_reason, claim.closed_at, claim.frequency_code = closed, ctx.now, 8
         ctx.rt.store.update(claim)
         ctx.audit("claim.void", "claim", claim.id, f"{ctx.user.name} voided #{claim.number} (frequency 8): {reason}")
-    return ClaimMutationOut(claim=summarize(ctx.snapshot(), claim), meta=ctx.meta())
+    return ClaimMutationOut(claim=summarize(ctx.snapshot(), claim, ctx.user.id), meta=ctx.meta())
 
 
 def corrected_claim(ctx: Ctx, claim_id: str, changes: dict[str, Any]) -> ClaimMutationOut:
@@ -247,7 +259,9 @@ def corrected_claim(ctx: Ctx, claim_id: str, changes: dict[str, Any]) -> ClaimMu
             f"{ctx.user.name} sent corrected claim #{number} replacing #{original.number}",
             claim_id=new.id,
         )
-    return ClaimMutationOut(claim=summarize(ctx.snapshot(), ctx.rt.store.require(Claim, new.id)), meta=ctx.meta())
+    return ClaimMutationOut(
+        claim=summarize(ctx.snapshot(), ctx.rt.store.require(Claim, new.id), ctx.user.id), meta=ctx.meta()
+    )
 
 
 def triage(ctx: Ctx, claim_id: str, agent: str | None) -> TriageOut:

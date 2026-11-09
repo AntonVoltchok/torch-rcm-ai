@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from torch_rcm.api.errors import conflict, forbidden, not_found, unprocessable
@@ -12,6 +13,7 @@ from torch_rcm.api.schemas import (
     ProposalList,
     ProposalOut,
     RuleChangeList,
+    RuleDigest,
     RulePatchIn,
     RulePatchOut,
     RuleRow,
@@ -20,9 +22,11 @@ from torch_rcm.api.schemas import (
     WeekDecisions,
 )
 from torch_rcm.api.services.context import Ctx
-from torch_rcm.api.services.idempotency import idempotent
+from torch_rcm.api.services.idempotency import check_key, idempotent, stored_record, write_record
+from torch_rcm.clock import to_practice_tz
 from torch_rcm.domain.entities import InboxItem, Practice, Rule, RuleChange, RuleProposal, Run
 from torch_rcm.domain.enums import (
+    ROUTINE_ACTIONS,
     InboxItemKind,
     InboxItemState,
     OutcomeMetric,
@@ -33,8 +37,8 @@ from torch_rcm.domain.enums import (
     Tier,
 )
 from torch_rcm.domain.invariants import check_rule
-from torch_rcm.domain.values import Confidence, RuleScope
-from torch_rcm.readmodels.activity import ran_without_review, this_week, week_decisions
+from torch_rcm.domain.values import Confidence, RuleScope, metric_phrase, track_record
+from torch_rcm.readmodels.activity import ran_without_review, this_week, week_decisions, week_start
 from torch_rcm.readmodels.snapshot import Snapshot
 
 TIER_TEXT = {
@@ -52,9 +56,19 @@ TIER_TEXT = {
 }
 
 
+def rule_track_record(rule: Rule) -> Confidence | None:
+    """The rule's own base rate; None for a rule with no history at all."""
+    if not rule.base_rate.n:
+        return None
+    return track_record(rule.base_rate.k, rule.base_rate.n, metric_phrase(rule.outcome_metric.value))
+
+
 def list_rules(ctx: Ctx) -> RulesOut:
     snap = ctx.snapshot()
     runs = this_week(snap)
+    start = week_start(snap.today)
+    # Status checks and payer calls are routine: counted apart, so the rows still sum to the decisions that ran.
+    routine = [r for r in snap.of(Run) if r.action in ROUTINE_ACTIONS and r.started_at.date() >= start]
     open_items = snap.open_items
     groups: list[TierGroup] = []
     for tier in Tier:
@@ -62,20 +76,13 @@ def list_rules(ctx: Ctx) -> RulesOut:
         for rule in sorted((r for r in snap.of(Rule) if r.tier is tier), key=lambda r: (r.sort, r.id)):
             ran = sum(1 for r in runs if r.rule_id == rule.id and ran_without_review(r))
             waiting = sum(1 for i in open_items if i.rule_id == rule.id)
-            pct = rule.base_rate.pct()
-            conf = (
-                Confidence(
-                    pct=pct,
-                    basis=f"{rule.base_rate.k} of {rule.base_rate.n}" if pct is not None else "no base rate",
-                )
-                if rule.base_rate.n
-                else None
-            )
+            conf = rule_track_record(rule)
             signer = snap.users.get(rule.signed_by or "")
             rows.append(
                 RuleRow(
                     rule=rule,
                     ran_without_review_7d=ran,
+                    routine_runs_7d=sum(1 for r in routine if r.rule_id == rule.id),
                     waiting=waiting,
                     confidence=conf,
                     signed_by_name=signer.name if signer else None,
@@ -83,20 +90,48 @@ def list_rules(ctx: Ctx) -> RulesOut:
                 )
             )
         label, text = TIER_TEXT[tier]
-        groups.append(TierGroup(tier=tier, label=label, description=text, rows=rows))
+        groups.append(
+            TierGroup(
+                tier=tier,
+                label=label,
+                description=text,
+                rows=rows,
+                count=len(rows),
+                ran_without_review_7d=sum(r.ran_without_review_7d for r in rows),
+                waiting=sum(r.waiting for r in rows),
+            )
+        )
     week = week_decisions(snap)
     return RulesOut(
         tiers=groups,
         practice_cap_cents=snap.practice.practice_cap_cents,
         this_week=WeekDecisions(total=week["total"], ran=week["ran"], to_you=week["to_dana"]),
+        rules_count=sum(g.count for g in groups),
         changes_count=len(snap.of(RuleChange)),
         proposals_open=sum(1 for p in snap.of(RuleProposal) if p.state is ProposalState.OPEN),
     )
 
 
 def list_changes(ctx: Ctx) -> RuleChangeList:
-    rows = sorted(ctx.rt.store.all(RuleChange), key=lambda c: c.at, reverse=True)
-    return RuleChangeList(items=rows, total=len(rows))
+    snap = ctx.snapshot()
+    rows = sorted(snap.of(RuleChange), key=lambda c: c.at, reverse=True)
+    return RuleChangeList(items=rows, total=len(rows), digest=digest(snap))
+
+
+def digest(snap: Snapshot) -> RuleDigest:
+    """Monday's owner digest for this week so far: the Activity week (Mon-start), not a rolling 7 days.
+    `items_run` adds the "Items run since" column of this week's changes, so the digest agrees with the table under
+    it. (That column is stored on the change; deriving it needs run history older than the seed has. See
+    docs/adr/worker-notes/d1-api-4.md.)"""
+    start = week_start(snap.today)
+    week = [c for c in snap.of(RuleChange) if to_practice_tz(c.at).date() >= start]
+    return RuleDigest(
+        period_start=start,
+        sends_on=start + timedelta(days=7),
+        changes=len(week),
+        items_run=sum(c.items_affected_since for c in week),
+        awaiting_signoff=sum(1 for i in snap.open_items if i.kind is InboxItemKind.OWNER_SIGNOFF),
+    )
 
 
 def _change_dict(patch: RulePatchIn) -> dict[str, Any]:
@@ -113,12 +148,7 @@ def _change_dict(patch: RulePatchIn) -> dict[str, Any]:
 def apply_rule_change(ctx: Ctx, rule: Rule, change: dict[str, Any], *, sign: bool) -> tuple[Rule, RuleChange]:
     """Apply a change, bump the version, write the RuleChange. Tier-2 edits clear the signature and fall back to
     `ask` unless an owner signs them in the same change (07-agents §5.2)."""
-    before = {
-        "mode": rule.mode.value,
-        "max_cents": rule.scope.max_cents,
-        "confidence_floor": rule.confidence_floor,
-        "signed_by": rule.signed_by,
-    }
+    before = _rule_state(rule)
     if "mode" in change:
         rule.mode = RuleMode(change["mode"])
     if "max_cents" in change:
@@ -135,12 +165,7 @@ def apply_rule_change(ctx: Ctx, rule: Rule, change: dict[str, Any], *, sign: boo
     rule.version += 1
     rule.changed_by, rule.changed_at = ctx.user.id, ctx.now
     check_rule(rule)
-    after = {
-        "mode": rule.mode.value,
-        "max_cents": rule.scope.max_cents,
-        "confidence_floor": rule.confidence_floor,
-        "signed_by": rule.signed_by,
-    }
+    after = _rule_state(rule)
     affected = sum(1 for r in ctx.rt.store.find(Run, {"agent": rule.agent}) if r.rule_id == rule.id)
     rc = RuleChange(
         id=f"rch_{rule.id}_{rule.version}",
@@ -159,6 +184,15 @@ def apply_rule_change(ctx: Ctx, rule: Rule, change: dict[str, Any], *, sign: boo
     return rule, rc
 
 
+def _rule_state(rule: Rule) -> dict[str, Any]:
+    return {
+        "mode": rule.mode.value,
+        "max_cents": rule.scope.max_cents,
+        "confidence_floor": rule.confidence_floor,
+        "signed_by": rule.signed_by,
+    }
+
+
 def _summary(rule: Rule, before: dict[str, Any], after: dict[str, Any]) -> str:
     parts = [
         f"{k}: {before[k]} → {after[k]}" for k in ("mode", "max_cents", "confidence_floor") if before[k] != after[k]
@@ -169,12 +203,23 @@ def _summary(rule: Rule, before: dict[str, Any], after: dict[str, Any]) -> str:
 
 
 def patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn, *, idempotency_key: str | None = None) -> RulePatchOut:
+    check_key(idempotency_key)
+    rule, change = _checked_patch(ctx, rule_id, patch)
     body = patch.model_dump(mode="json", exclude_unset=True)
     scope = f"PATCH /rules/{rule_id}"
-    return idempotent(ctx, idempotency_key, scope, body, RulePatchOut, lambda: _patch_rule(ctx, rule_id, patch))
+    if rule.tier is Tier.TWO and ctx.user.role is not Role.OWNER:
+        # Outside `idempotent`: this refusal writes the request, and one raised inside that transaction rolls it back.
+        item = request_signoff(ctx, rule_id, change, key=idempotency_key, scope=scope, request=body)
+        raise conflict(
+            "owner_signoff_required",
+            "Tier-2 rules need Dr. Morgan's signature; sent to her for sign-off.",
+            inbox_item_id=item.id,
+            rule_id=rule.id,
+        )
+    return idempotent(ctx, idempotency_key, scope, body, RulePatchOut, lambda: _apply_patch(ctx, rule_id, change))
 
 
-def _patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn) -> RulePatchOut:
+def _checked_patch(ctx: Ctx, rule_id: str, patch: RulePatchIn) -> tuple[Rule, dict[str, Any]]:
     rule = ctx.rt.store.get(Rule, rule_id)
     if rule is None:
         raise not_found("rule", rule_id)
@@ -185,14 +230,11 @@ def _patch_rule(ctx: Ctx, rule_id: str, patch: RulePatchIn) -> RulePatchOut:
         raise forbidden("human_only", "Tier-3 rules are human-only; they cannot be changed.")
     if ctx.user.role not in (Role.OWNER, Role.BILLING):
         raise forbidden("forbidden", f"{ctx.user.name} cannot change agent rules")
-    if rule.tier is Tier.TWO and ctx.user.role is not Role.OWNER:
-        item = request_signoff(ctx, rule, change)
-        raise conflict(
-            "owner_signoff_required",
-            "Tier-2 rules need Dr. Morgan's signature; sent to her for sign-off.",
-            inbox_item_id=item.id,
-            rule_id=rule.id,
-        )
+    return rule, change
+
+
+def _apply_patch(ctx: Ctx, rule_id: str, change: dict[str, Any]) -> RulePatchOut:
+    rule = ctx.rt.store.require(Rule, rule_id)
     rule, rc = apply_rule_change(ctx, rule, change, sign=rule.tier is Tier.TWO)
     return RulePatchOut(rule=rule, change=rc, meta=ctx.meta())
 
@@ -233,7 +275,35 @@ def _patch_practice(ctx: Ctx, body: PracticeSettingsIn) -> PracticeSettingsOut:
     return PracticeSettingsOut(practice_cap_cents=cap, meta=ctx.meta())
 
 
-def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
+def request_signoff(
+    ctx: Ctx, rule_id: str, change: dict[str, Any], *, key: str | None, scope: str, request: dict[str, Any]
+) -> InboxItem:
+    """One request per key, in any state, and one open request per (rule version, change). Reading and inserting
+    share a transaction, so concurrent duplicates serialize. Ids count requests: the clock is frozen, so a timestamp
+    would repeat. The key's record points at the request, which it outlives."""
+    store = ctx.rt.store
+    with store.tx():
+        stored = stored_record(ctx, key, scope, request) if key else None
+        if stored is not None:
+            return store.require(InboxItem, stored.body["inbox_item_id"])
+        rule = store.require(Rule, rule_id)
+        asked = [i for i in store.all(InboxItem) if i.kind is InboxItemKind.OWNER_SIGNOFF and i.rule_id == rule.id]
+        item = next(
+            (
+                i
+                for i in asked
+                if i.state is InboxItemState.OPEN
+                and i.payload.get("change") == change
+                and i.payload.get("rule_version") == rule.version
+            ),
+            None,
+        ) or _new_signoff(ctx, rule, change, len(asked) + 1)
+        if key:
+            write_record(ctx, key, scope, request, 409, {"inbox_item_id": item.id})
+    return item
+
+
+def _new_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any], number: int) -> InboxItem:
     owner = next(u for u in ctx.snapshot().users.values() if u.role is Role.OWNER)
     preview = preview_counts(
         ctx.snapshot(),
@@ -242,7 +312,7 @@ def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
         change.get("max_cents", rule.scope.max_cents),
     )
     item = InboxItem(
-        id=f"itm_signoff_{rule.id}_{ctx.now:%m%d%H%M%S}",
+        id=f"itm_signoff_{rule.id}_{number}",
         kind=InboxItemKind.OWNER_SIGNOFF,
         state=InboxItemState.OPEN,
         agent=None,
@@ -257,17 +327,22 @@ def request_signoff(ctx: Ctx, rule: Rule, change: dict[str, Any]) -> InboxItem:
         assignee_user_id=owner.id,
         required_role=Role.OWNER,
         created_at=ctx.now,
-        payload={"change": change, "requested_by": ctx.user.id, "preview": preview.model_dump()},
+        payload={
+            "change": change,
+            "before": _rule_state(rule),
+            "rule_version": rule.version,
+            "requested_by": ctx.user.id,
+            "preview": preview.model_dump(),
+        },
     )
-    with ctx.rt.store.tx():
-        ctx.rt.store.insert(item)
-        ctx.audit(
-            "rule.signoff_requested",
-            "rule",
-            rule.id,
-            f"{ctx.user.name} requested sign-off: {rule.label}",
-            change=change,
-        )
+    ctx.rt.store.insert(item)
+    ctx.audit(
+        "rule.signoff_requested",
+        "rule",
+        rule.id,
+        f"{ctx.user.name} requested sign-off: {rule.label}",
+        change=change,
+    )
     return item
 
 
@@ -334,6 +409,9 @@ def preview_counts(snap: Snapshot, rule_id: str, mode: RuleMode, max_cents: int 
         total=total,
         baseline_would_run=baseline,
         held_by_root_cause=held,
+        held_total=sum(held.values()),
+        before_holds=count + sum(held.values()),
+        net_change=count - baseline,
     )
 
 
@@ -358,13 +436,29 @@ def list_proposals(ctx: Ctx) -> ProposalList:
     return ProposalList(items=rows, total=len(rows))
 
 
+def guard_learning(ctx: Ctx, claim_id: str | None, *stated: str | None, **details: Any) -> None:
+    """`ours` never learns: every recorded cause, and the one code computes now, through the agents' one guard.
+    Imported here because the API boots without agents only when TORCH_ALLOW_WORLD_ONLY asks it to."""
+    from torch_rcm.agents.learning import assert_learnable
+    from torch_rcm.agents.policy import ROOT_CAUSE_OURS_REASON, RootCauseGuardError
+    from torch_rcm.agents.tools.adapters import SimWorld, StoreDomain
+
+    try:
+        assert_learnable(StoreDomain(ctx.rt.store, SimWorld(ctx.rt.world)), claim_id, *stated)
+    except RootCauseGuardError as exc:
+        raise unprocessable("root_cause_guard", ROOT_CAUSE_OURS_REASON, **details) from exc
+
+
 def accept_proposal(ctx: Ctx, proposal_id: str) -> ProposalOut:
     proposal = _proposal(ctx, proposal_id)
-    if proposal.root_cause_guard:
-        raise unprocessable(
-            "root_cause_guard",
-            "Root cause is ours: fix the upstream rule. This slice can never run without review.",
-        )
+    source = ctx.rt.store.get(InboxItem, proposal.source_item_id or "")
+    guard_learning(
+        ctx,
+        source.claim_id if source else None,
+        "ours" if proposal.root_cause_guard else None,
+        proposal.rule_draft.get("root_cause_class"),
+        source.payload.get("root_cause") if source else None,
+    )
     if proposal.watching:
         raise unprocessable(
             "not_enough_evidence",

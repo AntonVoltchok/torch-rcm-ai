@@ -10,7 +10,6 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import cache
-from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -37,7 +36,7 @@ def _ensure_seeded(runtime: Runtime) -> None:
         runtime.reload_world()
 
 
-def _load_agents(settings: Settings) -> bool:
+def load_agents(settings: Settings) -> bool:
     """Import torch_rcm.agents and register its job handlers (run.start, triage, era.arrived).
 
     An import failure is logged and re-raised: an API without agents boots "fine" and the demo is inert, so it
@@ -56,30 +55,23 @@ def _load_agents(settings: Settings) -> bool:
     return True
 
 
-def _wire_agent_runtime(rt: Runtime) -> None:
-    """Attach the shared AgentRuntime: model client per TORCH_AGENT_MODE, then resume checkpointed runs."""
+def wire_agent_runtime(rt: Runtime) -> None:
+    """Attach the shared AgentRuntime (its model client follows TORCH_AGENT_MODE), then resume checkpointed runs.
+
+    The config comes from the environment and fails fast on live mode without a key (07 §10)."""
     from torch_rcm.agents.config import AgentConfig
     from torch_rcm.agents.runtime import AgentRuntime
 
-    cfg = AgentConfig()
+    cfg = AgentConfig.from_env()
     agent_rt = AgentRuntime.shared(rt.store, rt.clock, rt.world, cfg)
-    if cfg.agent_mode == "live":
-        from torch_rcm.agents.llm.cassette import CANONICAL_DIR, CassetteClient, RecordingClient
-        from torch_rcm.agents.llm.client import LlmClient
-
-        def sink(rec: Any) -> None:
-            rt.store.insert(rec.to_entity())
-
-        client: Any
-        if cfg.cassette_mode == "replay":
-            client = CassetteClient(CANONICAL_DIR / "canonical", sink=sink, clock=rt.clock.now)
-        else:
-            client = LlmClient(cfg, sink=sink, clock=rt.clock.now)
-            if cfg.cassette_mode == "record":
-                client = RecordingClient(client, CANONICAL_DIR / "live", recorded_at=rt.clock.now().isoformat())
-        agent_rt.llm_client = client
     resumed = agent_rt.recover()
-    log.info("agents.wired", mode=rt.settings.agent_mode, resumed_runs=resumed)
+    log.info(
+        "agents.wired",
+        mode=cfg.agent_mode,
+        cassette_mode=cfg.cassette_mode,
+        model_client=type(agent_rt.llm_client).__name__ if agent_rt.llm_client else None,
+        resumed_runs=resumed,
+    )
 
 
 def create_app(
@@ -93,10 +85,10 @@ def create_app(
         rt = runtime or Runtime.open(settings)
         _ensure_seeded(rt)
         app.state.runtime = rt
-        agents = _load_agents(settings)
-        rt.scheduler.queue.recover()
+        agents = load_agents(settings)
+        rt.scheduler.recover()
         if agents:
-            _wire_agent_runtime(rt)
+            wire_agent_runtime(rt)
         stop = asyncio.Event()
         worker = None
         if start_worker if start_worker is not None else settings.worker:
@@ -110,7 +102,7 @@ def create_app(
                 await worker
 
     app = FastAPI(
-        title="Torch API",
+        title="TorchRCM API",
         version="0.1.0",
         description=(
             "Agentic dental RCM demo: inbox, claims, rules, runs and the simulated world. "

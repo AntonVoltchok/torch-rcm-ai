@@ -35,6 +35,6 @@ export function useCash(opts: { enabled?: boolean } = {}) {
 export function useDenials() {
   return useQuery({ queryKey: qk.denials, queryFn: api.denials })
 }
-export function useWorldStatus() {
-  return useQuery({ queryKey: qk.world, queryFn: api.worldStatus, staleTime: 30_000, retry: false })
+export function useWorldPayers() {
+  return useQuery({ queryKey: qk.world, queryFn: api.worldPayers, staleTime: 30_000, retry: false })
 }

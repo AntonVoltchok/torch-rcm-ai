@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { RulesOut } from '@/api/schema'
+import { RulesOut } from '@/api/schema'
 import { MockDb } from '@/mocks/db'
-import { changeDiff, floorLabel, previewView, rowView, tierViews, weeklyDigest, withRuleMode } from './selectors'
+import { changeDiff, digestText, floorLabel, previewView, rowView, tierViews, withRuleMode } from './selectors'
 
-const rules = (): RulesOut => new MockDb({ stepDelayMs: 0, schedule: () => undefined }).rules()
+const rules = (): RulesOut => RulesOut.parse(new MockDb({ stepDelayMs: 0, schedule: () => undefined }).rules())
 const row = (data: RulesOut, id: string) => {
   for (const t of data.tiers) for (const r of t.rows) if (r.rule.id === id) return r
   throw new Error(`no ${id}`)
@@ -19,11 +19,24 @@ describe('rules table selectors', () => {
     expect(views.map((t) => t.rows.length)).toEqual([9, 7, 3])
   })
 
-  it('sums the server’s per-row counts into the tier header (29 ran in tier 1, 12 in tier 2)', () => {
-    const views = tierViews(rules(), 'billing')
+  it('heads each tier with the server’s tier totals (29 ran in tier 1, 12 in tier 2)', () => {
+    const data = rules()
+    const views = tierViews(data, 'billing')
     expect(views[0]?.summary).toBe('9 rules · ran 29 · 5 waiting')
     expect(views[1]?.summary).toBe('7 rules · ran 12 · 2 waiting')
     expect(views[2]?.summary).toBe('3 rules · human only · no toggle')
+    expect(data.rules_count).toBe(19)
+  })
+
+  it('the mock’s tier totals equal its rows, as the API’s do (test_server_totals.py)', () => {
+    const data = rules()
+    for (const g of data.tiers) {
+      expect(g.count).toBe(g.rows.length)
+      expect(g.ran_without_review_7d).toBe(g.rows.reduce((a, r) => a + r.ran_without_review_7d, 0))
+      expect(g.waiting).toBe(g.rows.reduce((a, r) => a + r.waiting, 0))
+    }
+    expect(data.rules_count).toBe(data.tiers.reduce((a, t) => a + t.rows.length, 0))
+    expect(data.tiers.find((t) => t.tier === 3)?.ran_without_review_7d).toBe(0)
   })
 
   it('renders tier 3 as “Human only” with no control, for every viewer', () => {
@@ -64,16 +77,19 @@ describe('rules table selectors', () => {
 
 describe('preview and changes selectors', () => {
   it('reads “41 → 44 of this week’s 54” with the ours guard holding 3 (net 41)', () => {
-    const v = previewView({ rule_id: 'rule_t1_delta_pa', mode: 'auto', max_cents: null, would_run: 41, total: 54, baseline_would_run: 41, held_by_root_cause: { ours: 3 } })
+    const v = previewView({ rule_id: 'rule_t1_delta_pa', mode: 'auto', max_cents: null, would_run: 41, total: 54, baseline_would_run: 41, held_by_root_cause: { ours: 3 }, held_total: 3, before_holds: 44, net_change: 0 })
     expect(v.headline).toBe('41 → 44 of this week’s 54 would have run')
     expect(v.holdLine).toBe('but 3 of the 44 are root cause: ours → held for Dana · net 41')
     expect(v.net).toBe(41)
+    expect(v.changeLine).toBe('No change this week.')
   })
 
   it('has no hold line when nothing is held', () => {
-    const v = previewView({ rule_id: 'rule_t1_reprocessing', mode: 'auto', max_cents: null, would_run: 42, total: 53, baseline_would_run: 41, held_by_root_cause: {} })
+    const v = previewView({ rule_id: 'rule_t1_reprocessing', mode: 'auto', max_cents: null, would_run: 42, total: 53, baseline_would_run: 41, held_by_root_cause: {}, held_total: 0, before_holds: 42, net_change: 1 })
     expect(v.headline).toBe('41 → 42 of this week’s 53 would have run')
     expect(v.holdLine).toBeNull()
+    expect(v.changeLine).toBe('1 more would have run without review.')
+    expect(previewView({ ...v, rule_id: 'r', mode: 'ask', max_cents: null, would_run: 39, total: 53, baseline_would_run: 41, held_by_root_cause: {}, held_total: 0, before_holds: 39, net_change: -2 }).changeLine).toBe('2 fewer would have run without review.')
   })
 
   it('writes before → after for the keys that changed, with modes in people’s words', () => {
@@ -81,11 +97,10 @@ describe('preview and changes selectors', () => {
     expect(lines).toEqual(['mode: Runs without review → Ask Dana'])
   })
 
-  it('counts the weekly digest over the 7 days before the server clock', () => {
-    const now = '2026-10-28T10:40:00-04:00'
-    const c = (at: string, n: number) => ({ id: at, rule_id: 'r', at, by: 'usr_dana', before: {}, after: {}, items_affected_since: n, summary: '' })
-    const d = weeklyDigest([c('2026-10-27T17:05:00-04:00', 0), c('2026-10-26T10:02:00-04:00', 2), c('2026-09-14T12:10:00-04:00', 14)], now, 1)
-    expect(d).toMatchObject({ changes: 2, ran: 2, awaiting: 1 })
-    expect(d.text).toBe('Mon digest to Dr. Morgan: 2 changes · 2 ran under them · 1 awaits sign-off')
+  it('words the server’s Monday digest (this week from Monday), and the mock’s digest equals its changes', () => {
+    expect(digestText({ period_start: '2026-10-26', sends_on: '2026-11-02', changes: 2, items_run: 2, awaiting_signoff: 1 })).toBe('Mon digest to Dr. Morgan (week of 10/26, so far): 2 changes · 2 ran under them · 1 awaits sign-off')
+    const out = new MockDb({ stepDelayMs: 0, schedule: () => undefined }).ruleChanges()
+    const week = out.items.filter((c) => c.at >= '2026-10-26')
+    expect(out.digest).toEqual({ period_start: '2026-10-26', sends_on: '2026-11-02', changes: week.length, items_run: week.reduce((a, c) => a + (c.items_affected_since ?? 0), 0), awaiting_signoff: 0 })
   })
 })

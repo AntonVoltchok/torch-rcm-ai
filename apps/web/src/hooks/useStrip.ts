@@ -1,4 +1,4 @@
-/** The pipeline strip / nav badges. Written by the API client from every mutation's `meta.counts`. */
+/** The pipeline strip / nav badges. A mutation's `meta.counts` updates it (router.tsx); runs refetch it when they end. */
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { api } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'

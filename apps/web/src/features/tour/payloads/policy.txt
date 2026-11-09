@@ -1,0 +1,90 @@
+# The decision table: the first matching row decides; the model's plan is only an input
+# source: apps/api/torch_rcm/agents/policy.py ROWS (ast lookup by name); _row10, guard_root_cause_ours (inspect.getsource)
+# source: apps/api/torch_rcm/agents/policy.py decide(ctx, plan.actions[0]) on the real plans, ctx built as apps/api/torch_rcm/agents/executor/executor.py Executor._policy_ctx builds it for a triage run
+# ran against: scenario canonical (world/scenarios.py build_scenario, seed 20261028) in a throwaway SQLite DB; clock Wed 2026-10-28 10:40 -0400 (as seeded, not advanced); TORCH_AGENT_MODE=deterministic
+# regenerate: make tour-payloads   (= cd apps/api && uv run python scripts/tour_payloads.py)
+# generated, never hand-edited; apps/api/tests/test_tour_payloads.py fails on drift
+
+ROWS: tuple[PolicyRow, ...] = (
+    PolicyRow(0, "Practice kill switch on", "park", _row0, approval_recheck=True),
+    PolicyRow(
+        1,
+        "Not in catalog; params invalid; out of scope; value ≠ evidence",
+        "refuse",
+        _row1,
+        approval_recheck=True,
+    ),
+    PolicyRow(2, "Tier 3, agent-started", "propose", _row2),
+    PolicyRow(3, "Tier 3, human-started by a role holder", "execute", _row3, approval_recheck=True),
+    PolicyRow(4, "Posting from a paper EOB", "propose", _row4),
+    PolicyRow(5, "Classifier returned unknown, or only suspicious evidence cited", "propose", _row5),
+    PolicyRow(6, "No matching rule", "propose", _row6),
+    PolicyRow(7, "mode=observe", "observe", _row7, approval_recheck=True),
+    PolicyRow(8, "mode=human_only or ask", "propose", _row8),
+    PolicyRow(
+        9,
+        "auto; agent text not covered by an owner-signed text rule, or guard failed",
+        "propose",
+        _row9,
+        review_draft=True,
+    ),
+    PolicyRow(10, "auto; root_cause=ours", "propose", _row10),
+    PolicyRow(
+        11,
+        "auto; over the rule's cap or the tier-2 practice cap, or outside the rule's value source",
+        "propose",
+        _row11,
+    ),
+    PolicyRow(12, "auto; confidence below floor, or no base rate with a floor", "propose", _row12),
+    PolicyRow(13, "auto; live model's situation ≠ classifier's", "propose", _row13),
+    PolicyRow(14, "auto; hold window closed for an action that needs it", "refuse", _row14, approval_recheck=True),
+    PolicyRow(15, "otherwise", "execute", _row15, approval_recheck=True),
+)
+
+# --- row 10's predicate ---
+def _row10(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
+    return "root cause: ours · fix the upstream rule" if ctx.root_cause == "ours" else None
+
+# --- the one guard learning goes through ---
+def guard_root_cause_ours(root_cause_class: str) -> None:
+    """Root cause `ours` can never be learned into auto-run; accepting such a proposal is a 422."""
+    if root_cause_class == "ours":
+        raise RootCauseGuardError("root cause is ours: fix the upstream rule; this slice cannot auto-run")
+
+# --- decide() for #4821 resubmit_with_attachment (ScriptedPlanner; situation denied:CO-16:N29:pa_missing) ---
+# matched row 8 "mode=human_only or ask" → propose (root cause ours)
+{
+  "verdict": "propose",
+  "reason": "rule Missing PA x-ray (CO-16 · N29) → attach, resubmit is ask",
+  "policy_row": 8,
+  "rule_id": "rule_t1_delta_pa",
+  "rule_version": 1,
+  "confidence": {
+    "pct": 92,
+    "k": 23,
+    "n": 25,
+    "outcome": "paid within 30 days",
+    "basis": "23 of 25 paid within 30 days"
+  },
+  "as_review_draft": false,
+  "alternatives": []
+}
+
+# --- decide() for #4744 records_request (RecordedPlanPlanner; situation unknown) ---
+# matched row 5 "Classifier returned unknown, or only suspicious evidence cited" → propose (root cause unknown)
+{
+  "verdict": "propose",
+  "reason": "situation unknown to TorchRCM's classifier · a person reviews",
+  "policy_row": 5,
+  "rule_id": "rule_t1_records_request",
+  "rule_version": 1,
+  "confidence": {
+    "pct": null,
+    "k": 0,
+    "n": 0,
+    "outcome": "paid within 30 days",
+    "basis": "No track record. TorchRCM couldn't match this to a known situation, so there are no past cases to compare."
+  },
+  "as_review_draft": false,
+  "alternatives": []
+}

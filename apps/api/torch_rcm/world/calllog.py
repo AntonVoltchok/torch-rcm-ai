@@ -29,11 +29,17 @@ class CallLog:
     def __init__(self, store: Store, clock: ClockLike) -> None:
         self.store = store
         self.clock = clock
-        self._n = 0
+        self._issued: set[str] = set()  # ids taken by calls still in flight
 
     def _id(self, at: datetime) -> str:
-        self._n += 1
-        return f"wc_{at:%m%d%H%M%S}_{self.store.count(WorldCallLog) + self._n:06d}"
+        """Unique against the rows, not this process: the clock is frozen and survives a restart."""
+        n = self.store.count(WorldCallLog)
+        while True:
+            n += 1
+            call_id = f"wc_{at:%m%d%H%M%S}_{n:06d}"
+            if call_id not in self._issued and self.store.get(WorldCallLog, call_id) is None:
+                self._issued.add(call_id)
+                return call_id
 
     def record(
         self,

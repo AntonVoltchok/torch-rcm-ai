@@ -20,19 +20,18 @@ export interface ActivityParams {
 }
 
 const loc = () => ({ location_id: session.locationParam() })
-const Ok = z.object({ meta: S.MutationMeta.nullish() }).passthrough()
 const enc = encodeURIComponent
 
 export const api = {
   // clock & agents runtime
   clock: () => http.get('/clock', S.Clock),
   advanceClock: (body: { to: string } | { minutes: number }) => http.post('/clock/advance', S.ClockAdvanceAccepted, body),
-  advanceStatus: (id: string) => http.get(`/clock/advance/${enc(id)}`, S.AdvanceSnapshot),
-  resetClock: () => http.post('/clock/reset', Ok),
+  advanceStatus: (id: string) => http.get(`/clock/advance/${enc(id)}`, S.AdvanceOut),
+  resetClock: () => http.post('/clock/reset', S.ClockReset),
   agentsStatus: () => http.get('/agents/status', S.AgentsStatus),
-  pauseAgents: () => http.post('/agents:pause', Ok),
-  resumeAgents: () => http.post('/agents:resume', Ok),
-  worldStatus: () => http.get('/_world/status', S.WorldStatus),
+  pauseAgents: () => http.post('/agents:pause', S.AgentsStatus),
+  resumeAgents: () => http.post('/agents:resume', S.AgentsStatus),
+  worldPayers: () => http.get('/_world/payers', z.array(S.WorldPayer)),
 
   // summary
   strip: () => http.get('/summary/strip', S.StripSummary, loc()),
@@ -58,7 +57,7 @@ export const api = {
     http.post(`/claims/${enc(id)}:corrected`, S.CorrectedClaimResponse, { changes }),
   triage: (id: string, agent?: 'claims' | 'followup') =>
     http.post(`/claims/${enc(id)}:triage`, S.TriageAccepted, agent ? { agent } : {}),
-  views: () => http.get('/views', S.listOf(S.SavedView)),
+  views: () => http.get('/views', S.ViewList),
   saveView: (name: string, search_params: Record<string, unknown>) =>
     http.post('/views', S.SavedView, { name, search_params }),
 

@@ -2,7 +2,7 @@ import { useRouter } from '@tanstack/react-router'
 import { dismiss, useToasts } from '@/state/toast'
 import { cn } from '@/lib/cn'
 
-const TONE = { info: 'text-white', ok: 'text-[#7fe0a5]', warn: 'text-[#ffd27a]', bad: 'text-[#ff9b8f]' } as const
+const TONE = { info: 'text-white', ok: 'text-[#7fe0a5]', warn: 'text-white', bad: 'text-[#ff9b8f]' } as const
 
 export function Toaster() {
   const toasts = useToasts()

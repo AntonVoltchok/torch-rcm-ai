@@ -1,12 +1,12 @@
 /**
  * MSW adapter: HTTP in, MockDb call, HTTP out. One catch-all handler with a small route table, because
- * the API's `/{id}:verb` paths (`/inbox/inb_4821:approve`) collide with path-to-regexp's `:param` syntax.
+ * the API's `/{id}:verb` paths (`/inbox/itm_4821:approve`) collide with path-to-regexp's `:param` syntax.
  */
 import { delay, http, HttpResponse } from 'msw'
 import { API_BASE } from '@/env'
 import { ActivityOutcome, AgentKind, ClaimStatus, PayerKey, RuleMode, type RulePatch } from '@/api/schema'
 import { AgeBucket, SortParam } from '@/features/claims/search'
-import { MockDb, MockError, type SseRecord, type UserId } from './db'
+import { MockError, type MockDb, type SseRecord, type UserId } from './db'
 
 type Ctx = { db: MockDb; url: URL; user: UserId; body: Record<string, unknown>; m: RegExpMatchArray; request: Request }
 type Route = [method: string, pattern: RegExp, handle: (ctx: Ctx) => unknown]
@@ -14,6 +14,9 @@ type Route = [method: string, pattern: RegExp, handle: (ctx: Ctx) => unknown]
 const USERS: UserId[] = ['usr_dana', 'usr_morgan', 'usr_lee', 'usr_tasha']
 const enc = new TextEncoder()
 const frame = (r: SseRecord) => enc.encode(`id: ${r.id}\nevent: ${r.event}\ndata: ${JSON.stringify(r.data)}\n\n`)
+/** What the API's route appends, with no ids, once it sees the run terminal (routers/system.py). */
+const closing = (runId: string, status: string) =>
+  enc.encode(`event: status\ndata: ${JSON.stringify({ status })}\n\nevent: done\ndata: ${JSON.stringify({ run_id: runId })}\n\n`)
 
 const q = (url: URL, key: string) => url.searchParams.get(key)
 const qa = (url: URL, key: string) => url.searchParams.getAll(key)
@@ -37,6 +40,7 @@ function runEvents(db: MockDb, runId: string, lastEventId: number | null): Respo
         controller.enqueue(frame(rec))
         if (rec.event === 'done') {
           sub.unsubscribe()
+          controller.enqueue(closing(runId, db.run(runId).run.status))
           controller.close()
         }
       })
@@ -44,6 +48,7 @@ function runEvents(db: MockDb, runId: string, lastEventId: number | null): Respo
       for (const rec of sub.replay) controller.enqueue(frame(rec))
       if (sub.terminal) {
         sub.unsubscribe()
+        controller.enqueue(closing(runId, db.run(runId).run.status))
         controller.close()
       }
     },
@@ -80,12 +85,12 @@ const routes: Route[] = [
   ['GET', new RegExp(`^/clock/advance/${ID}$`), ({ db, m }) => db.advanceStatus(m[1] ?? '')],
   ['POST', /^\/clock\/reset$/, ({ db }) => {
     db.reset()
-    return { meta: { counts: db.strip() } }
+    return { scenario: 'canonical', now: db.now, meta: { counts: db.strip() } }
   }],
   ['GET', /^\/agents\/status$/, ({ db }) => db.agentsStatus()],
   ['POST', /^\/agents:pause$/, ({ db, user }) => db.pause(user)],
   ['POST', /^\/agents:resume$/, ({ db, user }) => db.resume(user)],
-  ['GET', /^\/_world\/status$/, () => ({ outages: [] })],
+  ['GET', /^\/_world\/payers$/, () => []],
   ['GET', /^\/summary\/strip$/, ({ db, url, user }) => db.strip(q(url, 'location_id') ?? undefined, user)],
 
   ['GET', /^\/inbox$/, ({ db, url, user }) => db.inbox({ state: q(url, 'state'), kind: q(url, 'kind'), agent: q(url, 'agent') }, user)],

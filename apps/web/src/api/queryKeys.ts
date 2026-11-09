@@ -1,6 +1,6 @@
 /**
  * Every TanStack Query key in the app. Keys are hierarchical so one `invalidateQueries({queryKey: k.inbox.all})`
- * reaches lists and items. `['strip']` is written by the API client from `meta.counts`, never by components.
+ * reaches lists and items. `['strip']` moves from `meta.counts` (router.tsx) or a refetch, never from a component.
  */
 import type { ClaimsApiParams } from '@/features/claims/search'
 import type { ActivityParams, PreviewParams } from './endpoints'

@@ -1,7 +1,7 @@
 {
   "claim_id": "clm_4709",
   "agent": "followup",
-  "recorded_from": "live triage (claude-sonnet-5-5, effort medium) replayed from cassettes/canonical/followup/unknown/clm_4709.jsonl",
+  "recorded_from": "hand-written for the demo; live mode replays the API recording cassettes/canonical/clm_4709.jsonl, which must stay inside this envelope (torch eval)",
   "reviewed_by": "usr_dana",
   "reviewed_on": "2026-11-01",
   "situation_description": "consultant cannot read the narrative and asks for it again",

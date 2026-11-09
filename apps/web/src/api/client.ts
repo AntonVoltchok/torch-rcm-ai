@@ -1,8 +1,7 @@
 /**
  * The one fetch wrapper. Every response is parsed with its Zod schema (drift fails loudly as
  * `schema_mismatch`), every error envelope becomes a typed `ApiError`, every mutation carries an
- * `Idempotency-Key`, and any `meta.counts` in a response is handed to `onCounts` — wired in main.tsx to
- * `queryClient.setQueryData(['strip'])`, so badges move without a second round trip.
+ * `Idempotency-Key`, and any `meta.counts` in a response is handed to `onCounts` (router.tsx decides where it goes).
  */
 import type { z } from 'zod'
 import { API_BASE } from '@/env'
@@ -36,7 +35,7 @@ export function buildUrl(path: string, query: Query = {}): string {
   for (const [k, v] of Object.entries(query)) {
     if (v === undefined || v === null || v === '') continue
     if (Array.isArray(v)) v.forEach((x) => params.append(k, String(x)))
-    else params.set(k, String(v as string | number | boolean))
+    else params.set(k, String(v))
   }
   const qs = params.toString()
   return `${API_BASE}${path}${qs ? `?${qs}` : ''}`
@@ -64,6 +63,7 @@ interface RequestOpts {
 
 async function request<S extends z.ZodTypeAny>(method: string, path: string, schema: S, opts: RequestOpts = {}): Promise<z.output<S>> {
   const headers: Record<string, string> = { Accept: 'application/json', ...authHeaders() }
+  const { userId } = session.get()
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
   if (method !== 'GET') headers['Idempotency-Key'] = opts.idempotencyKey ?? newIdempotencyKey()
 
@@ -77,7 +77,7 @@ async function request<S extends z.ZodTypeAny>(method: string, path: string, sch
     })
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
-    throw new ApiError(0, 'network', 'The Torch API is unreachable.')
+    throw new ApiError(0, 'network', 'The TorchRCM API is unreachable.')
   }
 
   const text = await res.text()
@@ -93,7 +93,8 @@ async function request<S extends z.ZodTypeAny>(method: string, path: string, sch
     throw new ApiError(res.status, `http_${res.status}`, `${method} ${path} failed (${res.status})`)
   }
 
-  pushCounts(json)
+  // The counts are the requester's and the strip's key has no user in it, so a switch while this was in flight voids them.
+  if (session.get().userId === userId) pushCounts(json)
   const parsed = schema.safeParse(json)
   if (!parsed.success) {
     console.error(`[api] ${method} ${path} did not match its schema`, parsed.error.issues)
@@ -112,9 +113,9 @@ function safeJson(text: string): unknown {
 
 function pushCounts(json: unknown): void {
   if (typeof json !== 'object' || json === null || !('meta' in json)) return
-  const meta = (json as { meta: unknown }).meta
+  const meta = json.meta
   if (typeof meta !== 'object' || meta === null || !('counts' in meta)) return
-  const counts = StripSummary.safeParse((meta as { counts: unknown }).counts)
+  const counts = StripSummary.safeParse(meta.counts)
   if (counts.success) onCounts(counts.data)
 }
 

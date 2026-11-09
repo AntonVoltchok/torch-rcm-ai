@@ -1,6 +1,6 @@
-# Torch — product spec (what we are building)
+# TorchRCM — product spec (what we are building)
 
-Torch is an agentic-AI revenue cycle management (RCM) product for dental practices. AI agents do the insurance back-and-forth (eligibility, claim assembly and submission, status follow-up, denial work, remittance posting); a human — the practice's billing coordinator — supervises and handles exceptions. The practice owner sets how much the agents may do on their own.
+TorchRCM is an agentic-AI revenue cycle management (RCM) product for dental practices. AI agents do the insurance back-and-forth (eligibility, claim assembly and submission, status follow-up, denial work, remittance posting); a human — the practice's billing coordinator — supervises and handles exceptions. The practice owner sets how much the agents may do on their own.
 
 This repo is a **believable, interactive demo** built for a job application. It is not a production system, but every shortcut must be invisible from the UI and defensible under questioning by people who build dental RCM software for a living.
 

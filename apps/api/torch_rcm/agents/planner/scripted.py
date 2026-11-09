@@ -99,7 +99,7 @@ def code_result(case: CaseFile, outcome: RunOutcome) -> ResultText:
     if not outcome.plan.actions:
         kind = "cannot_decide" if outcome.plan.situation_key == UNKNOWN else "no_action_needed"
         return ResultText(
-            outcome=kind,  # type: ignore[arg-type]
+            outcome=kind,
             recommendation=outcome.plan.no_action_reason or outcome.plan.reviewer_summary,
             explanation=outcome.plan.reviewer_summary,
         )
@@ -117,7 +117,7 @@ def code_result(case: CaseFile, outcome: RunOutcome) -> ResultText:
     )
     cited = tuple(dict.fromkeys(e for a in outcome.plan.actions for e in a.evidence_ids))
     return ResultText(
-        outcome=kind,  # type: ignore[arg-type]
+        outcome=kind,
         recommendation=outcome.plan.reviewer_summary,
         explanation=reasons,
         evidence_ids=cited,
@@ -167,7 +167,7 @@ class ScriptedPlanner:
             return Plan(
                 situation_key=case.classifier_situation,
                 actions=(),
-                no_action_reason="Needs a person: Torch couldn't classify this",
+                no_action_reason="Needs a person: TorchRCM couldn't classify this",
                 reviewer_summary="No script for this situation.",
                 planner=self.kind,
             )
@@ -194,7 +194,10 @@ class ScriptedPlanner:
 
 
 class RecordedPlanPlanner(ScriptedPlanner):
-    """Replays a reviewed live plan for an `unknown` case. Labelled "recorded agent plan"."""
+    """Replays a hand-written plan for an `unknown` case (live format; its cassette is synthetic).
+
+    Labelled "hand-written plan, replayed".
+    """
 
     def __init__(self) -> None:
         super().__init__(kind="recorded_plan")
@@ -212,8 +215,8 @@ class RecordedPlanPlanner(ScriptedPlanner):
             return Plan(
                 situation_key=UNKNOWN,
                 actions=(),
-                no_action_reason="Needs a person: Torch couldn't classify this",
-                reviewer_summary="Torch's classifier returned unknown and there is no reviewed plan for this case.",
+                no_action_reason="Needs a person: TorchRCM couldn't classify this",
+                reviewer_summary="TorchRCM's classifier returned unknown and there is no reviewed plan for this case.",
                 planner=self.kind,
             )
         rec = self.load(case.subject.id)

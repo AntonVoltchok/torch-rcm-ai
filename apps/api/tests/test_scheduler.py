@@ -11,7 +11,7 @@ import pytest
 
 from conftest import THURSDAY_0710, snap
 from torch_rcm.domain.entities import Advance, Claim, FileEntry, Job
-from torch_rcm.domain.enums import ClaimStatus, FileEntryKind, FileEntryState, JobState
+from torch_rcm.domain.enums import AdvanceState, ClaimStatus, FileEntryKind, FileEntryState, JobState
 from torch_rcm.readmodels.claims import strip
 from torch_rcm.runtime import Runtime
 from torch_rcm.scheduler import kinds as K
@@ -190,3 +190,140 @@ def test_file_departure_closes_the_hold_window(rt: Runtime) -> None:
     entry = rt.store.find(FileEntry, {"claim_id": "clm_4859"})[0]
     assert entry.state is FileEntryState.DEPARTED
     assert rt.store.require(Claim, "clm_4859").status is S.SENT
+
+
+def test_a_cancelled_advance_is_failed_not_left_holding_the_lock(rt: Runtime) -> None:
+    async def never_returns(until: datetime, advance: Advance | None = None) -> None:
+        await asyncio.Event().wait()
+
+    rt.scheduler.run_due = never_returns  # type: ignore[method-assign,assignment]
+
+    async def cancel_mid_advance() -> Advance:
+        advance = rt.scheduler.start_advance(THURSDAY_0710, "usr_morgan")
+        await asyncio.sleep(0)
+        assert rt.scheduler._task is not None
+        rt.scheduler._task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await rt.scheduler.wait()
+        return advance
+
+    advance = asyncio.run(cancel_mid_advance())
+    stored = rt.store.require(Advance, advance.id)
+    assert (stored.state, stored.error) == (AdvanceState.FAILED, "interrupted by shutdown")
+    assert rt.scheduler.current_advance() is None
+
+
+async def ticks(n: int = 200) -> None:
+    for _ in range(n):
+        await asyncio.sleep(0)
+
+
+def test_an_advance_waits_for_the_job_the_worker_holds(rt: Runtime, world_only_registry) -> None:  # type: ignore[no-untyped-def]
+    """Every step of a run reads one clock: an advance starts only when the worker's job has finished."""
+    clock_seen: list[datetime] = []
+    finished_at: list[datetime] = []
+
+    async def scenario() -> Advance:
+        started, release, stop = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+        async def held(ctx: JobContext) -> None:
+            clock_seen.append(ctx.clock.now())
+            started.set()
+            await release.wait()
+            clock_seen.append(ctx.clock.now())
+            finished_at.append(ctx.clock.now())
+
+        world_only_registry.register("test.held", held)
+        rt.scheduler.enqueue("test.held", rt.clock.now(), {}, "held")
+        worker = asyncio.create_task(rt.scheduler.worker_loop(stop, poll_seconds=0.01))
+        await asyncio.wait_for(started.wait(), 5)
+
+        before = rt.clock.now()
+        advance = rt.scheduler.start_advance(before + timedelta(hours=1), "usr_morgan")
+        await ticks()
+        assert rt.clock.now() == before, "the clock moved under a running job"
+        assert rt.store.require(Advance, advance.id).state is AdvanceState.RUNNING
+        with pytest.raises(AdvanceInProgressError):
+            rt.scheduler.begin_advance(before + timedelta(hours=2), "usr_morgan")
+
+        release.set()
+        await asyncio.wait_for(rt.scheduler.wait(), 5)  # no deadlock between the job and the advance
+        stop.set()
+        await asyncio.wait_for(worker, 5)
+        return rt.store.require(Advance, advance.id)
+
+    done = asyncio.run(scenario())
+    assert done.state is AdvanceState.DONE
+    assert clock_seen[0] == clock_seen[1] == finished_at[0]
+
+
+def test_the_worker_stops_during_an_advance_without_waiting_for_it(rt: Runtime) -> None:
+    async def never_returns(until: datetime, advance: Advance | None = None) -> None:
+        await asyncio.Event().wait()
+
+    rt.scheduler.run_due = never_returns  # type: ignore[method-assign,assignment]
+
+    async def scenario() -> None:
+        stop = asyncio.Event()
+        rt.scheduler.start_advance(THURSDAY_0710, "usr_morgan")
+        await ticks(5)
+        worker = asyncio.create_task(rt.scheduler.worker_loop(stop, poll_seconds=0.01))
+        await ticks(5)
+        stop.set()
+        await asyncio.wait_for(worker, 5)
+        assert rt.scheduler._task is not None
+        rt.scheduler._task.cancel()
+
+    asyncio.run(scenario())
+
+
+def test_the_worker_leaves_a_due_job_alone_while_an_advance_holds_the_clock(rt: Runtime, world_only_registry) -> None:  # type: ignore[no-untyped-def]
+    ran: list[str] = []
+
+    async def scenario() -> None:
+        release, stop = asyncio.Event(), asyncio.Event()
+        run_due = rt.scheduler.run_due
+
+        async def gated(until: datetime, advance: Advance | None = None) -> object:
+            await release.wait()
+            return await run_due(until, advance)
+
+        world_only_registry.register("test.queued", lambda ctx: ran.append(ctx.job.kind))  # type: ignore[arg-type,func-returntype]
+        rt.scheduler.run_due = gated  # type: ignore[method-assign,assignment]
+        rt.scheduler.start_advance(rt.clock.now() + timedelta(minutes=1), "usr_morgan")
+        await ticks(5)
+        rt.scheduler.enqueue("test.queued", rt.clock.now(), {}, "queued")
+        worker = asyncio.create_task(rt.scheduler.worker_loop(stop, poll_seconds=0.01))
+        await asyncio.sleep(0.03)
+        assert ran == []
+        release.set()
+        await asyncio.wait_for(rt.scheduler.wait(), 5)
+        stop.set()
+        await asyncio.wait_for(worker, 5)
+
+    asyncio.run(scenario())
+    assert ran == ["test.queued"]
+
+
+def test_the_worker_survives_a_job_that_loses_its_own_row(rt: Runtime, world_only_registry) -> None:  # type: ignore[no-untyped-def]
+    ran: list[str] = []
+
+    async def scenario() -> None:
+        stop = asyncio.Event()
+
+        def vanish(ctx: JobContext) -> None:  # what a reseed under a running job does
+            rt.store.delete(Job, ctx.job.id)
+            raise RuntimeError("the run is gone")
+
+        def after(ctx: JobContext) -> None:
+            ran.append("after")
+            stop.set()
+
+        world_only_registry.register("test.vanish", vanish)
+        world_only_registry.register("test.after", after)
+        rt.scheduler.enqueue("test.vanish", rt.clock.now(), {}, "vanish", priority=0)
+        rt.scheduler.enqueue("test.after", rt.clock.now(), {}, "after", priority=1)
+        await asyncio.wait_for(rt.scheduler.worker_loop(stop, poll_seconds=0.01), 5)
+
+    asyncio.run(scenario())
+    assert ran == ["after"]

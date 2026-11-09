@@ -5,11 +5,15 @@
  * mode and the real API tell the same story.
  */
 import type {
+  CoverageOut,
   ActionKind,
   AgentKind,
   BenefitsPanel,
   CashSummary,
   Deadline,
+  DenialMatrix,
+  DenialReason,
+  DenialReasonColumn,
   EligibilityRow,
   NextAction,
   PayerKey,
@@ -18,7 +22,7 @@ import type {
   RootCause,
   SavedView,
   Tier,
-} from '@/api/schema'
+} from '../wire'
 import { at, FROZEN_NOW, type MockClaim } from './claims'
 
 export const TODAY = FROZEN_NOW.slice(0, 10)
@@ -232,20 +236,20 @@ export function buildWeek(claims: MockClaim[]): WeekRow[] {
 
   // 12 came to Dana — one per open Inbox item
   const toDana: [number | null, string, Omit<RowIn, 'subject' | 'run_id' | 'outcome'> & Partial<WeekRow>][] = [
-    [4821, 'inb_4821', { at: at(TODAY, '06:15'), agent: 'followup', action_kind: 'resubmit_with_attachment', action: 'Matched the PA of #19 in PMS imaging; rule is Ask → proposed.', rule_id: 'rule_t1_delta_pa', tier: 1, root_cause: 'ours', evidence_kinds: ['era_line', 'ivr_transcript', 'pms_record', 'portal_screenshot', 'rep_call'] }],
-    [4836, 'inb_4836', { at: at(TODAY, '06:15'), agent: 'followup', action_kind: 'resubmit_with_attachment', action: 'Matched the PA of #3 in PMS imaging; rule is Ask → proposed.', rule_id: 'rule_t1_delta_pa', tier: 1, root_cause: 'ours', evidence_kinds: ['era_line', 'pms_record', 'portal_screenshot'] }],
-    [4840, 'inb_4840', { at: at(TODAY, '06:15'), agent: 'followup', action_kind: 'resubmit_with_attachment', action: 'Matched the PA of #14 in PMS imaging; rule is Ask → proposed.', rule_id: 'rule_t1_delta_pa', tier: 1, root_cause: 'ours', evidence_kinds: ['era_line', 'pms_record', 'portal_screenshot'] }],
-    [4733, 'inb_4733', { at: at(TODAY, '06:40'), agent: 'appeals', action_kind: 'reprocessing_request', action: 'Drafted a claim inquiry citing Delta’s own 03/2022 EOB (tooth #31).', tier: 2, root_cause: 'payer', evidence_kinds: ['era_line', 'pms_record', 'prior_eob'] }],
-    [4705, 'inb_4705', { at: at(TODAY, '06:30'), agent: 'followup', action_kind: 'reprocessing_request', action: 'Clean claim, day 64, insured plan → prompt-pay reprocessing request.', rule_id: 'rule_t1_reprocessing', tier: 1, root_cause: 'payer', evidence_kinds: ['policy_clause', 'rep_call'] }],
-    [4851, 'inb_4851', { at: at(TODAY, '07:02'), agent: 'claims', action_kind: 'fix_demographics_resend', action: 'The new id comes from the 271, not the PMS; the rule only resends PMS values → proposed (84%, under the 90% floor).', rule_id: 'rule_t1_fix_demographics', tier: 1, root_cause: 'patient', evidence_kinds: ['pms_record'] }],
-    [4772, 'inb_4772', { at: at(TODAY, '06:20'), agent: 'posting', action_kind: 'post_era_line', action: 'Line does not match tracked benefits (deductible met 05/12) → held, not posted.', rule_id: 'rule_t2_post_era', tier: 2, root_cause: 'payer', evidence_kinds: ['era_line'] }],
-    [4748, 'inb_4748', { at: at('2026-10-27', '08:10'), agent: 'posting', action_kind: 'patient_transfer', action: 'Alternate benefit −$38; on the signed estimate → patient transfer proposed.', rule_id: 'rule_t2_patient_transfer', tier: 2, root_cause: 'patient', evidence_kinds: ['era_line'] }],
-    [4611, 'inb_4611', { at: at('2026-10-27', '09:12'), agent: 'posting', action_kind: 'write_off', action: 'Max met confirmed on the portal: bill the patient the allowed $1,012; write off the $228 difference (tier 3).', tier: 3, root_cause: 'payer', evidence_kinds: ['portal_screenshot'] }],
-    [null, 'inb_elig_chen', { at: at(TODAY, '06:12'), agent: 'eligibility', action: 'Remaining max $180 of $1,500; planned $650 → insurance $180 / patient $470.', evidence_kinds: ['portal_screenshot'], cents: 47000 }],
-    [null, 'inb_elig_kim', { at: at(TODAY, '06:12'), agent: 'eligibility', action: 'Bitewings are not covered until 11/03 (last 11/03/2025). Skip D0274 or have the patient sign the acknowledgment.', evidence_kinds: ['portal_screenshot'], cents: 5800 }],
-    [null, 'inb_elig_park', { at: at(TODAY, '06:12'), agent: 'eligibility', action: 'MetLife portal and IVR unavailable since 05:40; 271 returned no plan detail.', cents: 63900 }],
+    [4821, 'itm_4821', { at: at(TODAY, '06:15'), agent: 'followup', action_kind: 'resubmit_with_attachment', action: 'Matched the PA of #19 in PMS imaging; rule is Ask → proposed.', rule_id: 'rule_t1_delta_pa', tier: 1, root_cause: 'ours', evidence_kinds: ['era_line', 'ivr_transcript', 'pms_record', 'portal_screenshot', 'rep_call'] }],
+    [4836, 'itm_4836', { at: at(TODAY, '06:15'), agent: 'followup', action_kind: 'resubmit_with_attachment', action: 'Matched the PA of #3 in PMS imaging; rule is Ask → proposed.', rule_id: 'rule_t1_delta_pa', tier: 1, root_cause: 'ours', evidence_kinds: ['era_line', 'pms_record', 'portal_screenshot'] }],
+    [4840, 'itm_4840', { at: at(TODAY, '06:15'), agent: 'followup', action_kind: 'resubmit_with_attachment', action: 'Matched the PA of #14 in PMS imaging; rule is Ask → proposed.', rule_id: 'rule_t1_delta_pa', tier: 1, root_cause: 'ours', evidence_kinds: ['era_line', 'pms_record', 'portal_screenshot'] }],
+    [4733, 'itm_4733', { at: at(TODAY, '06:40'), agent: 'appeals', action_kind: 'reprocessing_request', action: 'Drafted a claim inquiry citing Delta’s own 03/2022 EOB (tooth #31).', tier: 2, root_cause: 'payer', evidence_kinds: ['era_line', 'pms_record', 'prior_eob'] }],
+    [4705, 'itm_4705', { at: at(TODAY, '06:30'), agent: 'followup', action_kind: 'reprocessing_request', action: 'Clean claim, day 64, insured plan → prompt-pay reprocessing request.', rule_id: 'rule_t1_reprocessing', tier: 1, root_cause: 'payer', evidence_kinds: ['policy_clause', 'rep_call'] }],
+    [4851, 'itm_4851', { at: at(TODAY, '07:02'), agent: 'claims', action_kind: 'fix_demographics_resend', action: 'The new id comes from the 271, not the PMS; the rule only resends PMS values → proposed (84%, under the 90% floor).', rule_id: 'rule_t1_fix_demographics', tier: 1, root_cause: 'patient', evidence_kinds: ['pms_record'] }],
+    [4772, 'itm_4772', { at: at(TODAY, '06:20'), agent: 'posting', action_kind: 'post_era_line', action: 'Line does not match tracked benefits (deductible met 05/12) → held, not posted.', rule_id: 'rule_t2_post_era', tier: 2, root_cause: 'payer', evidence_kinds: ['era_line'] }],
+    [4748, 'itm_4748', { at: at('2026-10-27', '08:10'), agent: 'posting', action_kind: 'patient_transfer', action: 'Alternate benefit −$38; on the signed estimate → patient transfer proposed.', rule_id: 'rule_t2_patient_transfer', tier: 2, root_cause: 'patient', evidence_kinds: ['era_line'] }],
+    [4611, 'itm_4611', { at: at('2026-10-27', '09:12'), agent: 'posting', action_kind: 'write_off', action: 'Max met confirmed on the portal: bill the patient the allowed $1,012; write off the $228 difference (tier 3).', tier: 3, root_cause: 'payer', evidence_kinds: ['portal_screenshot'] }],
+    [null, 'itm_elig_chen', { at: at(TODAY, '06:12'), agent: 'eligibility', action: 'Remaining max $180 of $1,500; planned $650 → insurance $180 / patient $470.', evidence_kinds: ['portal_screenshot'], cents: 47000 }],
+    [null, 'itm_elig_kim', { at: at(TODAY, '06:12'), agent: 'eligibility', action: 'Bitewings are not covered until 11/03 (last 11/03/2025). Skip D0274 or have the patient sign the acknowledgment.', evidence_kinds: ['portal_screenshot'], cents: 5800 }],
+    [null, 'itm_elig_park', { at: at(TODAY, '06:12'), agent: 'eligibility', action: 'MetLife portal and IVR unavailable since 05:40; 271 returned no plan detail.', cents: 63900 }],
   ]
-  const eligSubject: Record<string, string> = { inb_elig_chen: 'J. Chen', inb_elig_kim: 'S. Kim', inb_elig_park: 'N. Park' }
+  const eligSubject: Record<string, string> = { itm_elig_chen: 'J. Chen', itm_elig_kim: 'S. Kim', itm_elig_park: 'N. Park' }
   for (const [n, item, r] of toDana) {
     const c = n === null ? undefined : by.get(n)
     rows.push(
@@ -294,12 +298,12 @@ const pat = (id: string, name: string, display: string, dob: string) => ({ id, n
 
 export const ELIGIBILITY: EligibilityRow[] = [
   { appointment_id: 'appt_shah_1029', start: at('2026-10-29', '08:00'), patient: pat('pat_shah_p', 'Priya Shah', 'P. Shah', '1996-02-26'), provider_name: 'Dr. Lee', payer: PAYER_REF.delta_ny, planned: [p('D0120', 57), p('D1110', 85)], planned_fee_cents: 14200, remaining_max_cents: 150000, status: 'verified', note: null, inbox_item_id: null },
-  { appointment_id: 'appt_chen_1029', start: at('2026-10-29', '09:00'), patient: pat('pat_chen_j', 'Jia Chen', 'J. Chen', '1979-06-06'), provider_name: 'Dr. Morgan', payer: PAYER_REF.metlife, planned: [p('D4341', 205), p('D4341', 205), p('D2392', 240, '30')], planned_fee_cents: 65000, remaining_max_cents: 18000, status: 'issue', note: 'Planned work exceeds remaining max by $470.', inbox_item_id: 'inb_elig_chen' },
+  { appointment_id: 'appt_chen_1029', start: at('2026-10-29', '09:00'), patient: pat('pat_chen_j', 'Jia Chen', 'J. Chen', '1979-06-06'), provider_name: 'Dr. Morgan', payer: PAYER_REF.metlife, planned: [p('D4341', 205), p('D4341', 205), p('D2392', 240, '30')], planned_fee_cents: 65000, remaining_max_cents: 18000, status: 'issue', note: 'Planned work exceeds remaining max by $470.', inbox_item_id: 'itm_elig_chen' },
   { appointment_id: 'appt_moss_1029', start: at('2026-10-29', '10:30'), patient: pat('pat_moss_t', 'Tara Moss', 'T. Moss', '1965-01-09'), provider_name: 'Dr. Lee', payer: PAYER_REF.guardian, planned: [p('D0120', 57), p('D1110', 85)], planned_fee_cents: 14200, remaining_max_cents: 150000, status: 'verified', note: null, inbox_item_id: null },
   { appointment_id: 'appt_ito_1029', start: at('2026-10-29', '11:30'), patient: pat('pat_ito_w', 'Wes Ito', 'W. Ito', '1999-05-05'), provider_name: 'Dr. Morgan', payer: PAYER_REF.cigna, planned: [p('D0210', 180), p('D1110', 85)], planned_fee_cents: 26500, remaining_max_cents: 150000, status: 'checking', note: null, inbox_item_id: null },
-  { appointment_id: 'appt_kim_1029', start: at('2026-10-29', '13:00'), patient: pat('pat_kim_s', 'Soo Kim', 'S. Kim', '1998-07-14'), provider_name: 'Dr. Lee', payer: PAYER_REF.guardian, planned: [p('D0274', 58), p('D1110', 85)], planned_fee_cents: 14300, remaining_max_cents: 150000, status: 'issue', note: 'D0274 frequency: next eligible 11/03.', inbox_item_id: 'inb_elig_kim' },
+  { appointment_id: 'appt_kim_1029', start: at('2026-10-29', '13:00'), patient: pat('pat_kim_s', 'Soo Kim', 'S. Kim', '1998-07-14'), provider_name: 'Dr. Lee', payer: PAYER_REF.guardian, planned: [p('D0274', 58), p('D1110', 85)], planned_fee_cents: 14300, remaining_max_cents: 150000, status: 'issue', note: 'D0274 frequency: next eligible 11/03.', inbox_item_id: 'itm_elig_kim' },
   { appointment_id: 'appt_ford_1029', start: at('2026-10-29', '14:30'), patient: pat('pat_ford_e', 'Emma Ford', 'E. Ford', '1991-08-19'), provider_name: 'Dr. Morgan', payer: PAYER_REF.aetna, planned: [p('D2392', 255, '30')], planned_fee_cents: 25500, remaining_max_cents: 150000, status: 'verified', note: null, inbox_item_id: null },
-  { appointment_id: 'appt_park_1030', start: at('2026-10-30', '09:00'), patient: pat('pat_park_n', 'Nari Park', 'N. Park', '1988-01-15'), provider_name: 'Dr. Morgan', payer: PAYER_REF.metlife, planned: [p('D0150', 130), p('D0210', 180), p('D4341', 240), p('D0220', 30, '18'), p('D1206', 59)], planned_fee_cents: 63900, remaining_max_cents: 150000, status: 'unverified', note: 'Portal down; unverified.', inbox_item_id: 'inb_elig_park' },
+  { appointment_id: 'appt_park_1030', start: at('2026-10-30', '09:00'), patient: pat('pat_park_n', 'Nari Park', 'N. Park', '1988-01-15'), provider_name: 'Dr. Morgan', payer: PAYER_REF.metlife, planned: [p('D0150', 130), p('D0210', 180), p('D4341', 240), p('D0220', 30, '18'), p('D1206', 59)], planned_fee_cents: 63900, remaining_max_cents: 150000, status: 'unverified', note: 'Portal down; unverified.', inbox_item_id: 'itm_elig_park' },
   { appointment_id: 'appt_webb_1030', start: at('2026-10-30', '10:30'), patient: pat('pat_webb_c', 'Cora Webb', 'C. Webb', '1960-12-12'), provider_name: 'Dr. Lee', payer: PAYER_REF.cigna, planned: [p('D0210', 180), p('D1110', 85)], planned_fee_cents: 26500, remaining_max_cents: 150000, status: 'checking', note: null, inbox_item_id: null },
   { appointment_id: 'appt_brandt_1030', start: at('2026-10-30', '13:00'), patient: pat('pat_brandt_k', 'Kurt Brandt', 'K. Brandt', '1962-08-13'), provider_name: 'Dr. Lee', payer: PAYER_REF.delta_ny, planned: [p('D1110', 85)], planned_fee_cents: 8500, remaining_max_cents: 150000, status: 'verified', note: null, inbox_item_id: null },
   { appointment_id: 'appt_patel_1030', start: at('2026-10-30', '13:30'), patient: pat('pat_patel_r', 'Ravi Patel', 'R. Patel', '1972-07-27'), provider_name: 'Dr. Morgan', payer: PAYER_REF.cigna, planned: [p('D4341', 205), p('D4341', 205)], planned_fee_cents: 41000, remaining_max_cents: 150000, status: 'verified', note: null, inbox_item_id: null },
@@ -334,6 +338,29 @@ const AGENT_NOTE: Record<string, string> = {
   appt_chen_1029: 'Remaining max $180 of $1,500; planned $650 → insurance $180 / patient $470 · as of 10/28 · portal. Quote $470 at check-in, or move D2392 after 1/1.',
   appt_kim_1029: 'Bitewings are not covered until 11/03 (last 11/03/2025). Skip D0274 or have the patient sign the non-covered acknowledgment.',
   appt_park_1030: 'MetLife portal and IVR unavailable since 05:40; 271 returned no plan detail. Verify at check-in or call MetLife.',
+}
+
+/** A claim's coverage on the plan its payer sells in this seed (the eligibility card's numbers). */
+export function coverageFor(c: { coverage_id: string; payer_key: PayerKey; plan_label: string | null }): CoverageOut {
+  return {
+    id: c.coverage_id,
+    payer_key: c.payer_key,
+    plan_name: c.plan_label ?? PLAN_NAME[c.payer_key],
+    subscriber_id: `6049${c.coverage_id.slice(-5)}`,
+    group_no: '0042-10',
+    order: 'primary',
+    self_funded: c.payer_key === 'aetna',
+    annual_max_cents: 150000,
+    used_cents: 32000,
+    remaining_max_cents: 118000,
+    deductible_cents: 5000,
+    deductible_met_cents: 5000,
+    pct_preventive: 100,
+    pct_basic: 80,
+    pct_major: 50,
+    verified_at: at(TODAY, '06:12'),
+    verified_via: 'portal',
+  }
 }
 
 export function benefitsFor(row: EligibilityRow): BenefitsPanel {
@@ -466,6 +493,43 @@ export function routeDenial(carc: string, rarc: string | null | undefined, payer
 /** CO = contractual obligation: the practice cannot bill the patient if the appeal is lost; PR can be. */
 export const patientBillableIfLost = (carc: string, payer: PayerKey) => carc.startsWith('PR') && payer !== 'ny_medicaid'
 
+/** Payer × reason columns, as the API's `screens.DENIAL_REASONS`. Plan limits (PR-*) get no column. */
+const DENIAL_REASONS: readonly DenialReasonColumn[] = [
+  { key: 'doc', label: 'Doc' },
+  { key: 'freq', label: 'Freq' },
+  { key: 'cob', label: 'COB' },
+  { key: 'tf', label: 'TF' },
+  { key: 'med_nec', label: 'Med. nec.' },
+  { key: 'other', label: 'Other' },
+]
+const CARC_REASON: Record<string, DenialReason> = { 'CO-16': 'doc', 'CO-119': 'freq', 'CO-22': 'cob', 'CO-29': 'tf', 'CO-50': 'med_nec' }
+
+/** GET /denials `matrix`: the worklist rows by payer × reason, as the API's `screens.denial_matrix`. */
+export function denialMatrix(rows: readonly { carc: string; claim: { payer: PayerRef } }[]): DenialMatrix {
+  const keys = DENIAL_REASONS.map((c) => c.key)
+  const byPayer = new Map<PayerKey, { payer: PayerRef; counts: Map<DenialReason, number> }>()
+  const totals = new Map<DenialReason, number>()
+  let excluded = 0
+  for (const r of rows) {
+    if (r.carc.startsWith('PR-')) {
+      excluded++
+      continue
+    }
+    const reason = CARC_REASON[r.carc] ?? 'other'
+    const p = byPayer.get(r.claim.payer.key) ?? { payer: r.claim.payer, counts: new Map() }
+    p.counts.set(reason, (p.counts.get(reason) ?? 0) + 1)
+    byPayer.set(r.claim.payer.key, p)
+    totals.set(reason, (totals.get(reason) ?? 0) + 1)
+  }
+  const payers = [...byPayer.values()].map(({ payer, counts }) => {
+    const cells = keys.map((k) => ({ reason: k, count: counts.get(k) ?? 0 }))
+    return { payer, cells, total: cells.reduce((a, c) => a + c.count, 0) }
+  })
+  payers.sort((a, b) => b.total - a.total || (a.payer.short_name < b.payer.short_name ? -1 : a.payer.short_name > b.payer.short_name ? 1 : 0))
+  const totalCells = keys.map((k) => ({ reason: k, count: totals.get(k) ?? 0 }))
+  return { columns: [...DENIAL_REASONS], payers, totals: totalCells, total: totalCells.reduce((a, c) => a + c.count, 0), excluded }
+}
+
 /** Self-funded (ERISA) plans among the pinned claims' coverages. */
 export const SELF_FUNDED_CLAIMS = new Set(['clm_4796', 'clm_4797', 'clm_4800'])
 
@@ -480,7 +544,7 @@ export interface OvernightDenial {
   root_cause: RootCause
   deadline: Deadline
   /** The Inbox item the agent leaves for a person. */
-  item: { agent: AgentKind; tier: Tier; title: string; recommendation: string; summary: string; action: ActionKind; rule_id: string | null; required_role?: 'owner' | 'dentist' }
+  item: { agent: AgentKind; tier: Tier; title: string; recommendation: string; summary: string; action: ActionKind; rule_id: string | null; situation: string }
 }
 
 export const OVERNIGHT_DENIALS: OvernightDenial[] = [
@@ -491,7 +555,7 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     decoded: 'Not deemed medically necessary after consultant review',
     root_cause: 'payer',
     deadline: { kind: 'appeal', due_on: '2027-04-27', basis: 'Guardian ERISA: 180 days from the 10/29 835' },
-    item: { agent: 'appeals', tier: 3, title: '#4796 · L. Ito · Guardian · CO-50 · N10 formal appeal', recommendation: 'Formal appeal (level 1 of 2) with the 10/09 perio chart and FMX. Dr. Lee signs; the patient must authorize (self-funded ERISA plan).', summary: 'Consultant review denied D4341 UR + UL as not medically necessary. The chart shows ≥ 5 mm pockets in UR.', action: 'formal_appeal', rule_id: 'rule_t3_formal_appeal', required_role: 'dentist' },
+    item: { agent: 'appeals', tier: 3, title: '#4796 · L. Ito · Guardian · CO-50 · N10 formal appeal', recommendation: 'Formal appeal (level 1 of 2) with the 10/09 perio chart and FMX. Dr. Lee signs; the patient must authorize (self-funded ERISA plan).', summary: 'Consultant review denied D4341 UR + UL as not medically necessary. The chart shows ≥ 5 mm pockets in UR.', action: 'formal_appeal', rule_id: 'rule_t3_formal_appeal', situation: 'denied:CO-50:N10:formal_appeal' },
   },
   {
     number: 4797,
@@ -500,7 +564,7 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     decoded: 'Records requested: send the chart and radiographs',
     root_cause: 'ours', // the Claims agent sent the FMX where Guardian's rule names the perio chart, so the records rule may not run it
     deadline: { kind: 'none', due_on: null, basis: 'records request · no payer deadline' },
-    item: { agent: 'followup', tier: 1, title: '#4797 · A. Castillo · Guardian · records request', recommendation: 'Send the 10/09 perio chart and FMX via NEA and reference the claim number.', summary: 'Guardian’s 835 asks for records (M127). Our Claims agent sent the FMX where Guardian’s rule names the perio chart, so root cause is ours and the records request is held for Dana.', action: 'records_request', rule_id: 'rule_t1_records_request' },
+    item: { agent: 'followup', tier: 1, title: '#4797 · A. Castillo · Guardian · records request', recommendation: 'Send the 10/09 perio chart and FMX via NEA and reference the claim number.', summary: 'Guardian’s 835 asks for records (M127). Our Claims agent sent the FMX where Guardian’s rule names the perio chart, so root cause is ours and the records request is held for Dana.', action: 'records_request', rule_id: 'rule_t1_records_request', situation: 'denied:CO-16:M127:records_request' },
   },
   {
     number: 4800,
@@ -509,7 +573,7 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     decoded: 'Care may be covered by another payer (coordination of benefits)',
     root_cause: 'payer',
     deadline: { kind: 'timely_filing', due_on: '2027-10-13', basis: 'MetLife: 12 months from DOS 10/13 · new primary claim' },
-    item: { agent: 'followup', tier: 2, title: '#4800 · S. Moreno · Aetna · COB (CO-22)', recommendation: 'Change the coverage order in the PMS so the MetLife plan on file (listed secondary) is primary, then send a new primary claim to MetLife.', summary: 'Aetna says another plan is primary. Changing the PMS coverage order is tier 2 and no signed rule covers it → Dana.', action: 'cob_order_change', rule_id: null },
+    item: { agent: 'followup', tier: 2, title: '#4800 · S. Moreno · Aetna · COB (CO-22)', recommendation: 'Change the coverage order in the PMS so the MetLife plan on file (listed secondary) is primary, then send a new primary claim to MetLife.', summary: 'Aetna says another plan is primary. Changing the PMS coverage order is tier 2 and no signed rule covers it → Dana.', action: 'cob_order_change', rule_id: null, situation: 'denied:CO-22:cob_order' },
   },
   {
     number: 3561,
@@ -518,10 +582,10 @@ export const OVERNIGHT_DENIALS: OvernightDenial[] = [
     decoded: 'The time limit for filing has expired',
     root_cause: 'payer',
     deadline: { kind: 'appeal', due_on: '2027-04-27', basis: 'MetLife: 180 days from the 10/29 835' },
-    item: { agent: 'appeals', tier: 3, title: '#3561 · G. Morris · MetLife · timely filing (CO-29)', recommendation: 'Timely-filing appeal with MetLife’s own 11/04/2025 277CA as proof of receipt. If upheld: non-contractual write-off, the patient cannot be billed.', summary: 'MetLife has no record of the 11/2025 submission; our 277CA from 11/04/2025 shows they received it.', action: 'formal_appeal', rule_id: 'rule_t3_formal_appeal', required_role: 'owner' },
+    item: { agent: 'appeals', tier: 3, title: '#3561 · G. Morris · MetLife · timely filing (CO-29)', recommendation: 'Timely-filing appeal with MetLife’s own 11/04/2025 277CA as proof of receipt. If upheld: non-contractual write-off, the patient cannot be billed.', summary: 'MetLife has no record of the 11/2025 submission; our 277CA from 11/04/2025 shows they received it.', action: 'formal_appeal', rule_id: 'rule_t3_formal_appeal', situation: 'denied:CO-29:timely_filing_appeal' },
   },
 ]
 
 export const VIEWS: SavedView[] = [
-  { id: 'view_pending_30', name: 'Pending 31–60 d', search_params: { status: ['pending'], age: '31_60', sort: '-age' }, owner_user_id: 'usr_dana', builtin: false },
+  { id: 'view_pending_30', name: 'Pending 31–60 d', search_params: { status: ['pending'], age: '31_60', sort: '-age' }, owner_user_id: 'usr_dana', created_at: at('2026-10-26', '09:00'), builtin: false },
 ]

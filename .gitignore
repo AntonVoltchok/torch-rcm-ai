@@ -16,6 +16,8 @@ test-results/
 # data / secrets
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 .env
 .env.*

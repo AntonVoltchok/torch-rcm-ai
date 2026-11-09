@@ -8,11 +8,12 @@ recipe: they execute only in a human-started run by a role holder (policy row 3)
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from torch_rcm.agents.types import AgentKind, DraftKind, HoldReason, ReversesIn, Role, Tier
+from torch_rcm.agents.types import AgentKind, DraftKind, HoldReason, JsonValue, ReversesIn, Role, Tier
 
 
 class Params(BaseModel):
@@ -268,6 +269,23 @@ TIER3_ROLES: dict[str, frozenset[Role]] = {
 
 def spec_for(action: str) -> ActionSpec | None:
     return ACTIONS.get(action)
+
+
+FOLLOW_UP_ARG = {"reprocessing_request": "basis"}  # the param `then`'s text after the colon fills
+
+
+def follow_up(action: str, params: Mapping[str, object]) -> tuple[str, dict[str, JsonValue]] | None:
+    """The action an ERA post's `then` queues ("reprocessing_request:deductible_misapplied") and its params, on the
+    poster's claim. Not validated here: Policy validates and decides it like any proposed action (row 1 refuses
+    an unknown action or basis)."""
+    then = params.get("then") if action == "post_era_line" else None
+    if not isinstance(then, str) or not then:
+        return None
+    name, _, arg = then.partition(":")
+    out: dict[str, JsonValue] = {"claim_id": cid} if isinstance(cid := params.get("claim_id"), str) else {}
+    if arg and name in FOLLOW_UP_ARG:
+        out[FOLLOW_UP_ARG[name]] = arg
+    return name, out
 
 
 def in_catalog(agent: AgentKind, action: str) -> bool:

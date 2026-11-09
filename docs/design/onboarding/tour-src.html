@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TorchRCM Onboarding Tour</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&display=swap">
+<!-- Source: docs/design/onboarding/tour-src.html. Built by capture/build.py into tour-mock.html; edit the source, not the output. -->
+<style>
+/* ===== the app's own compiled stylesheet, as the dev server served it (Tailwind v4 + styles.css tokens) ===== */
+/*__APPCSS__*/
+</style>
+<style>
+/* ===== the tour, drawn over snapshots of the real app. Light theme only: the product has none other (05-frontend). ===== */
+:root{
+  --t-ink:#161a22; --t-mid:#4b5364; --t-soft:#5c6577; --t-line:#e7e9ee; --t-line-strong:#d8dce3; --t-fill:#f8f9fb; --t-paper:#fff;
+  --t-canvas:#eceef2; --t-act:#2a55d6; --t-act-hover:#2348bc; --t-act-bg:#eff3fe; --t-act-line:#cbd8f9;
+  --t-agents:#0f8a8a; --t-practice-ink:#8a5a00; --t-risk:#c0262d; --t-ok:#167a43;
+  --t-code-key:#2348bc; --t-code-str:#0f6e6e; --t-code-com:#6b7385; --t-code-num:#8a5a00; --t-code-tag:#a2361f;
+  --t-shade:rgba(22,26,34,.55);
+  --s:1;
+}
+html,body{height:100%;overflow:hidden}
+body{min-width:0!important;margin:0;background:var(--t-canvas)!important;color:var(--t-ink);font-family:'Geist',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px}
+.tour-page{display:flex;flex-direction:column;height:100%;padding:10px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));box-sizing:border-box;gap:8px}
+.tbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.tbar h1{margin:0;font-size:15px;font-weight:650;letter-spacing:-.01em;white-space:nowrap}
+.tbar .stamp{font-size:12px;color:var(--t-mid);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 280px}
+.tbar .stamp b{color:var(--t-ink);font-weight:600}
+.tbtn{border:1px solid var(--t-line-strong);background:var(--t-paper);color:var(--t-ink);border-radius:7px;padding:5px 10px;font:500 12.5px/1.2 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}
+.tbtn:hover{border-color:var(--t-ink)}
+.tbtn.primary{background:var(--t-act);border-color:var(--t-act);color:#fff}
+.tbtn.primary:hover{background:var(--t-act-hover)}
+.tsel{border:1px solid var(--t-line-strong);background:var(--t-paper);border-radius:7px;padding:5px 8px;font:500 12.5px/1.2 inherit;font-family:inherit;color:var(--t-ink)}
+.rail{display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;min-height:24px;scrollbar-width:thin}
+.rail button{flex:none;border:1px solid transparent;background:transparent;border-radius:999px;padding:3px 10px;font:500 11.5px/1.3 inherit;font-family:inherit;color:var(--t-mid);cursor:pointer;white-space:nowrap}
+.rail button.on{background:var(--t-ink);color:#fff}
+.rail button.done{color:var(--t-ink);background:var(--t-paper);border-color:var(--t-line)}
+.rail button:hover{border-color:var(--t-ink)}
+.rail .rail-name{flex:none;align-self:center;font-size:11.5px;font-weight:600;color:var(--t-ink);padding-right:4px}
+
+.stage-wrap{position:relative;flex:1;min-height:0}
+.stage-box{position:absolute;left:50%;top:0;width:calc(1440px * var(--s));height:calc(900px * var(--s));transform:translateX(-50%)}
+.stage{position:absolute;top:0;left:0;width:1440px;height:900px;transform:scale(var(--s));transform-origin:top left;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px var(--t-line-strong),0 12px 32px rgba(22,26,34,.10);background:var(--color-canvas,#f6f7f9)}
+.approot{height:100%;font-family:var(--font-sans);font-size:var(--text-base,14px);line-height:1.45;color:var(--color-ink);background:var(--color-canvas);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.design-shot{display:block;width:100%;height:auto;flex:1;min-height:0;object-fit:cover;object-position:top}
+.approot .tour-this{display:flex;align-items:center;gap:6px;margin:0 6px 10px;padding:6px 8px;border:1px dashed var(--t-act-line);border-radius:7px;background:var(--t-act-bg);color:var(--t-act);font:500 13px/1.2 inherit;font-family:inherit;cursor:pointer;text-align:left}
+.approot .tour-this:hover{border-color:var(--t-act)}
+.approot .tour-this small{margin-left:auto;font-size:11px;color:var(--t-soft);font-weight:500}
+.approot [data-step][data-hide="1"]{display:none}
+.approot [data-testid=changes][data-hide="1"]{visibility:hidden}
+.toast-mini{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;background:var(--t-ink);color:#fff;border-radius:8px;padding:8px 14px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100vw - 32px)}
+.toast-mini.on{opacity:1}
+
+/* overlay */
+.shield{position:fixed;inset:0;z-index:40;display:none}
+.shield.on{display:block}
+.hole{position:fixed;z-index:41;border-radius:9px;box-shadow:0 0 0 200vmax var(--t-shade);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease;display:none;outline:2px solid var(--t-act);outline-offset:1px}
+.hole.on{display:block}
+.card{position:fixed;z-index:42;box-sizing:border-box;background:var(--t-paper);color:var(--t-ink);border-radius:12px;box-shadow:0 0 0 1px rgba(22,26,34,.08),0 22px 60px rgba(22,26,34,.30);display:none;flex-direction:column;overflow:hidden}
+.card.on{display:flex}
+.card .chead{display:flex;align-items:center;gap:10px;padding:12px 16px 0}
+.card .ey{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .chead .sp{flex:1}
+.card .codetog{border:1px solid var(--t-line-strong);background:var(--t-paper);border-radius:6px;padding:3px 8px;font:500 11.5px/1.2 inherit;font-family:inherit;color:var(--t-mid);cursor:pointer;white-space:nowrap}
+.card .codetog:hover{color:var(--t-ink);border-color:var(--t-ink)}
+.card .x{border:0;background:transparent;color:var(--t-soft);font-size:18px;line-height:1;padding:0 2px;cursor:pointer}
+.card .x:hover{color:var(--t-ink)}
+.card .cbody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,42fr) minmax(0,58fr);gap:16px;padding:8px 16px 0}
+.card.nocode .cbody{grid-template-columns:minmax(0,1fr)}
+.card.narrow .cbody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.card .text{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:9px;padding-bottom:4px;padding-right:2px}
+.card h3{margin:0;font-size:17px;font-weight:650;letter-spacing:-.012em;line-height:1.25;text-wrap:balance}
+.card p{margin:0;font-size:13.5px;line-height:1.55;color:#2b313d}
+.card p b,.card li b{color:var(--t-ink);font-weight:600}
+.card ul{margin:0;padding-left:18px;font-size:13px;line-height:1.5;color:#2b313d}
+.card code{font-family:var(--font-mono,ui-monospace,Menlo,Consolas,monospace);font-size:12px;background:var(--t-fill);border:1px solid var(--t-line);border-radius:4px;padding:0 4px}
+.card kbd{font-family:var(--font-mono,ui-monospace,Menlo,monospace);font-size:11px;border:1px solid var(--t-line-strong);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--t-paper)}
+.card .note{font-size:12px;line-height:1.5;color:var(--t-soft)}
+.card .honest{font-size:12px;line-height:1.5;color:#2b313d;border-left:3px solid var(--t-practice-ink);background:#fdf6e6;padding:6px 9px;border-radius:0 6px 6px 0}
+.card .try{align-self:flex-start;border:1px solid var(--t-act);background:var(--t-act-bg);color:var(--t-act);border-radius:7px;padding:6px 11px;font:600 12.5px/1.2 inherit;font-family:inherit;cursor:pointer}
+.card .try:hover{background:var(--t-act);color:#fff}
+.card .try:disabled{opacity:.5;cursor:default;background:var(--t-act-bg);color:var(--t-act)}
+.code{min-height:0;display:flex;flex-direction:column;border:1px solid var(--t-line);border-radius:9px;background:var(--t-fill);overflow:hidden}
+.card.nocode .code{display:none}
+.code .src{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--t-line);font-size:11.5px;color:var(--t-mid);background:var(--t-paper)}
+.code .src b{font-family:var(--font-mono,ui-monospace,Menlo,monospace);font-weight:600;color:var(--t-ink);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code .src .tag{margin-left:auto;flex:none;font-size:10.5px;font-weight:600;border-radius:4px;padding:1px 6px;background:#e3f3ec;color:var(--t-ok)}
+.code .src .tag.src-v{background:var(--t-act-bg);color:var(--t-act)}
+.code .src .tag.src-s{background:#fdf1d6;color:var(--t-practice-ink)}
+.code .tabs{display:flex;gap:2px;padding:5px 8px 0;background:var(--t-paper);border-bottom:1px solid var(--t-line);overflow-x:auto}
+.code .tabs button{border:0;border-bottom:2px solid transparent;background:transparent;padding:4px 8px 5px;font:500 11.5px/1.2 inherit;font-family:inherit;color:var(--t-mid);cursor:pointer;white-space:nowrap}
+.code .tabs button.on{color:var(--t-ink);border-bottom-color:var(--t-act)}
+.code pre{flex:1;min-height:0;margin:0;padding:9px 12px 12px;overflow:auto;font-family:var(--font-mono,ui-monospace,Menlo,Consolas,monospace);font-size:11.75px;line-height:1.5;color:var(--t-ink);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
+.code pre .c{color:var(--t-code-com)}
+.code pre .k{color:var(--t-code-key)}
+.code pre .s{color:var(--t-code-str)}
+.code pre .n{color:var(--t-code-num)}
+.code pre .u{color:var(--t-code-tag)}
+.card footer{display:flex;align-items:center;gap:8px;padding:10px 16px 12px;border-top:1px solid var(--t-line);margin-top:10px}
+.card footer .exit{border:0;background:transparent;color:var(--t-mid);font:500 12.5px/1.2 inherit;font-family:inherit;padding:6px 2px;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.card footer .dots{flex:1;display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+.card footer .dots i{width:6px;height:6px;border-radius:50%;background:var(--t-line-strong)}
+.card footer .dots i.on{background:var(--t-act)}
+.card footer .dots i.done{background:var(--t-soft)}
+.card footer .count{font-size:12px;color:var(--t-soft);white-space:nowrap}
+.card footer .b{border:1px solid var(--t-line-strong);background:var(--t-paper);color:var(--t-ink);border-radius:7px;padding:6px 14px;font:600 13px/1.2 inherit;font-family:inherit;cursor:pointer}
+.card footer .b.next{background:var(--t-act);color:#fff;border-color:var(--t-act)}
+.card footer .b.next:hover{background:var(--t-act-hover)}
+.card footer .b:disabled{opacity:.4;cursor:default}
+
+/* centered modal (welcome / done) */
+.modal{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;background:var(--t-shade);padding:16px}
+.modal.on{display:flex}
+.mbox{width:760px;max-width:100%;max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;background:var(--t-paper);color:var(--t-ink);border-radius:14px;padding:22px 26px 18px;box-shadow:0 24px 60px rgba(0,0,0,.30);display:flex;flex-direction:column;gap:13px}
+.mbox .ey{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t-soft);display:flex;align-items:center;gap:8px}
+.mbox .ey .x{margin-left:auto;border:0;background:transparent;font-size:20px;color:var(--t-soft);line-height:1;cursor:pointer}
+.mbox h2{margin:0;font-size:24px;font-weight:650;letter-spacing:-.018em;text-wrap:balance}
+.mbox p{margin:0;font-size:14px;line-height:1.6;color:#2b313d;max-width:66ch}
+.mbox p b{color:var(--t-ink);font-weight:600}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fact{border:1px solid var(--t-line);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.fact .k{font-size:11px;font-weight:600;color:var(--t-soft)}
+.fact .v{font-size:14px;font-weight:600}
+.fact .m{font-size:12px;color:var(--t-mid)}
+ol.steps{margin:0;padding-left:20px;font-size:13px;color:var(--t-mid);columns:2;column-gap:28px}
+ol.steps li{margin-bottom:4px;break-inside:avoid}
+ol.steps b{color:var(--t-ink);font-weight:600}
+.mbox footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--t-line);padding-top:13px}
+.mbox footer .note{font-size:12px;color:var(--t-mid);flex:1;min-width:220px}
+.mbox .b{border:1px solid var(--t-line-strong);background:var(--t-paper);border-radius:8px;padding:8px 15px;font:600 13.5px/1.2 inherit;font-family:inherit;cursor:pointer;color:var(--t-ink)}
+.mbox .b.primary{background:var(--t-act);color:#fff;border-color:var(--t-act)}
+.screens{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.scr{border:1px solid var(--t-line);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;min-width:0;text-align:left;background:var(--t-paper);cursor:pointer;font-family:inherit;color:inherit}
+.scr:hover{border-color:var(--t-act)}
+.scr .t{display:flex;align-items:center;gap:6px;font-weight:600;font-size:13.5px}
+.scr .t .st{margin-left:auto;font-size:10.5px;font-weight:600;border-radius:4px;padding:1px 6px;background:var(--t-fill);color:var(--t-mid);border:1px solid var(--t-line)}
+.scr .t .st.seen{background:#e3f3ec;color:var(--t-ok);border-color:#c4e6d4}
+.scr .d{font-size:12px;color:var(--t-mid);line-height:1.45}
+@media (max-width:760px){.card .cbody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.card footer .dots{display:none}.facts{grid-template-columns:1fr}ol.steps{columns:1}.screens{grid-template-columns:1fr 1fr}.tbar .stamp{display:none}}
+@media (prefers-reduced-motion:reduce){.hole{transition:none}}
+</style>
+</head>
+<body>
+<div class="tour-page">
+  <div class="tbar">
+    <h1>TorchRCM · onboarding tour</h1>
+    <span class="stamp" id="stamp"></span>
+    <select class="tsel" id="screenSel" aria-label="Open a screen"></select>
+    <button class="tbtn" id="screenTour">Tour this screen</button>
+    <button class="tbtn primary" id="mainTour">Main tour</button>
+  </div>
+  <div class="rail" id="rail" aria-label="Tour steps"></div>
+  <div class="stage-wrap" id="stageWrap"><div class="stage-box" id="stageBox"><div class="stage" id="stage"><div class="approot" id="approot"></div></div></div></div>
+</div>
+<div class="shield" id="shield"></div>
+<div class="hole" id="hole"></div>
+<div class="card" id="card" role="dialog" aria-modal="false" aria-labelledby="cardTitle"></div>
+<div class="modal" id="modal"><div class="mbox" id="mbox" role="dialog" aria-modal="true"></div></div>
+<div class="toast-mini" id="toast" role="status"></div>
+
+<!--__SNAPS__-->
+
+<script>
+/*__DATA__*/
+(function () {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const COMMIT = '__COMMIT__';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('torchrcm.tour.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('torchrcm.tour.' + k, JSON.stringify(v)); } catch (e) { /* private mode: in-memory only */ } },
+};
+
+/* ---------- snapshots: what each one is (route, viewer, clock) ---------- */
+const DANA = 'Dana S. · billing', MORGAN = 'Dr. Morgan · owner', LEE = 'Dr. Lee · dentist';
+const WED = 'Wed 10/28 10:40', THU = 'Thu 10/29 7:10';
+const META = {
+  inbox: ['/inbox', DANA, WED], inbox_4821: ['/inbox?item=itm_4821', DANA, WED], inbox_morgan: ['/inbox', MORGAN, WED],
+  denials: ['/denials', DANA, WED], ledger: ['/ledger', DANA, WED], claims: ['/claims', DANA, WED],
+  claims_denied: ['/claims?status=denied', DANA, WED], claims_4744_search: ['/claims?q=4744', DANA, WED],
+  claim_4821: ['/claims/clm_4821', DANA, WED], claim_4744: ['/claims/clm_4744', DANA, WED],
+  payments: ['/payments', DANA, WED], patients: ['/patients', DANA, WED],
+  eligibility: ['/eligibility', DANA, WED], eligibility_chen: ['/eligibility?appt=apt_1029_chen_j', DANA, WED],
+  activity: ['/activity', DANA, WED], activity_observe: ['/activity?observe=true', DANA, WED], activity_followup: ['/activity?agent=followup', DANA, WED],
+  cash: ['/cash', MORGAN, WED], settings_rules: ['/settings/agents', DANA, WED], settings_rules_morgan: ['/settings/agents', MORGAN, WED],
+  settings_proposals: ['/settings/agents?tab=proposals', DANA, WED], settings_changes: ['/settings/agents?tab=changes', DANA, WED],
+  settings_hover_status: ['/settings/agents · hovering Status check → Runs without review', DANA, WED],
+  settings_hover_delta: ['/settings/agents · hovering Missing PA → Runs without review', DANA, WED],
+  settings_proposals_before: ['/settings/agents?tab=proposals', DANA, WED],
+  settings_proposals_after: ['/settings/agents?tab=proposals · after Accept', DANA, WED],
+  settings_rules_after_accept: ['/settings/agents · after Accept', DANA, WED],
+  settings_t2_morgan: ['/settings/agents · Post ERA line → Ask Dana', MORGAN, WED],
+  settings_t2_dana_409: ['/settings/agents · then Dana tries Runs without review', DANA, WED],
+  settings_changes_after: ['/settings/agents?tab=changes · after both', DANA, WED],
+  run_delta_t0: ['/inbox · Approve 3 pressed', DANA, WED], run_delta_t1: ['/inbox · run streaming', DANA, WED], run_delta_done: ['/inbox · runs finished', DANA, WED],
+  inbox_after: ['/inbox · after Approve 3', DANA, WED], claim_4821_after: ['/claims/clm_4821 · after Approve 3', DANA, WED],
+  triage_4744_t0: ['/claims/clm_4744 · Ask Follow-up pressed', DANA, WED], triage_4744_t1: ['/claims/clm_4744 · run streaming', DANA, WED],
+  triage_4744_done: ['/claims/clm_4744 · run finished', DANA, WED], inbox_after_triage: ['/inbox · after 3b', DANA, WED],
+  inbox_morgan_before_adv: ['/inbox', MORGAN, 'Wed 10/28 10:40 · after steps 3–7'],
+  advance_t0: ['/inbox · Skip pressed', MORGAN, 'advancing'], advance_t1: ['/inbox · scheduler running', MORGAN, 'advancing · Thu 6:05'],
+  advance_done_morgan: ['/inbox', MORGAN, THU], inbox_thu: ['/inbox', DANA, THU], activity_thu: ['/activity', DANA, THU],
+  denials_thu: ['/denials', DANA, THU], cash_thu: ['/cash', MORGAN, THU], inbox_lee_thu: ['/inbox', LEE, THU],
+};
+
+/* ---------- screens (sidebar order, nav.ts) ---------- */
+const SCREENS = [
+  { id: 'inbox', label: 'Inbox', snap: 'inbox', route: '/inbox' },
+  { id: 'denials', label: 'Denials', snap: 'denials', route: '/denials' },
+  { id: 'ledger', label: 'Today’s claims', snap: 'ledger', route: '/ledger' },
+  { id: 'claims', label: 'Claims', snap: 'claims', route: '/claims' },
+  { id: 'claim', label: 'Claim detail', snap: 'claim_4821', route: '/claims/' },
+  { id: 'payments', label: 'Payments', snap: 'payments', route: '/payments' },
+  { id: 'patients', label: 'Patients', snap: 'patients', route: '/patients' },
+  { id: 'eligibility', label: 'Eligibility', snap: 'eligibility_chen', route: '/eligibility' },
+  { id: 'activity', label: 'Activity', snap: 'activity', route: '/activity' },
+  { id: 'cash', label: 'Cash (Dr. Morgan)', snap: 'cash', route: '/cash' },
+  { id: 'settings', label: 'Settings › Agents', snap: 'settings_rules', route: '/settings' },
+];
+const screenById = (id) => SCREENS.find((s) => s.id === id);
+let currentScreen = 'inbox', currentSnap = null;
+
+/* ---------- stage ---------- */
+const approot = $('#approot');
+function fit() {
+  const w = $('#stageWrap').clientWidth, h = $('#stageWrap').clientHeight;
+  const s = Math.max(0.3, Math.min(1, w / 1440, h / 900));
+  document.documentElement.style.setProperty('--s', s.toFixed(4));
+}
+function show(snap) {
+  const tpl = document.getElementById('snap-' + snap);
+  if (!tpl) { console.error('missing snapshot', snap); return; }
+  currentSnap = snap;
+  approot.replaceChildren(tpl.content.cloneNode(true));
+  // The proposed "Tour this screen" control, in the sidebar where the shipped one would sit (above the agents line).
+  const foot = approot.querySelector('aside [data-testid=agents-indicator]');
+  if (foot) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tour-this'; b.id = 'tourThis';
+    b.innerHTML = '<span aria-hidden="true">?</span> Tour this screen <small>proposed</small>';
+    foot.parentElement.parentElement.insertBefore(b, foot.parentElement);
+  }
+  const m = META[snap] || ['?', DANA, WED];
+  // Snapshots taken before capture synced controlled <select> values into markup: restore the two that matter.
+  const who = approot.querySelector('select[aria-label="Switch user"]');
+  if (who) who.value = m[1] === MORGAN ? 'usr_morgan' : m[1] === LEE ? 'usr_lee' : 'usr_dana';
+  const agent = approot.querySelector('select[aria-label="Agent"]');
+  if (agent && snap === 'activity_followup') agent.value = 'followup';
+  $('#stamp').innerHTML = `Snapshot of the real app · <b>${m[0]}</b> · ${m[1]} · ${m[2]} · commit ${COMMIT}`;
+}
+function goScreen(id, opts = {}) {
+  const sc = screenById(id); if (!sc) return;
+  currentScreen = id; $('#screenSel').value = id;
+  show(sc.snap);
+  if (!opts.silent && !tour) {
+    const seen = store.get('seen', {});
+    if (!seen[id] && TOURS[id]) start(id);
+  }
+}
+function routeToScreen(href) {
+  const p = href.split('#')[0];
+  if (p.startsWith('/claims/clm_4744')) return { id: 'claim', snap: 'claim_4744' };
+  if (p.startsWith('/claims/clm_4821')) return { id: 'claim', snap: 'claim_4821' };
+  if (p.startsWith('/claims/')) return null;
+  const sc = SCREENS.find((s) => s.id !== 'claim' && p.startsWith(s.route));
+  return sc ? { id: sc.id, snap: sc.snap } : null;
+}
+
+/* ---------- code panes ---------- */
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function hl(src) {
+  return src.split('\n').map((ln) => {
+    const t = ln.trimStart();
+    if (t.startsWith('#') || t.startsWith('//')) return `<span class="c">${esc(ln)}</span>`;
+    let h = esc(ln);
+    h = h.replace(/(&lt;\/?(?:world_content|tool_data)[^&]*?&gt;)/g, '<span class="u">$1</span>');
+    h = h.replace(/"([^"\n]*)"(\s*:)/g, '<span class="k">"$1"</span>$2');
+    h = h.replace(/(:\s*|\[\s*|,\s*)"([^"\n]*)"/g, '$1<span class="s">"$2"</span>');
+    h = h.replace(/(:\s*)(-?\d[\d.]*|true|false|null)\b/g, '$1<span class="n">$2</span>');
+    h = h.replace(/(\s)(# [^\n]*)$/, '$1<span class="c">$2</span>');
+    return h;
+  }).join('\n');
+}
+/* step.code = [[tabLabel, drawerKey, sourceLabel, kind]] ; kind: 'api' captured, 'render' rendered by real code, 'src' verbatim source */
+const KIND = { api: ['captured', ''], render: ['rendered on the seed', 'src-v'], src: ['verbatim source', 'src-v'], mixed: ['captured + source', ''], synthetic: ['hand-authored recording', 'src-s'] };
+function codePane(step) {
+  if (!step.code || !step.code.length) return '';
+  const tabs = step.code.length > 1 ? `<div class="tabs" role="tablist">${step.code.map((c, i) => `<button role="tab" data-tab="${i}" class="${i === 0 ? 'on' : ''}">${c[0]}</button>`).join('')}</div>` : '';
+  return `<div class="code">${tabs}<div class="src" id="codeSrc"></div><pre id="codePre" tabindex="0"></pre></div>`;
+}
+function showTab(step, i) {
+  const c = step.code[i]; const body = D[c[1]];
+  if (body === undefined) console.error('missing drawer', c[1]);
+  const k = KIND[c[3] || 'api'];
+  $('#codeSrc').innerHTML = `<b>${esc(c[2])}</b><span class="tag ${k[1]}">${k[0]}</span>`;
+  $('#codePre').innerHTML = hl(body || '');
+  $('#codePre').scrollTop = 0;
+  $$('#card .tabs button').forEach((b) => b.classList.toggle('on', Number(b.dataset.tab) === i));
+}
+
+/* ---------- tours ---------- */
+const TOURS = {};
+let tour = null, tourId = null, idx = 0, timers = [], justPlayed = false;
+const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+function start(id, at = 0) {
+  clearTimers();
+  tour = TOURS[id]; tourId = id; idx = at;
+  const seen = store.get('seen', {}); seen[id] = true; store.set('seen', seen);
+  render();
+}
+function exit() {
+  clearTimers();
+  tour = null; tourId = null;
+  $('#shield').classList.remove('on'); $('#hole').classList.remove('on'); $('#card').classList.remove('on'); $('#modal').classList.remove('on');
+  $('#rail').innerHTML = '';
+  // Exiting returns the stage to the seed's Wednesday state on the current screen.
+  show(screenById(currentScreen).snap);
+}
+function go(n) { if (!tour) return; clearTimers(); idx = Math.max(0, Math.min(tour.steps.length - 1, n)); render(); }
+
+function renderRail() {
+  const r = $('#rail'); r.innerHTML = `<span class="rail-name">${tour.name}</span>`;
+  tour.steps.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.textContent = s.modal ? s.title : `${i + (tour.steps[0].modal ? 0 : 1)}. ${s.title}`;
+    b.className = i === idx ? 'on' : i < idx ? 'done' : '';
+    b.onclick = () => go(i);
+    r.appendChild(b);
+  });
+  const on = r.querySelector('button.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+function find(spec) {
+  if (!spec) return null;
+  const root = approot;
+  const one = (s) => {
+    if (s.startsWith('@')) {
+      const text = s.slice(1);
+      let best = null;
+      for (const el of root.querySelectorAll('*')) {
+        if (el.children.length > 40) continue;
+        if (el.textContent && el.textContent.includes(text)) { if (!best || best.contains(el)) best = el; }
+      }
+      return best;
+    }
+    return root.querySelector(s);
+  };
+  if (Array.isArray(spec)) { const el = one(spec[0]); return el && spec[1] ? el.closest(spec[1]) || el : el; }
+  return one(spec);
+}
+
+function revealRun(stepsSel, ms, done) {
+  const items = $$(stepsSel, approot);
+  const changes = approot.querySelector('[data-testid=changes]');
+  const audit = approot.querySelector('[data-testid=audit-line]');
+  items.forEach((li) => li.setAttribute('data-hide', '1'));
+  if (changes) changes.setAttribute('data-hide', '1');
+  if (audit) audit.style.visibility = 'hidden';
+  items.forEach((li, i) => later(() => { li.removeAttribute('data-hide'); place(); }, ms * (i + 1)));
+  later(() => { if (changes) changes.removeAttribute('data-hide'); if (audit) audit.style.visibility = ''; if (done) done(); }, ms * (items.length + 1));
+}
+function playSeq(seq, done) {
+  let t = 0;
+  seq.forEach(([snap, ms, fx]) => {
+    later(() => { show(snap); if (fx) fx(); place(); }, t);
+    t += ms;
+  });
+  if (done) later(done, t);
+}
+
+function render() {
+  const s = tour.steps[idx];
+  renderRail();
+  if (s.screen) { currentScreen = s.screen; $('#screenSel').value = s.screen; }
+  if (s.snap) show(s.snap);
+  if (s.enter) s.enter();
+  if (s.modal) return renderModal(s);
+  $('#modal').classList.remove('on');
+  $('#shield').classList.add('on');
+  const card = $('#card');
+  const anchored = tour.steps.filter((x) => !x.modal);
+  const ai = anchored.indexOf(s);
+  const last = idx === tour.steps.length - 1;
+  const dots = anchored.map((_, i) => `<i class="${i === ai ? 'on' : i < ai ? 'done' : ''}"></i>`).join('');
+  const codeOn = store.get('code', true) && s.code && s.code.length;
+  card.classList.toggle('nocode', !codeOn);
+  card.innerHTML = `
+    <div class="chead"><span class="ey">${tour.name} · step ${ai + 1} of ${anchored.length}${s.ey ? ' · ' + s.ey : ''}</span><span class="sp"></span>
+      ${s.code && s.code.length ? `<button class="codetog" id="codeTog" aria-pressed="${codeOn ? 'true' : 'false'}">${codeOn ? 'Hide code' : 'Show code'}</button>` : ''}
+      <button class="x" id="cx" aria-label="Exit tour">×</button></div>
+    <div class="cbody"><div class="text"><h3 id="cardTitle">${s.title}</h3>${s.html}${s.tryit ? `<button class="try" id="tryBtn">${s.tryit.label}</button>` : ''}</div>${codeOn ? codePane(s) : ''}</div>
+    <footer><button class="exit" id="cexit">Exit tour</button><span class="dots">${dots}</span>
+      <button class="b" id="cback" ${idx === 0 ? 'disabled' : ''}>Back</button>
+      <button class="b next" id="cnext">${last ? 'Finish' : 'Next'}</button></footer>`;
+  card.classList.add('on'); $('#hole').classList.add('on');
+  if (codeOn) { showTab(s, 0); $$('#card .tabs button').forEach((b) => (b.onclick = () => showTab(s, Number(b.dataset.tab)))); }
+  $('#cx').onclick = exit; $('#cexit').onclick = exit;
+  $('#cback').onclick = () => go(idx - 1);
+  $('#cnext').onclick = () => (last ? (s.finish ? s.finish() : exit()) : go(idx + 1));
+  const tg = $('#codeTog'); if (tg) tg.onclick = () => { store.set('code', !store.get('code', true)); const keep = idx; clearTimers(); idx = keep; render(); };
+  const tb = $('#tryBtn');
+  if (tb) tb.onclick = () => { tb.disabled = true; tb.textContent = s.tryit.busy || 'Running…'; s.tryit.run(() => { if (s.tryit.then === 'next') { justPlayed = true; go(idx + 1); justPlayed = false; } else { tb.textContent = s.tryit.doneLabel || 'Done'; if (s.tryit.target) s._target = s.tryit.target; place(); } }); };
+  s._target = s.target;
+  if (s.after) s.after();
+  requestAnimationFrame(() => { place(true); later(() => place(), 120); });
+}
+
+function renderModal(s) {
+  $('#shield').classList.remove('on'); $('#hole').classList.remove('on'); $('#card').classList.remove('on');
+  const m = $('#mbox');
+  m.innerHTML = `<div class="ey">${s.ey || ''}<button class="x" aria-label="Exit tour" id="mx">×</button></div><h2>${s.title}</h2>${s.html}
+    <footer><span class="note">${s.note || ''}</span>${s.secondary ? `<button class="b" id="msec">${s.secondary}</button>` : ''}<button class="b primary" id="mpri">${s.primary}</button></footer>`;
+  $('#modal').classList.add('on');
+  $('#mx').onclick = exit;
+  $('#mpri').onclick = s.onPrimary || (() => go(idx + 1));
+  if ($('#msec')) $('#msec').onclick = s.onSecondary || exit;
+  $$('[data-go]', m).forEach((b) => (b.onclick = () => { const id = b.dataset.go; exit(); goScreen(TOURS[id].screen, { silent: true }); start(id); }));
+  $('#mpri').focus();
+}
+
+/* scroll the anchor into view inside the snapshot's own scroll containers (the page never scrolls) */
+function reveal(el, mode) {
+  if (!el) return;
+  el.scrollIntoView({ block: mode || 'nearest', inline: 'nearest' });
+  window.scrollTo(0, 0); $('.tour-page').scrollTop = 0; $('#stageWrap').scrollTop = 0;
+}
+
+function place(first) {
+  if (!tour) return; const s = tour.steps[idx]; if (!s || s.modal) return;
+  const el = find(s._target || s.target);
+  const hole = $('#hole'), card = $('#card');
+  if (!el) { console.warn('tour anchor not found', tourId, idx, s._target || s.target); }
+  if (el && first) reveal(el, s.scroll);
+  const sr = $('#stage').getBoundingClientRect();
+  const r0 = el ? el.getBoundingClientRect() : sr;
+  // clip the anchor to the visible stage
+  const r = { left: Math.max(r0.left, sr.left), top: Math.max(r0.top, sr.top), right: Math.min(r0.right, sr.right), bottom: Math.min(r0.bottom, sr.bottom) };
+  r.width = Math.max(0, r.right - r.left); r.height = Math.max(0, r.bottom - r.top);
+  const pad = 5;
+  hole.style.top = r.top - pad + 'px'; hole.style.left = r.left - pad + 'px';
+  hole.style.width = r.width + pad * 2 + 'px'; hole.style.height = r.height + pad * 2 + 'px';
+
+  const vw = innerWidth, vh = innerHeight, gap = 14, M = 12;
+  const codeOn = !card.classList.contains('nocode');
+  const wide = Math.min(1180, vw - 2 * M), narrowW = Math.min(500, vw - 2 * M);
+  const wantH = codeOn ? Math.min(560, Math.max(380, vh * 0.56)) : 0;
+  card.classList.remove('narrow');
+  card.style.height = ''; card.style.maxHeight = '';
+  const below = vh - (r.bottom + pad) - gap - M, above = r.top - pad - gap - M;
+  const right = vw - (r.right + pad) - gap - M, left = r.left - pad - gap - M;
+  let W = codeOn ? wide : narrowW, H, top, x;
+  const natural = () => { card.style.width = W + 'px'; card.style.height = 'auto'; card.style.maxHeight = vh - 2 * M + 'px'; return card.offsetHeight; };
+  if (!codeOn) {
+    H = natural();
+    if (below >= H) top = r.bottom + pad + gap; else if (above >= H) top = r.top - pad - gap - H;
+    else if (right >= W) { x = r.right + pad + gap; top = r.top; } else if (left >= W) { x = r.left - pad - gap - W; top = r.top; }
+    else top = (r.top + r.height / 2 > vh / 2) ? M : vh - M - H;
+  } else {
+    const minH = 330;
+    if (below >= minH) { H = Math.min(wantH, below); top = r.bottom + pad + gap; }
+    else if (above >= minH) { H = Math.min(wantH, above); top = r.top - pad - gap - H; }
+    else if (right >= narrowW || left >= narrowW) {
+      W = narrowW; card.classList.add('narrow'); H = Math.min(vh - 2 * M, 640);
+      x = right >= narrowW ? r.right + pad + gap : r.left - pad - gap - W; top = Math.max(M, Math.min(r.top, vh - M - H));
+    } else {
+      // No side has room: cover the half of the screen the anchor is not in, and keep the hole's middle visible.
+      const mid = r.top + r.height / 2;
+      H = Math.min(wantH, Math.max(minH, mid > vh / 2 ? mid - 60 - M : vh - mid - 60 - M));
+      top = mid > vh / 2 ? M : vh - M - H;
+    }
+    card.style.width = W + 'px'; card.style.height = H + 'px';
+  }
+  if (x === undefined) x = W >= vw - 2 * M - 40 ? (vw - W) / 2 : r.left + r.width / 2 - W / 2;
+  x = Math.max(M, Math.min(x, vw - W - M)); top = Math.max(M, Math.min(top, vh - M - (H || card.offsetHeight)));
+  card.style.left = x + 'px'; card.style.top = top + 'px';
+}
+
+/* ---------- toast ---------- */
+let toastT = null;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+
+/* =====================================================================================================
+   TOUR CONTENT. Every number below is asserted against the captured JSON by capture/build.py (CHECKS).
+   ===================================================================================================== */
+const RUN_STEPS = '[data-testid=run-pane] li[data-step]';
+
+TOURS.main = { name: 'Main tour', screen: 'inbox', steps: [
+  { modal: true, snap: 'inbox_4821', screen: 'inbox', title: 'Welcome to TorchRCM', ey: 'Evaluator tour · 9 steps · about 6 minutes',
+    html: `<p>TorchRCM is an agentic revenue-cycle demo for a dental practice. Five agents work the claims pipeline. <b>Agents propose; the Policy layer decides whether anything runs</b>, and a person decides everything the practice’s rules hold back.</p>
+    <div class="facts">
+      <div class="fact"><span class="k">Clock</span><span class="v">Wed 10/28 · 10:40 AM</span><span class="m">frozen; only the owner’s button moves it</span></div>
+      <div class="fact"><span class="k">Data</span><span class="v">Canonical seed</span><span class="m">225 claims open or paid in October</span></div>
+      <div class="fact"><span class="k">Agent mode</span><span class="v">Deterministic (default)</span><span class="m">no model calls; live mode sends the same cases to Claude. Parity is so far checked against hand-authored cassettes</span></div>
+    </div>
+    <p>The tour follows one claim, <b>K. Owens #4821</b>: Delta denied the crown on #19 because our own Claims agent attached a bitewing where Delta’s rule asks for a periapical. Every step has a <b>code pane</b>, open by default: the API response the screen rendered, captured from the running app, or the real prompt, schema, policy table or recipe behind it, each labelled with where it came from.</p>
+    <ol class="steps">
+      <li><b>Seed and clock</b></li><li><b>One status model</b> · the strip</li><li><b>Whose move</b></li><li><b>How #4821 got here</b> · 835 → router</li>
+      <li><b>What a model would see</b> · CASE FACTS</li><li><b>Code decides</b> · policy, tier, track record</li>
+      <li><b>Dana decides</b> · Try it: approve 3</li><li><b>The approval run</b> · recipe, SSE</li><li><b>The loop closes</b> · Try it: skip to Thursday</li>
+    </ol>`,
+    note: 'The screens are snapshots of the real app (DOM and stylesheet), not drawings. This tour opens each time; exit any time, restart it from “Tour this screen”.',
+    primary: 'Start the tour', secondary: 'Skip, look around' },
+
+  { snap: 'inbox_4821', screen: 'inbox', target: '[data-testid=clock-control]', ey: 'seed & clock', title: 'Where the data comes from',
+    html: `<p>Nothing here is live. <code>make seed</code> builds the practice from a fixed random seed and pins the named records the demo depends on, #4821 among them; everything else is generated so the totals reconcile.</p>
+    <p>The clock is <b>frozen at Wed 10/28 10:40</b>. No code reads wall-clock time. The owner’s “Skip to Thu 7:10 AM” runs the scheduler forward, and that is how the night’s payer traffic arrives (step 9).</p>
+    <p class="note">Server money is integer cents. The UI formats it and never adds it up.</p>`,
+    code: [['clock + claim', 'clock', 'GET /api/v1/clock · GET /api/v1/claims/clm_4821', 'api']] },
+
+  { snap: 'inbox_4821', screen: 'inbox', target: ['@107 open', 'section'], ey: 'one status model', title: 'The pipeline: nine statuses, one source',
+    html: `<p>A claim has exactly <b>nine statuses</b>. “Need action 9” is a derived flag, not a tenth status. Every number in this card, the nav badges and the header comes from one endpoint, <code>GET /summary/strip</code>, or from <code>meta.counts</code> on a mutation. The browser never counts rows, so two screens cannot disagree.</p>
+    <p>Each status links to Claims, pre-filtered, and the filter lives in the URL (<code>/claims?status=denied</code>), so a refresh keeps it.</p>`,
+    code: [['strip', 'strip', 'GET /api/v1/summary/strip', 'api']] },
+
+  { snap: 'inbox_4821', screen: 'inbox', target: ['@With the agents', 'section'], ey: 'whose move', title: 'Whose move it is, decided by the server',
+    html: `<p>D1’s idea: every open claim is somewhere on a relay between <b>you</b> (amber), <b>the agents</b> (teal) and <b>the payer</b> (violet). The baton on each row and these three cards are <code>ClaimSummary.move</code>, computed by one server function from runs, items, holds, file entries, rule modes and the clock.</p>
+    <p>A payer is named only on evidence that the payer owes a reply, so unworked A/R cannot hide behind “Waiting on Delta”. <code>mine</code> is a server boolean; the browser never compares holders.</p>`,
+    code: [['moves', 'moves', 'StripOut.moves · ClaimSummary.move', 'api']] },
+
+  { snap: 'inbox_4821', screen: 'inbox', target: ['@Delta needs the PA x-ray for these 3 crowns', '[data-testid=decision] > *'], scroll: 'nearest', ey: '835 → router → agent', title: 'How #4821 got here',
+    html: `<p>The crown left in the 10/12 10:45 Delta file and was accepted the next morning. Delta’s 10/26 ERA denied it <b>CO-16 · N29</b>: pre-operative radiograph required. Two more crowns came back the same way, so the Inbox <b>groups</b> them: one decision, three claims, $3,730.</p>
+    <p>Code did three things before any agent ran: parsed and balanced the 835 line, routed CARC·RARC to the Follow-up agent (<code>route_denial</code>, the same function the Denials worklist uses), and read provenance: <b>our Claims agent attached a BWX</b> where Delta’s rule names a PA. That makes the root cause <b>“ours”</b>, and it stays ours.</p>`,
+    code: [['835 · router · cause', 'denial', 'GET /remittances/rem_delta_1026 · domain/routing.py · case.py', 'mixed']] },
+
+  { snap: 'inbox_4821', screen: 'inbox', target: ['@Follow-up agent recommends', 'div'], ey: 'the model’s input', title: 'What a model would see',
+    html: `<p>In <b>live mode</b> a Follow-up run is one conversation: a static, cached system prompt (role, the closed list of actions, what it may not do, the untrusted-content contract), then a first user message, <b>CASE FACTS</b>, rendered by code. The code pane shows both, rendered from this seed by the real <code>render_case</code>.</p>
+    <p>Root cause, deadlines and the classifier’s situation are <b>already computed</b> when the model sees them. Portal pages, transcripts and notes arrive wrapped as <code>&lt;world_content trust="untrusted"&gt;</code>: data to read, never instructions.</p>
+    <p class="honest"><b>In this demo’s default deterministic mode no model is called for #4821.</b> The situation is known, so the scripted planner produces the plan. The live cassette for this group is hand-authored in the live format (<code>synthetic: true</code>), not recorded from the API.</p>`,
+    code: [['prompt', 'prompt', 'prompts/followup.md · planner/live.py render_case', 'render'], ['plan', 'plan', 'ScriptedPlanner.plan · tools/schemas.py', 'render'], ['models', 'models', 'llm/models.py · llm/client.py', 'src']] },
+
+  { snap: 'inbox_4821', screen: 'inbox', target: ['@Why it stopped at you', 'div.grid, div'], ey: 'policy, tier, track record', title: 'Code decides whether it runs',
+    html: `<p>The plan names an action, its parameters and the evidence it rests on. <b>No confidence, tier, root cause, amount or deadline</b>: the planner never emits those. The Policy layer walks a sixteen-row table, top down, first match wins.</p>
+    <p>Row 8 matches: the rule “Missing PA x-ray (CO-16 · N29) → attach, resubmit” is set to <b>Ask</b>, so the plan becomes an Inbox item. <b>Track record: 23 of 25</b> paid within 30 days after a PA resubmit; that is seeded history, not a model’s guess.</p>
+    <p>Were the rule on auto, row 10 would still stop it: <b>root cause “ours” can never be learned into running without review</b>. That is the grey box at the bottom of the panel.</p>`,
+    code: [['ROWS + decide()', 'policy', 'agents/policy.py ROWS · decide() on #4821 and #4744', 'render'], ['learnable', 'guard', 'InboxItemOut.learnable · learning.py', 'mixed']] },
+
+  { snap: 'inbox_4821', screen: 'inbox', target: ['@Send 3 x-rays and resubmit', 'div.grid, div'], ey: 'a person decides', title: 'Dana decides',
+    html: `<p><b>Send 3 x-rays and resubmit</b> (<kbd>⇧A</kbd>) takes the group; <b>Only #4821</b> (<kbd>A</kbd>), <b>Edit plan</b>, <b>Reject</b> and <b>Snooze</b> work on one item. “What this does” is the action catalog’s wording, the same text the run executes: three x-rays uploaded to NEA, three claims in the 11:15 AM Delta file.</p>
+    <p>Approve is idempotent per item (<code>Idempotency-Key</code>), so a double click or a retry cannot send twice.</p>`,
+    tryit: { label: 'Try it · Send 3 x-rays and resubmit', busy: 'Streaming…', then: 'next',
+      run(done) { playSeq([['run_delta_t0', 900], ['run_delta_t1', 900]], () => { show('run_delta_done'); place(); revealRun(RUN_STEPS, 420, () => later(done, 900)); }); } },
+    code: [['request · response · recipe', 'approve', 'POST /api/v1/inbox:approve-group · catalog/recipes.py', 'mixed']] },
+
+  { snap: 'run_delta_done', screen: 'inbox', target: ['[data-testid=run-pane]', '.panel'], ey: 'recipe → NEA → 11:15 file', title: 'The approval run',
+    enter() { if (!justPlayed) revealRun(RUN_STEPS, 160); },
+    html: `<p>The pane opens at once and streams each step over <b>SSE</b>: gather the case, decide (a person approved), fetch the PA from imaging, upload to NEA, write the NEA# and original ICN into the claim remarks, queue for the next Delta file. A reload mid-run resumes from the stored events.</p>
+    <p><b>What changed</b> is the server’s answer, not the browser’s arithmetic: your Inbox <b>11 → 8</b>, and <b>Denied stays 5</b>, because the claims stay denied until Delta processes the resubmission.</p>
+    <p class="honest">An approval run <b>calls no model in either mode</b>: it replays the approved plan (<code>ApprovedPlanPlanner</code>). The events say <code>planner: scripted</code> and the Investigate step reads nothing.</p>`,
+    code: [['SSE events', 'events', 'GET /api/v1/runs/{id}/events', 'api'], ['202 response', 'approve', 'POST /api/v1/inbox:approve-group', 'mixed']] },
+
+  { snap: 'inbox_morgan_before_adv', screen: 'inbox', target: '[data-testid=clock-control]', ey: 'the scheduler · owner only', title: 'The loop closes overnight',
+    html: `<p>Only the owner moves the clock, so the tour switched <b>Signed in as</b> to Dr. Morgan for this step (Dana’s sidebar says “Clock control: Dr. Morgan”). <b>Skip to Thu 7:10 AM</b> returns 202 at once; the scheduler then fires every due event in sim time: the 11:15 file leaves, Vyne’s 277CA acknowledges it, overnight 835s arrive and <b>each denial goes to the agent its codes name</b>, and the morning status checks fire.</p>
+    <p>Back as Dana on Thursday: <b>14 items</b> need her; one waits on Dr. Morgan and two formal appeals wait on Dr. Lee, who treated both patients and signs their attestations. Denied <b>5 → 9</b>.</p>`,
+    tryit: { label: 'Try it · Skip to Thu 7:10 AM', busy: 'Advancing…', doneLabel: 'Thursday 7:10 · signed in as Dana again', target: ['@Yours', 'section'],
+      run(done) { playSeq([['advance_t0', 1300], ['advance_t1', 1600], ['advance_done_morgan', 1200], ['inbox_thu', 10]], done); } },
+    code: [['advance', 'advance', 'POST /api/v1/clock/advance · GET /clock/advance/{id} · strip', 'api'], ['denials after', 'denials_thu', 'GET /api/v1/denials (Thu)', 'api']] },
+
+  { modal: true, snap: 'inbox', screen: 'inbox', title: 'That is the loop', ey: 'Screen tours',
+    html: `<p>Seed data in; codes routed to an agent; facts computed by code; a plan; a verdict from policy; a person’s decision; a fixed recipe to the payer; remittances back overnight. Each screen has its own tour. It opens the first time you land on the screen, and <b>Tour this screen</b> in the sidebar restarts it.</p>
+    <div class="screens" id="screenList"></div>`,
+    enter() { later(() => { const l = $('#screenList'); if (!l) return; const seen = store.get('seen', {}); l.innerHTML = SCREEN_TOURS.map((id) => `<button class="scr" data-go="${id}"><span class="t">${TOURS[id].name}<span class="st ${seen[id] ? 'seen' : ''}">${seen[id] ? 'seen' : TOURS[id].steps.length + ' steps'}</span></span><span class="d">${TOURS[id].blurb}</span></button>`).join(''); $$('[data-go]', l).forEach((b) => (b.onclick = () => { const id = b.dataset.go; exit(); goScreen(TOURS[id].screen, { silent: true }); start(id); })); }, 0); },
+    note: 'Payloads marked “captured” are responses from the running API at the commit in the header; “rendered” ran the real code on the seed; “hand-authored recording” is labelled wherever it appears.',
+    primary: 'Finish', onPrimary: () => exit(), secondary: 'Replay main tour', onSecondary: () => start('main') },
+] };
+
+TOURS.inbox = { name: 'Inbox', screen: 'inbox', blurb: 'The queue, who the rest waits on, the decision panel, evidence, the guard, keys.', steps: [
+  { snap: 'inbox', target: '[aria-label="Your queue"]', title: 'Your queue',
+    html: `<p>Everything that needs <b>you</b>, oldest money first: claims, upcoming visits from Eligibility, and the Delta group as one row with a count. The small baton on each row says where the claim goes next if you act (dashed).</p>
+    <p>Below the rule: <b>Waiting on Dr. Morgan · 1</b>. R. Diaz #4611 is a tier-3 write-off, so only the owner can sign it. It is in Dana’s list so she knows, but it is not in her count.</p>`,
+    code: [['GET /inbox', 'inbox', 'GET /api/v1/inbox', 'api']] },
+  { snap: 'inbox', target: ['@items need you:', 'header'], title: 'Who the rest waits on',
+    html: `<p>The header is a server sentence built from counts: <b>11 items need you: 8 claims, 3 upcoming visits · 1 waiting on Dr. Morgan</b>. The nav badge reads 11, the same number as the “Yours” card, because both are <code>strip.inbox_open</code>.</p>
+    <p>Each item has one signer. A tier-2 rule change Dana proposes becomes Dr. Morgan’s sign-off item; a formal appeal is signed by the treating dentist.</p>`,
+    code: [['moves + waiting', 'moves', 'StripOut', 'api']] },
+  { snap: 'inbox_4821', target: '[data-testid=decision]', title: 'The decision panel', scroll: 'start',
+    html: `<p>Selecting a row puts it in the URL (<code>?item=itm_4821</code>), so refresh and the back button keep it. The headline and summary come from the code’s situation key, never from a live model’s wording, so both modes say the same thing.</p>
+    <p>The red banner is <b>root cause: ours</b>. Red is reserved for money at risk and for “ours”.</p>`,
+    code: [['GET /inbox/itm_4821', 'item', 'GET /api/v1/inbox/itm_4821', 'api']] },
+  { snap: 'inbox_4821', target: '[data-testid=touches]', title: 'What this does, before you press it',
+    html: `<p>“What this does” (<code>touches</code>) and the baton under the button (<code>lands</code>) come from the action catalog with the item resolved, and a test checks that <code>lands</code> equals where the claim actually goes after the run.</p>
+    <p>The file line says how long the action can still be pulled: until the 11:15 AM Delta file leaves.</p>`,
+    code: [['request + recipe', 'approve', 'POST /api/v1/inbox:approve-group · recipes.py', 'mixed']] },
+  { snap: 'inbox_4821', target: '[data-testid=track-record]', title: 'Track record, not a confidence score',
+    html: `<p><b>23 of 25</b> Delta CO-16 · N29 denials were paid within 30 days after a PA resubmit (12 months). The server sends <code>k</code>, <code>n</code> and the outcome; a percent appears only when n ≥ 5. Nothing here is the model’s self-assessment.</p>
+    <p>“Why it stopped at you” is the policy row that matched: the rule is set to Ask.</p>`,
+    code: [['learnable + guard', 'guard', 'InboxItemOut.learnable · learning.py', 'mixed']] },
+  { snap: 'inbox_4821', target: 'section[aria-label="Evidence"]', scroll: 'center', title: 'What the agent read',
+    html: `<p>Each evidence row is a captured object: the portal’s claim status, the 835 line decoded, the IVR transcript, the rep call with its reference number, the PMS imaging record. Each one carries its source and capture time; world content is untrusted by default.</p>
+    <p>No drawn stand-ins and no internal ids on screen: the words as captured, and where they came from.</p>`,
+    code: [['evidence[]', 'evidence', 'GET /api/v1/inbox/itm_4821 → evidence', 'api']] },
+  { snap: 'inbox_4821', target: ['@Only #4821', 'div'], title: 'Keys',
+    html: `<p><kbd>j</kbd>/<kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>a</kbd> approves this one, <kbd>⇧A</kbd> the group, <kbd>e</kbd> edits, <kbd>r</kbd> rejects, <kbd>s</kbd> snoozes, <kbd>g c</kbd> goes to the claim. One hook implements them for every list.</p>
+    <p>While a run holds a claim (<code>move.who === 'agents'</code>), Approve, Reject and Snooze lock; the server enforces the same rule as <code>409 claim_busy</code>.</p>`,
+    code: [['URL state', 'search', 'features/*/search.ts', 'src']] },
+] };
+
+TOURS.denials = { name: 'Denials', screen: 'denials', blurb: 'Grouped by next action, deadlines, root cause, the payer × reason matrix.', steps: [
+  { snap: 'denials', target: '[data-testid=denials-summary]', title: 'Five denied claims, and whose move',
+    html: `<p><b>5 denied claims, $6,210 billed</b>: 4 with you, 1 with Dr. Morgan. The same five as the strip’s Denied tile. The summary and the groups are server fields; the primary button opens the most urgent one.</p>`,
+    code: [['GET /denials', 'denials', 'GET /api/v1/denials', 'api']] },
+  { snap: 'denials', target: ['@Next: reconsideration', 'tr'], title: 'Grouped by what happens next',
+    html: `<p>Groups come from <code>route_denial</code>, the same function that sends a denial to an agent, so the worklist and the agents never disagree. <b>Reconsideration</b> means resend or inquire, no signature: CO-16 (send the missing record) and CO-119 (frequency, with the payer’s own history).</p>
+    <p>Inside a group, rows sort by deadline.</p>`,
+    code: [['router', 'denial', 'domain/routing.py route_denial', 'mixed']] },
+  { snap: 'denials', target: ['@K. Owens', 'tr'], title: 'A typed deadline, and what losing costs',
+    html: `<p><b>Appeal by 04/24/2027, 178 days</b>: Delta, 180 days from the 10/26 ERA. Deadlines are typed (appeal, timely filing) with their basis.</p>
+    <p>“If lost: patient cannot be billed” comes from the group code: CO is the practice’s loss, PR would be the patient’s. The chip is root cause <b>ours</b>.</p>`,
+    code: [['claim deadline', 'claim', 'GET /api/v1/claims/clm_4821', 'api']] },
+  { snap: 'denials', target: '[aria-label="Payer × reason"]', title: 'Payer × reason',
+    html: `<p>The worklist’s claims by payer and reason, so a pattern shows before it repeats: Delta has three documentation denials this week. Plan limits (PR-*) are not denials to work and are counted separately.</p>
+    <p>The matrix is a server field with an invariant test that recounts it by CARC.</p>`,
+    code: [['matrix', 'denials_matrix', 'DenialsOut.matrix', 'api']] },
+  { snap: 'denials', target: '[aria-label="Bill patient · closes in Payments"]', scroll: 'center', title: 'Who signs',
+    html: `<p>R. Diaz #4611 is a max-met denial: the balance goes to the patient, and writing off or transferring money commits the practice, so <b>Dr. Morgan signs</b>. Tier 3 has no automated path at all.</p>
+    <p>After the overnight (Thursday) the list holds 9: Ito and Morris become formal appeals that <b>Dr. Lee signs</b>, and Ito’s also needs the patient’s ERISA authorization. See the second tab.</p>`,
+    code: [['GET /denials (Wed)', 'denials', 'GET /api/v1/denials', 'api'], ['Thursday', 'denials_thu', 'GET /api/v1/denials after the advance', 'api']] },
+] };
+
+TOURS.ledger = { name: 'Today’s claims', screen: 'ledger', blurb: 'Built at checkout, per-payer files, acks, holds with their timely-filing clock.', steps: [
+  { snap: 'ledger', target: '[data-testid=ledger-summary]', title: 'Today, by file',
+    html: `<p>Claims are built when the visit closes and leave in <b>per-payer files every 30 minutes</b>, 7:45 AM to 6:15 PM. Today: 12 on the ledger, 5 sent ($1,320), next file 10:45, 3 held.</p>
+    <p>Totals and files are server fields, each with a test that it equals its rows.</p>`,
+    code: [['GET /ledger/today', 'ledger', 'GET /api/v1/ledger/today', 'api']] },
+  { snap: 'ledger', target: '[data-testid=ledger-leaving]', title: 'Leaving in the 10:45 file',
+    html: `<p>Each claim passed <b>13 of 13 readiness checks</b>. “Agent text” says whether the Claims agent wrote any narrative: K. Owens’ new crown #4859 carries one, so it is <b>tier 2</b>, sent under a text rule Dr. Morgan signed.</p>
+    <p>Editable until 10:44; after the file leaves, the only fix is a void or a corrected claim (frequency 7 or 8).</p>`,
+    code: [['GET /ledger/today', 'ledger', 'GET /api/v1/ledger/today', 'api']] },
+  { snap: 'ledger', target: '[data-testid=ledger-sent]', title: 'Sent today: three acknowledgments',
+    html: `<p>A claim is acknowledged three times: the file’s <b>999</b> (minutes), <b>Vyne’s 277CA</b> (minutes) and the <b>payer’s 277CA</b> (usually overnight). Until the payer answers, the move is “Sent 10/28, no reply yet”.</p>`,
+    code: [['GET /ledger/today', 'ledger', 'GET /api/v1/ledger/today', 'api']] },
+  { snap: 'ledger', target: '[data-testid=ledger-held]', scroll: 'center', title: 'Held, with the clock running',
+    html: `<p>A hold is a claim that cannot be filed yet: no payer ID for a TPA, a secondary waiting for the primary’s EOB. Holds sort by <b>days left to timely filing</b>, alert Dana at 60 days and Dr. Morgan at 30, and cannot be snoozed.</p>`,
+    code: [['GET /ledger/today', 'ledger', 'GET /api/v1/ledger/today', 'api']] },
+] };
+
+TOURS.claims = { name: 'Claims', screen: 'claims', blurb: 'Saved views, filters in the URL, whose move per row, age, keys.', steps: [
+  { snap: 'claims', target: '[aria-label="Views"]', title: 'Views and counts',
+    html: `<p><b>Open + Paid · Oct 225</b> is what an unfiltered <code>GET /claims</code> returns. The counts beside each view are the strip’s numbers, and saved views are stored on the server (<code>/views</code>) so they follow you across devices.</p>`,
+    code: [['GET /claims?status=denied', 'claims_denied', 'GET /api/v1/claims?status=denied', 'api']] },
+  { snap: 'claims', target: ['[aria-label="Filter claims"]', 'div'], title: 'The URL is the state',
+    html: `<p>Payer, provider, age, status and search are search params validated with Zod in the route. Share the link, refresh, press back: same view. Sorting and filtering happen on the server; the table is virtualised.</p>`,
+    code: [['search.ts', 'search', 'features/claims/search.ts', 'src']] },
+  { snap: 'claims_denied', target: '[aria-label="Status"]', title: 'From the strip’s Denied 5',
+    html: `<p>Clicking <b>Denied 5</b> anywhere lands here: <code>/claims?status=denied</code>, the same five claims as the Denials worklist and the strip. The flag ⚑ is the derived “needs action”.</p>`,
+    code: [['GET /claims?status=denied', 'claims_denied', 'GET /api/v1/claims?status=denied', 'api']] },
+  { snap: 'claims', target: ['@Whose move', 'th'], title: 'Whose move, per row',
+    html: `<p>Each row carries the server’s <code>move</code>: “Waiting on Aetna” only when the payer owes a reply; R. Diaz #4611 says “Dr. Morgan signs”; T. Brooks #4705 says “Waiting on billing”, because a payer that has gone 64 days without paying is the practice’s problem now.</p>`,
+    code: [['move', 'moves', 'ClaimSummary.move', 'api']] },
+  { snap: 'claims', target: ['@225 claims match', 'div'], title: 'Age and keys',
+    html: `<p>Age is days since sent, coloured 0–30, 31–60, 61–90, 90+. <kbd>J</kbd>/<kbd>K</kbd> move between rows and <kbd>Enter</kbd> opens the claim.</p>`,
+    code: [['search.ts', 'search', 'features/claims/search.ts', 'src']] },
+] };
+
+TOURS.claim = { name: 'Claim detail', screen: 'claim', blurb: '#4821’s history by party, the open item, money; #4744 live triage.', steps: [
+  { snap: 'claim_4821', target: ['@Whose move', 'dl'], title: 'The claim at a glance',
+    html: `<p>Status, whose move, billed, expected from Delta (an <b>estimate</b> from the contract, labelled so), and the deadline that matters now: <b>appeal by 04/24/2027, 178 days</b>.</p>`,
+    code: [['GET /claims/clm_4821', 'claim', 'GET /api/v1/claims/clm_4821', 'api']] },
+  { snap: 'claim_4821', target: '[aria-label="History by party"]', title: 'History by party',
+    html: `<p>Three lanes: Practice, Agents and the payer. Visit 10/12, the Claims agent built it, Delta accepted it, Delta denied it 10/26, the agents checked status by IVR and called a rep, and now it is <b>your move</b>. The dashed box is where it goes if you approve.</p>
+    <p>An HTML grid, not an SVG: the text wraps, selects and reads in order for a screen reader.</p>`,
+    code: [['timeline', 'claim', 'GET /api/v1/claims/clm_4821 → timeline', 'api']] },
+  { snap: 'claim_4821', target: '[aria-label="Open inbox items"]', title: 'The open item, and where to decide it',
+    html: `<p>The same recommendation as the Inbox, with <b>Decide in Inbox</b> beside the primary. A review draft (agent-written text) has no send button here at all: “Read and send in Inbox”, so nobody sends text they did not read.</p>`,
+    code: [['open item', 'item', 'GET /api/v1/inbox/itm_4821', 'api']] },
+  { snap: 'claim_4821', target: '[aria-label="Money"]', scroll: 'center', title: 'Money: expected versus the 835',
+    html: `<p>Two columns: what the contract says to expect, and what Delta’s 835 actually paid. <b>Patient cannot be billed (CO)</b>: the 835 puts $0 on the patient, so nobody should bill them for this denial.</p>`,
+    code: [['money', 'claim', 'GET /api/v1/claims/clm_4821 → money', 'api']] },
+  { snap: 'claim_4744', target: ['@Ask Follow-up to look', 'button'], title: 'An unknown case: #4744',
+    html: `<p>P. Hale #4744, MetLife, a bridge sent 09/16. MetLife’s 10/22 correspondence asks for the extraction date of #14. There is no CARC, so TorchRCM’s classifier returns <b>unknown</b>. <b>Ask Follow-up to look</b> starts a triage run (<code>POST /claims/clm_4744:triage</code>).</p>
+    <p>In live mode this is where the model decides: which reads to make and which action to propose. The second tab is the CASE FACTS it would receive.</p>`,
+    tryit: { label: 'Try it · Ask Follow-up to look', busy: 'Streaming…', then: 'next',
+      run(done) { playSeq([['triage_4744_t0', 900], ['triage_4744_t1', 900]], () => { show('triage_4744_done'); place(); revealRun(RUN_STEPS, 450, () => later(done, 800)); }); } },
+    code: [['triage request', 'triage', 'POST /api/v1/claims/clm_4744:triage · run events', 'api'], ['CASE FACTS', 'case4744', 'planner/live.py render_case', 'render']] },
+  { snap: 'triage_4744_done', target: ['[data-testid=run-pane]', 'section'], title: 'The triage run',
+    enter() { if (!justPlayed) revealRun(RUN_STEPS, 160); },
+    html: `<p>Gather the case, investigate (the reads it chose: the claim’s correspondence and the 2019-03-02 PMS visit), decide, report. The policy verdict is <b>propose</b>, row 5: an unknown situation never runs without review.</p>
+    <p class="honest">Deterministic mode replays a reviewed plan (<code>recorded/clm_4744.plan.json</code>). Its cassette is <b>hand-authored in the live format</b> (<code>synthetic: true</code>), not a captured API response; the plan file’s “recorded_from: live triage” overstates that.</p>`,
+    code: [['events', 'triage', 'GET /api/v1/runs/{id}/events', 'api'], ['recorded plan', 'plan4744', 'planner/recorded/clm_4744.plan.json · cassette', 'synthetic'], ['policy', 'policy', 'agents/policy.py decide()', 'render']] },
+  { snap: 'triage_4744_done', target: '[aria-label="Open inbox items"]', title: 'A new item, with no fake track record',
+    html: `<p>The run left one open item: <b>send records to MetLife</b>, citing the correspondence and the extraction note. Dana’s Inbox goes <b>11 → 12</b> (in the demo script, after Approve 3, that reads 8 → 9) and the claim’s move is hers.</p>
+    <p>Its track record reads “No track record”: the records-request rule has 91 of 97 paid, but those are other situations’, so no percent is shown and this case cannot be learned into running without review.</p>`,
+    code: [['decide() on #4744', 'policy', 'agents/policy.py', 'render']] },
+] };
+
+TOURS.payments = { name: 'Payments', screen: 'payments', blurb: 'Designed, not built: why, and what the banner promises.', steps: [
+  { snap: 'payments', target: '[role=note]', title: 'Designed, not built in this demo',
+    html: `<p>Payments is a <b>mock-only route</b>. The rule is <b>no dead links</b>: every sidebar entry either does the thing, reads real seed data, or shows its reviewed design under this banner. <code>MockOnlyBanner</code> frames the design page at the matching screen.</p>
+    <p>Payment posting itself is real in the API: the Posting agent posts balanced ERA lines and holds variances (Cash and the Inbox show both). This screen is the deposit-matching workbench that was designed and left out of the build.</p>`,
+    code: [['MockOnlyBanner', 'mockonly', 'components/MockOnlyBanner.tsx · shell/nav.ts', 'src']] },
+  { snap: 'payments', target: ['@Open the design', 'a'], title: 'The design it frames',
+    html: `<p>This is the design as the app frames it, captured from the running app. “Open the design ↗” opens the same frame on its own page.</p>`,
+    code: [['nav.ts status', 'mockonly', 'shell/nav.ts', 'src']] },
+] };
+TOURS.patients = { name: 'Patients', screen: 'patients', blurb: 'Design-only; the balances API it would read already exists.', steps: [
+  { snap: 'patients', target: '[role=note]', title: 'Designed, not built in this demo',
+    html: `<p>Patients is design-only, under the same banner. The data it would read is already served: <code>GET /patients/balances</code> feeds Cash › Patient A/R (54 balances, credits shown separately).</p>
+    <p>Patient-facing text an agent writes would be tier 2 and go through the Inbox as a review draft, like any payer-facing text.</p>`,
+    code: [['balances', 'balances', 'GET /api/v1/patients/balances', 'api'], ['MockOnlyBanner', 'mockonly', 'components/MockOnlyBanner.tsx', 'src']] },
+] };
+
+TOURS.eligibility = { name: 'Eligibility', screen: 'eligibility', blurb: 'Tomorrow’s visits verified, the human-look flags, a benefits card.', steps: [
+  { snap: 'eligibility_chen', target: '[data-testid=eligibility-summary]', title: 'Tomorrow and Friday, verified',
+    html: `<p>The Eligibility agent verifies the next two days of visits and re-checks the morning of. <b>11 appointments, 3 need a human look</b>, and those three are the eligibility items in the Inbox.</p>`,
+    code: [['GET /eligibility', 'eligibility', 'GET /api/v1/eligibility', 'api']] },
+  { snap: 'eligibility_chen', target: '[data-appt=apt_1029_chen_j]', title: 'A flag with its reason',
+    html: `<p>J. Chen, Thursday 9:00: planned work of $650 exceeds the <b>$180</b> left on her MetLife annual maximum. The row is selected in the URL (<code>?appt=apt_1029_chen_j</code>).</p>`,
+    code: [['GET /eligibility', 'eligibility', 'GET /api/v1/eligibility', 'api']] },
+  { snap: 'eligibility_chen', target: '[aria-label="Benefits · J. Chen"]', title: 'The benefits card',
+    html: `<p>Annual max, deductible, coinsurance by class, frequency limits with the last date done, and the planned work split into insurance ($180, capped by the max) and patient ($470) estimates. Each figure says where and when it was verified.</p>`,
+    code: [['benefits', 'eligibility', 'GET /api/v1/eligibility/apt_1029_chen_j', 'api']] },
+  { snap: 'eligibility_chen', target: '[aria-label="Agent note"]', title: 'What the agent suggests',
+    html: `<p>Quote $470 at check-in, or move D2392 after 1/1 when the maximum resets. The agent flags; the front desk decides. Contacting the patient is not an action any agent has.</p>`,
+    code: [['GET /eligibility', 'eligibility', 'GET /api/v1/eligibility', 'api']] },
+] };
+
+TOURS.activity = { name: 'Activity', screen: 'activity', blurb: 'What agents did this week, filters in the URL, the Observe preview.', steps: [
+  { snap: 'activity', target: '[data-testid=activity-summary]', title: 'This week, in numbers',
+    html: `<p><b>41 of 53 decisions ran without you</b>; 11 await you in the Inbox. Status checks and payer calls are counted separately: they are routine runs, not decisions. “This week” is the practice week from Monday, everywhere in the app.</p>`,
+    code: [['GET /activity', 'activity', 'GET /api/v1/activity', 'api']] },
+  { snap: 'activity', target: ['@Buildup narrative drafted', 'tr'], title: 'Every run, with its tier',
+    html: `<p>Each row is a run: agent, what it did, the claim, whose move it is now, the outcome. The 10:39 row is the Claims agent drafting a narrative for #4859; it is <b>T2</b> because agent-written text goes to a payer only under a text rule the owner signed, and only after a text guard passed.</p>`,
+    code: [['GET /activity', 'activity', 'GET /api/v1/activity', 'api']] },
+  { snap: 'activity_followup', target: '[aria-label="Agent"]', title: 'Filter by agent',
+    html: `<p><code>?agent=followup</code>: the Follow-up agent’s week. Status checks, rep calls with their reference numbers, resubmissions with the NEA#. Filters are URL params, like every list.</p>`,
+    code: [['?agent=followup', 'activity_followup', 'GET /api/v1/activity?agent=followup', 'api']] },
+  { snap: 'activity_observe', target: ['@Observe mode preview', 'label'], title: 'Observe mode preview',
+    html: `<p>A new practice starts in <b>Observe</b> for 14 days: agents record what they <i>would</i> have run and do nothing, not even contact a payer. This toggle restyles the week as Observe would have logged it: every agent row becomes “would have run · Observe”; your own edits stay as they are.</p>`,
+    code: [['GET /activity', 'activity', 'GET /api/v1/activity · ?observe=true is a client restyle', 'api']] },
+] };
+
+TOURS.cash = { name: 'Cash', screen: 'cash', blurb: 'Owner KPIs with formula and basis, aging, write-offs, agent impact as an estimate.', steps: [
+  { snap: 'cash', target: '[data-testid=cash-kpis]', title: 'Owner only',
+    html: `<p>Cash is Dr. Morgan’s screen; the tour is signed in as him here. The same request as Dana returns <b>403</b>: the role guard is on the server, not only in the nav.</p>
+    <p>Every KPI has an <b>ƒ</b> that shows its formula, and a basis line under the value.</p>`,
+    code: [['GET /cash', 'cash', 'GET /api/v1/cash (as usr_morgan)', 'api']] },
+  { snap: 'cash', target: '[data-kpi=days_in_ar]', title: 'Days in A/R, with its working',
+    html: `<p><b>27</b> = (insurance A/R + patient A/R) ÷ average daily net production over 90 days = ($75,500 + $33,100) ÷ $4,020/day. After the overnight, six claims are paid and it reads <b>26</b>.</p>`,
+    code: [['GET /cash', 'cash', 'GET /api/v1/cash', 'api']] },
+  { snap: 'cash', target: ['@Hours saved', 'div'], title: 'Agent impact, marked as an estimate',
+    html: `<p>“Hours saved ≈ 6.2 h” is <b>labelled an estimate</b>, with its formula (items run without review × 9 min) and where the 9 minutes comes from. Appeals won are counts from the 12-month record, not a projection.</p>`,
+    code: [['GET /cash', 'cash', 'GET /api/v1/cash → agent_impact', 'api']] },
+  { snap: 'cash', target: '[aria-label="Write-offs by type"]', title: 'Write-offs by type',
+    html: `<p>Agents can <b>propose</b> a write-off; they never post one: tier 3 is human-only, and there is no code path that automates it. Contractual write-offs post with balanced ERAs under a tier-2 rule.</p>`,
+    code: [['GET /cash', 'cash', 'GET /api/v1/cash → writeoffs_by_type', 'api']] },
+  { snap: 'cash', target: '[aria-label="Every KPI"]', scroll: 'center', title: 'Every KPI: value, formula, basis',
+    html: `<p>The table at the bottom lists each number with its formula and its basis, so the owner (or an auditor) can rebuild it by hand.</p>`,
+    code: [['GET /cash', 'cash', 'GET /api/v1/cash → kpis', 'api']] },
+] };
+
+TOURS.settings = { name: 'Settings › Agents', screen: 'settings', blurb: 'Rules by tier, the live preview, proposals and the guard, owner sign-off, the cap.', steps: [
+  { snap: 'settings_rules', target: ['@Talks to payers', 'tr'], title: 'Rules, grouped by what they touch',
+    html: `<p>Nineteen rules in three tiers. <b>Tier 1 talks to payers</b> and can learn to run without review where an outcome metric exists. <b>Tier 2</b> touches the ledger or patients, under a rule Dr. Morgan signed. <b>Tier 3</b> commits the practice: a person, always.</p>
+    <p>The most specific rule wins (payer + item type beats “All”); row order never matters.</p>`,
+    code: [['GET /rules', 'rules', 'GET /api/v1/rules', 'api']] },
+  { snap: 'settings_rules', target: '[aria-label="Mode for Missing PA x-ray (CO-16 · N29) → attach, resubmit"]', title: 'Four modes',
+    html: `<p><b>Observe</b> records what would have run and does nothing. <b>Ask Dana</b> proposes to the Inbox. <b>Runs without review</b> executes inside the rule’s caps. <b>Human only</b> (tier 3) has no control at all. Hovering a mode previews it; clicking commits it.</p>`,
+    code: [['GET /rules', 'rules', 'GET /api/v1/rules', 'api']] },
+  { snap: 'settings_rules', target: '[data-testid=preview]', title: 'The live preview',
+    html: `<p>“What if Missing PA ran without review?” This week replayed: <b>41 → 44</b> of 53 decisions would have run, <b>but 3 of the 44 are root cause: ours → held for Dana · net 41</b>. The three Delta claims from the main tour are exactly the ones the guard holds.</p>`,
+    tryit: { label: 'Try it · hover Status check → Runs without review', busy: 'Previewing…', doneLabel: 'Status check previewed: 41 → 41', target: '[data-testid=preview]',
+      run(done) { playSeq([['settings_hover_status', 10]], done); } },
+    code: [['GET /settings/preview', 'preview', 'GET /api/v1/settings/preview', 'api']] },
+  { snap: 'settings_rules', target: ['@Practice cap', 'span'], title: 'The practice cap',
+    html: `<p><b>$1,000 per item</b> for tier 2, set by Dr. Morgan; tier 1 is exempt. A rule can set its own lower cap (“Cap per item”), and Preview shows the effect before Apply.</p>`,
+    code: [['GET /rules', 'rules', 'GET /api/v1/rules → practice_cap_cents', 'api']] },
+  { snap: 'settings_proposals', target: '[aria-label="Proposal Delta · missing PA x-ray · resubmits under $2,000"]', title: 'Proposals: rules learned from outcomes',
+    html: `<p>“You approved <b>24 of 25</b> Delta CO-16 · N29 resubmissions under $2,000 in 12 months; <b>23 were paid</b> within 30 days.” Accept creates a learned tier-1 rule that runs without review, signed by Dana.</p>`,
+    tryit: { label: 'Try it · Accept', busy: 'Accepting…', doneLabel: 'Accepted · Rules 19 → 20, proposal resolved', target: ['@resubmits under $2,000 · accepted', 'div'],
+      run(done) { playSeq([['settings_proposals_after', 10]], done); } },
+    code: [['proposals + accept', 'proposals', 'GET /api/v1/proposals · POST …:accept', 'api']] },
+  { snap: 'settings_proposals', target: '[aria-label="Proposal Delta · missing PA x-ray · when our Claims agent attached the wrong image"]', title: 'The guard',
+    html: `<p>The same situation, the slice where our own agent attached the wrong image: <b>Accept is disabled</b>, with the reason. The server refuses it too (422), and a test pins the guard: <b>root cause “ours” can never be learned into running without review</b>. Fix where it starts instead.</p>`,
+    code: [['guard', 'guard', 'policy.py guard_root_cause_ours · learning.py', 'src']] },
+  { snap: 'settings_t2_dana_409', target: '[aria-label="Mode for Post ERA line · balanced and patient share matches tracked benefits"]', title: 'Tier 2 needs the owner',
+    html: `<p>Dr. Morgan set “Post ERA line” to Ask; it applied and wrote a Changes row. Dana then tried Runs without review: the server answered <b>409 owner_signoff_required</b>, the control reverted, the toast says <b>Sent to Dr. Morgan for sign-off</b>, and his Inbox gained the item.</p>`,
+    code: [['PATCH ×2', 'signoff', 'PATCH /api/v1/rules/rule_t2_post_era', 'api']] },
+] };
+
+const SCREEN_TOURS = ['inbox', 'denials', 'ledger', 'claims', 'claim', 'payments', 'patients', 'eligibility', 'activity', 'cash', 'settings'];
+
+/* ---------- wiring ---------- */
+$('#screenSel').innerHTML = SCREENS.map((s) => `<option value="${s.id}">${s.label}</option>`).join('');
+$('#screenSel').onchange = (e) => { if (tour) exit(); goScreen(e.target.value); };
+$('#screenTour').onclick = () => { if (tour) exit(); start(currentScreen); };
+$('#mainTour').onclick = () => { if (tour) exit(); start('main'); };
+approot.addEventListener('click', (e) => {
+  if (e.target.closest('#tourThis')) { e.preventDefault(); if (tour) exit(); start(currentScreen); return; }
+  const a = e.target.closest('a[href]');
+  e.preventDefault();
+  if (tour) return;
+  if (a) {
+    const to = routeToScreen(a.getAttribute('href'));
+    if (to) { currentScreen = to.id; $('#screenSel').value = to.id; show(to.snap); const seen = store.get('seen', {}); if (!seen[to.id]) start(to.id); }
+    else toast('This mock holds snapshots of the tour’s screens only; that link works in the app.');
+  } else if (e.target.closest('button,input,select,[role=button],[role=radio]')) {
+    toast('A snapshot: the tour’s “Try it” buttons drive the states that were captured.');
+  }
+}, true);
+approot.addEventListener('change', (e) => e.preventDefault(), true);
+addEventListener('keydown', (e) => {
+  if (!tour) return;
+  if (e.target.closest && e.target.closest('select,input,textarea')) return;
+  const s = tour.steps[idx];
+  if (e.key === 'Escape') exit();
+  else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !e.target.closest('button'))) { if (idx === tour.steps.length - 1) (s.onPrimary || s.finish || exit)(); else go(idx + 1); }
+  else if (e.key === 'ArrowLeft') go(idx - 1);
+});
+addEventListener('resize', () => { fit(); place(); });
+fit();
+goScreen('inbox', { silent: true });
+/* opens on every launch, as the owner asked */
+start('main');
+window.__tour = { TOURS, SCREENS, start, go, find, show, place, get state() { return { tourId, idx, snap: currentSnap }; } };
+})();
+</script>
+</body>
+</html>

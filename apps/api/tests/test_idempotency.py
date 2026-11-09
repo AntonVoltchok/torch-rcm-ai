@@ -102,3 +102,44 @@ def test_empty_or_oversized_key_is_rejected(rt: Runtime) -> None:
         with pytest.raises(ApiError) as exc:
             inbox_svc.reject(ctx(rt), "itm_4851", "r", idempotency_key=key)
         assert exc.value.code == "invalid_idempotency_key"
+
+
+def signoff_refusal(rt: Runtime, mode: RuleMode, key: str | None) -> str:
+    with pytest.raises(ApiError) as exc:
+        rules_svc.patch_rule(ctx(rt), "rule_t2_post_era", RulePatchIn(mode=mode), idempotency_key=key)
+    assert (exc.value.status, exc.value.code) == (409, "owner_signoff_required")
+    return str((exc.value.details or {})["inbox_item_id"])
+
+
+def morgan_open(rt: Runtime) -> int:
+    return inbox_svc.get_inbox(ctx(rt, "usr_morgan"), "open", None, None, False).total
+
+
+def test_a_signoff_request_survives_its_own_409_under_a_key(rt: Runtime) -> None:
+    before = morgan_open(rt)
+    item_id = signoff_refusal(rt, RuleMode.ASK, "k-signoff-1")
+    assert rt.store.get(InboxItem, item_id) is not None
+    assert morgan_open(rt) == before + 1
+
+
+def test_repeating_a_signoff_request_is_one_request_on_a_frozen_clock(rt: Runtime) -> None:
+    before = morgan_open(rt)
+    first = signoff_refusal(rt, RuleMode.ASK, "k-signoff-1")
+    assert signoff_refusal(rt, RuleMode.ASK, "k-signoff-1") == first  # a retried request
+    assert signoff_refusal(rt, RuleMode.ASK, "k-signoff-2") == first  # a second click
+    assert signoff_refusal(rt, RuleMode.ASK, None) == first
+    assert morgan_open(rt) == before + 1
+
+
+def test_a_different_change_in_the_same_second_is_a_second_request(rt: Runtime) -> None:
+    before = morgan_open(rt)
+    ask = signoff_refusal(rt, RuleMode.ASK, "k-signoff-1")
+    observe = signoff_refusal(rt, RuleMode.OBSERVE, "k-signoff-2")
+    assert ask != observe
+    assert morgan_open(rt) == before + 2
+
+
+def test_a_resolved_signoff_can_be_asked_for_again_in_the_same_second(rt: Runtime) -> None:
+    first = signoff_refusal(rt, RuleMode.ASK, "k-signoff-1")
+    inbox_svc.reject(ctx(rt, "usr_morgan"), first, "not now")
+    assert signoff_refusal(rt, RuleMode.ASK, "k-signoff-2") != first

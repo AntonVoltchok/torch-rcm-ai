@@ -82,6 +82,63 @@ CODES: dict[str, Code] = {
 }
 
 
+# What a billing coordinator calls each code, beside the code itself ("D2740 Crown, tooth 30").
+PLAIN: dict[str, str] = {
+    "D0120": "Periodic exam",
+    "D0140": "Limited exam",
+    "D0150": "Comprehensive exam",
+    "D0210": "Full-mouth x-rays",
+    "D0220": "PA x-ray",
+    "D0230": "PA x-ray, additional",
+    "D0272": "Bitewings, two",
+    "D0274": "Bitewings, four",
+    "D0330": "Panoramic x-ray",
+    "D1110": "Adult cleaning",
+    "D1120": "Child cleaning",
+    "D1206": "Fluoride varnish",
+    "D1208": "Fluoride",
+    "D1351": "Sealant",
+    "D2140": "Amalgam, one surface",
+    "D2150": "Amalgam, two surfaces",
+    "D2391": "Composite, one surface",
+    "D2392": "Composite, two surfaces",
+    "D2393": "Composite, three surfaces",
+    "D2394": "Composite, four+ surfaces",
+    "D2740": "Crown",
+    "D2750": "Crown, PFM",
+    "D2950": "Core buildup",
+    "D2954": "Post and core",
+    "D3310": "Root canal, anterior",
+    "D3320": "Root canal, premolar",
+    "D3330": "Root canal, molar",
+    "D4341": "Scaling and root planing, 4+ teeth",
+    "D4342": "Scaling and root planing, 1-3 teeth",
+    "D4910": "Perio maintenance",
+    "D6010": "Implant",
+    "D6057": "Custom abutment",
+    "D6065": "Implant crown",
+    "D6240": "Bridge pontic",
+    "D6750": "Bridge retainer crown",
+    "D7140": "Extraction",
+    "D7210": "Surgical extraction",
+    "D9110": "Palliative treatment",
+    "D9941": "Athletic mouthguard",
+    "D9944": "Night guard",
+    "D9972": "Whitening, per arch",
+}
+assert set(PLAIN) == set(CODES), sorted(set(CODES) ^ set(PLAIN))
+
+
+def plain_procedures(lines: list[tuple[str, str | None]]) -> str:
+    """'D2740 Crown, tooth 30 + 1 more' from (cdt, tooth) pairs, first line first."""
+    if not lines:
+        return ""
+    cdt, tooth = lines[0]
+    head = f"{cdt} {PLAIN.get(cdt, CODES[cdt].description if cdt in CODES else '')}".strip()
+    head += f", tooth {tooth}" if tooth else ""
+    return f"{head} + {len(lines) - 1} more" if len(lines) > 1 else head
+
+
 def fee(cdt: str) -> int:
     return CODES[cdt].fee_cents
 

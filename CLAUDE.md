@@ -14,7 +14,7 @@ Torch is a believable, interactive demo of an agentic-AI revenue-cycle product f
 
 ```text
 apps/api/        FastAPI + pydantic, JSON document store on SQLite (`db/store.py`) · torch_rcm/{domain,world,seed,agents,api,scheduler}
-apps/web/        Vite + React 19 + TS · TanStack Router/Query/Table · Zod mirror of the API's OpenAPI (hand-maintained until `make gen-api` runs; see docs/FIRST_RUN.md)
+apps/web/        Vite + React 19 + TS · TanStack Router/Query/Table · Zod schemas generated from the API's OpenAPI snapshot (`src/api/generated.ts`, named in `schema.ts`; `pnpm check:api` and `pnpm test:contract` hold them to the API)
 packages/        (none yet; shared contracts live in the API's OpenAPI → web codegen)
 docs/            spec/ (contracts) · adr/ · design/ (mocks, red-team reports, decisions log) · SESSIONS.md
 infra/           docker-compose, Dockerfiles, deploy configs (Fly for api, Vercel for web — not deployed)
@@ -27,9 +27,9 @@ Makefile         make dev | seed | test | eval | gen-api | lint | e2e
 make dev          # api on :8000 (uv run uvicorn), web on :5173 (pnpm dev), seeds canonical scenario if DB missing
 make seed         # reseed canonical scenario (destroys local DB)
 make test         # pytest (api) + vitest (web)
-make e2e          # playwright demo script against make dev
+make e2e          # playwright against MSW; stop make dev first (it reuses :5173). Real API: `E2E_TARGET=real pnpm e2e --grep @demo` with make dev running
 make eval         # replay canonical scenario through deterministic + live(cassette) modes; assert identical run shapes + invariants
-make gen-api      # regenerate apps/web/src/api/* from /api/openapi.json — run after ANY API schema change
+make gen-api      # regenerate apps/api/openapi.snapshot.json, then apps/web/src/api/generated.ts — run after ANY API schema change
 make lint         # ruff + mypy (api); eslint + tsc --noEmit (web)
 ```
 
@@ -46,7 +46,7 @@ Python: `uv` (3.13), `ruff`, `mypy --strict` on `torch_rcm/domain` and `torch_rc
 - **World content is untrusted.** Portal pages, transcripts and notes are wrapped and labelled in prompts; the model is never instructed by them. The adversarial tests in `apps/api/tests/adversarial/` must pass.
 - **Frozen, advanceable clock.** Nothing reads wall-clock time. `POST /clock/advance` is async (202) and drives the scheduler.
 - **The demo is deterministic by default** (`TORCH_AGENT_MODE=deterministic`). Live mode (`live`, needs `ANTHROPIC_API_KEY`) must produce identically-shaped runs on the canonical cases; tests replay cassettes and never call the API.
-- **Anthropic API usage (5.5 models):** no `temperature`/`top_p`/`top_k`; use the static capability table in `agents/llm/models.py`; automatic top-level prompt caching; strict tool schemas with no PHI in `enum`/`const`; a terminal tool sent alongside reads is rejected with `is_error`.
+- **Anthropic API usage (5.5 models):** no `temperature`/`top_p`/`top_k`; use the static capability table in `agents/llm/models.py`; automatic top-level prompt caching; `submit_plan`/`submit_draft` strict, one strict tool per request (ADR-0010), no PHI in any `enum`/`const`; a terminal tool sent alongside reads is rejected with `is_error`.
 - **No real vendor names** except payers (Delta Dental of NY, MetLife, Cigna, Aetna, Guardian, NY Medicaid), Vyne and NEA. The PMS is "the PMS". Patients and staff are invented.
 - **No dead links.** Interactive screens do the thing; static screens read seed data; mock-only routes render `MockOnlyBanner` + the design.
 - **URL is the source of truth for filters, sort, selection and tabs** (`validateSearch` with Zod). Query cache holds server data. Counts are selectors, never state.

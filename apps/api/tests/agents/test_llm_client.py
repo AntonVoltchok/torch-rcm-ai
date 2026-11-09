@@ -86,12 +86,12 @@ def test_cache_markers_top_level_plus_one_on_last_system_block() -> None:
     assert len(body["system"][-1]["text"]) > 4 * 512
 
 
-def test_tools_are_strict_and_fixed_per_agent() -> None:
+def test_only_submit_plan_is_strict_and_tools_are_fixed_per_agent() -> None:
     for agent in ("followup", "claims"):
         body = build_request(agent, MSG, model_role="exec")
         names = [t["name"] for t in body["tools"]]
         assert names[-2:] == ["submit_plan", "submit_result"]
-        assert all(t["strict"] for t in body["tools"])
+        assert [t["name"] for t in body["tools"] if t.get("strict")] == ["submit_plan"]  # ADR-0010
         assert lint_tools(body["tools"]) == []
         assert not ({"void_claim", "write_off", "formal_appeal"} & set(names))
     assert not plans_live("appeals")

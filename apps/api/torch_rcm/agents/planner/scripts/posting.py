@@ -30,12 +30,12 @@ def variance(case: CaseFile) -> ScriptedPlan:
             return Decided(
                 [],
                 "A line balances but disagrees with tracked benefits: " + "; ".join(c.variance_reasons) + ".",
-                "Hold for reprocessing: " + "; ".join(c.variance_reasons) + ". Torch never writes it off.",
+                "Hold for reprocessing: " + "; ".join(c.variance_reasons) + ". TorchRCM never writes it off.",
             )
         return Decided(
             [],
             "A line does not balance against the claim.",
-            "Review the variance before posting; Torch never writes it off.",
+            "Review the variance before posting; TorchRCM never writes it off.",
         )
 
     return ScriptedPlan(reads=[read("era_get_remittance", remittance_id=remittance_id)], decide=decide)

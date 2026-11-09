@@ -30,7 +30,7 @@ export function EditPlanForm({ item, onSubmit, onCancel, busy }: { item: InboxIt
         <span className="w-28 text-mid">Note to payer</span>
         <textarea {...register('note', { maxLength: 500 })} rows={2} className="flex-1 rounded border border-line bg-white px-2 py-1" placeholder="Optional · goes in the claim remarks" />
       </label>
-      {formState.errors.note && <span className="text-xs text-bad">500 characters at most.</span>}
+      {formState.errors.note && <span className="text-xs text-risk-ink">500 characters at most.</span>}
       <div className="flex gap-2">
         <Button type="submit" variant="primary" disabled={busy}>
           Approve with edits
@@ -43,7 +43,7 @@ export function EditPlanForm({ item, onSubmit, onCancel, busy }: { item: InboxIt
   )
 }
 
-const REASONS = ['Wrong fix for this claim', 'Already handled outside Torch', 'Payer told us otherwise', 'Other'] as const
+const REASONS = ['Wrong fix for this claim', 'Already handled outside TorchRCM', 'Payer told us otherwise', 'Other'] as const
 
 export function RejectForm({ onSubmit, onCancel, busy }: { onSubmit: (reason: string) => void; onCancel: () => void; busy: boolean }) {
   const { register, handleSubmit, watch, formState } = useForm<{ reason: (typeof REASONS)[number]; detail: string }>({ defaultValues: { reason: REASONS[0], detail: '' } })
@@ -51,7 +51,7 @@ export function RejectForm({ onSubmit, onCancel, busy }: { onSubmit: (reason: st
   return (
     <form
       aria-label="Reject"
-      className="flex flex-col gap-2 rounded-lg border border-bad-line bg-bad-bg/40 p-3"
+      className="flex flex-col gap-2 rounded-lg border border-line bg-fill p-3"
       onSubmit={(e) => {
         void handleSubmit((v) => {
           onSubmit(v.reason === 'Other' ? v.detail : v.detail ? `${v.reason}: ${v.detail}` : v.reason)
@@ -70,7 +70,7 @@ export function RejectForm({ onSubmit, onCancel, busy }: { onSubmit: (reason: st
         className="rounded border border-line bg-white px-2 py-1 text-sm"
         placeholder="Detail (feeds the learning stats)"
       />
-      {formState.errors.detail && <span className="text-xs text-bad">{formState.errors.detail.message}</span>}
+      {formState.errors.detail && <span className="text-xs text-risk-ink">{formState.errors.detail.message}</span>}
       <div className="flex gap-2">
         <Button type="submit" variant="danger" disabled={busy}>
           Reject

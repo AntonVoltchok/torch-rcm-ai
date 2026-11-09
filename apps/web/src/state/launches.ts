@@ -6,6 +6,7 @@
  * a reload mid-run can re-open the panel and resubscribe. sessionStorage: per tab, survives reload.
  */
 import { useSyncExternalStore } from 'react'
+import type { StripChange } from '@/api/schema'
 import { readJson, writeJson } from '@/lib/storage'
 
 export interface LaunchedRun {
@@ -22,6 +23,11 @@ export interface Launch {
   title: string
   runs: LaunchedRun[]
   started_at: string // server clock at launch
+  /** `ApproveOut.changes` / `GroupApproveOut.changes`: the strip before and after this approval, computed by the server. Absent for triage. */
+  changes?: StripChange[]
+  /** The approved action in the server's words (`action_label`, `touches`), copied at launch so the run pane can say what it is doing. */
+  action_label?: string | null
+  touches?: string[]
 }
 
 const KEY = 'torch.launches'
@@ -49,7 +55,7 @@ export const launchStore = {
     commit([])
   },
   find: (id: string | undefined) => (id ? launches.find((l) => l.id === id) : undefined),
-  subscribe(l: () => void) {
+  subscribe: (l: () => void) => {
     listeners.add(l)
     return () => listeners.delete(l)
   },

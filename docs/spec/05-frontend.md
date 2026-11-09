@@ -33,7 +33,7 @@ Visual language: the mocks in `docs/design/mocks.html` (neutral grays, one accen
 | Column widths/density, last used location | `localStorage` behind try/catch | convenience only |
 | Edit-form drafts | component state (react-hook-form) | ephemeral |
 
-Counts (sidebar badges, strip tiles, "12 items") are **never stored** — they come from `summary/strip` and from `meta.counts` returned by every mutation, which the mutation's `onSuccess` writes into `['strip']`.
+Counts (sidebar badges, strip tiles, "12 items") are **never stored** — they come from `summary/strip` and from `meta.counts` returned by every mutation, which the API client writes into `['strip']` for "All locations" (`router.tsx`). `meta.counts` is practice-wide, so with one location selected the client invalidates instead of writing.
 
 ## Mutations
 
@@ -44,7 +44,7 @@ Counts (sidebar badges, strip tiles, "12 items") are **never stored** — they c
 
 ## Components (`src/components/`)
 
-`StatusChip`, `FlagPill`, `StageTile`, `TierBadge`, `EvidenceCard` (kind-specific renderers), `ProgressPanel` (steps with live status; `progress` lines under `investigate` naming the reads a live agent chose; the agent's label, rationale and policy verdict under `decide`; `paused` chip; planner label "live · recorded agent plan · fell back to rules"; audit line at the end, "runs in background — you can leave" copy), `TriageButton` (claim detail: "Ask Follow-up to look" → `POST /claims/{id}:triage`, opens the ProgressPanel), `Timeline` (agent/payer/human lanes), `MoneyMath` (billed/allowed/paid/write-off/patient), `ReadinessChecklist`, `RuleRow`, `HoldRow`, `KeyboardHints`, `DataTable` (TanStack Table + virtual rows, sticky header, server sort), `EmptyState`, `OutageBanner`, `MockOnlyBanner` (renders the matching mock screenshot + "designed, not built in this demo").
+`StatusChip`, `FlagPill`, `StageTile`, `TierBadge`, `EvidenceCard` (the captured words and their source; no drawn stand-ins, no internal ids), `DraftText` (a review draft word for word, each sentence with the evidence it cites), `ProgressPanel` (steps with live status; `progress` lines under `investigate` naming the reads a live agent chose; the agent's label, rationale and policy verdict under `decide`; `paused` chip; planner label "live · hand-written plan, replayed · fell back to rules"; audit line at the end, "runs in background — you can leave" copy), `TriageButton` (claim detail: "Ask Follow-up to look" → `POST /claims/{id}:triage`, opens the ProgressPanel), `Timeline` (agent/payer/human lanes), `MoneyMath` (billed/allowed/paid/write-off/patient), `ReadinessChecklist`, `RuleRow`, `HoldRow`, `KeyboardHints`, `DataTable` (TanStack Table + virtual rows, sticky header, server sort), `EmptyState`, `OutageBanner`, `MockOnlyBanner` (renders the matching mock screenshot + "designed, not built in this demo").
 
 ## Keyboard
 
@@ -52,7 +52,7 @@ Inbox: `j/k` move, `enter` open, `a` approve, `e` edit, `r` reject, `s` snooze, 
 
 ## Loading / error / empty states (every interactive screen)
 
-Skeleton rows (not spinners) for lists; inline error with retry per query; empty Inbox → "Nothing needs you — agents handled 41 items this week" with a link to Activity; outage → `OutageBanner` ("Vyne is unreachable since 10:52 — sends are queued") driven by `/_world` state; Observe mode → Activity rows styled as "would have run".
+Skeleton rows (not spinners) for lists; inline error with retry per query; empty Inbox → "Nothing needs you — agents handled 41 items this week" with a link to Activity; outage → `OutageBanner` from `GET /_world/payers` ("Cigna Dental portal is unreachable — steps that need it come back to the Inbox"; a Vyne outage is not staged by the contract) driven by `/_world` state; Observe mode → Activity rows styled as "would have run".
 
 ## Testing
 

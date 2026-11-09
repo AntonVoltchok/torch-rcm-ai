@@ -531,11 +531,12 @@ class PayerSim:
         claim.paid_cents, claim.patient_resp_cents, claim.paid_at = result.paid, result.patient, now
         claim.in_flight = None
         if result.denial_carc:
+            ours = claim.denial is not None and claim.denial.root_cause is RootCause.OURS  # outlives a re-adjudication
             claim.denial = Denial(
                 carc=result.denial_carc,
                 rarc=result.denial_rarc,
                 decoded=decode(result.denial_carc, result.denial_rarc),
-                root_cause=RootCause.PAYER,
+                root_cause=RootCause.OURS if ours else RootCause.PAYER,
             )
             claim.reason_text = (
                 f"{result.denial_carc} · {result.denial_rarc}" if result.denial_rarc else result.denial_carc
@@ -645,7 +646,7 @@ class PayerSim:
             lines += [f"Rep: {_rep_answer(a, claim)}" for a in asks if a in may_agree]
             if offered:
                 lines.append(f"Rep: If you want, we can {offered}.")
-                lines.append("Torch: I'll need to confirm with the practice.")
+                lines.append("TorchRCM: I'll need to confirm with the practice.")
             return {
                 "reference": ref,
                 "transcript": "\n".join(lines),
@@ -666,7 +667,8 @@ class PayerSim:
         )
 
     def receive_records(self, claim_id: str, *, key: str, run_id: str | None = None) -> dict[str, Any]:
-        """Records / reconsideration received: the claim re-enters adjudication (denied → pending, in flight)."""
+        """Records / reconsideration received: the claim re-enters adjudication (denied → pending, in flight). An
+        underpaid claim stays partial while the payer reprocesses the disputed line, and the request is in flight."""
 
         def mutate() -> dict[str, Any]:
             claim = self.store.require(Claim, claim_id)
@@ -680,6 +682,9 @@ class PayerSim:
                     claim.status, S.PENDING, Cause.RECONSIDERATION_SENT, actor_tier=Tier.ONE
                 )
                 claim.in_flight = f"records sent {today:%m/%d} · awaiting reprocessing"
+                self.store.update(claim)
+            elif claim.status is S.PARTIAL:
+                claim.in_flight = f"reprocessing requested {today:%m/%d} · awaiting the payer"
                 self.store.update(claim)
             return {
                 "received": True,

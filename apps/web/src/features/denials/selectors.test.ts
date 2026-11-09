@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MockDb } from '@/mocks/db'
 import { THURSDAY_0710 } from '@/mocks/fixtures/static'
-import { ackChips, fileGroups } from '@/features/ledger/selectors'
-import { deadlineLabel, ifWeLose, pathTier, payerReasonMatrix, tag } from './selectors'
+import { daysUntil, deadlineLabel, deadlineVerb, ifWeLose, pathTier, sortedRows, tag, worklistOrder } from './selectors'
 
 function thursday() {
   const queue: (() => void)[] = []
@@ -33,6 +32,7 @@ describe('denials worklist selectors', () => {
     expect(pathTier(by(4796))).toBe(3)
     expect(pathTier(by(4821))).toBe(1)
     expect(pathTier(by(4733))).toBe(2)
+    expect(pathTier(by(4611))).toBe(3)
   })
 
   it('types deadlines and counts days on the server clock', () => {
@@ -42,22 +42,49 @@ describe('denials worklist selectors', () => {
     expect(deadlineLabel(by(4797), '2026-10-29')).toEqual({ text: 'records request · no payer deadline', days: null })
   })
 
-  it('builds the payer × reason matrix from the rows, leaving plan limits out', () => {
-    const m = payerReasonMatrix(rows)
-    expect(m.total).toBe(rows.length - 1) // #4611 PR-119 is a plan limit
-    expect(m.excluded).toBe(1)
-    expect(m.payers.find((p) => p.key === 'delta_ny')?.cells).toEqual({ Doc: 3, Freq: 1 })
-    expect(m.totals.TF).toBe(1)
+  it("sends a payer × reason matrix equal to the rows, leaving plan limits out (the browser adds nothing)", () => {
+    const d = db.denials('usr_morgan')
+    const m = d.matrix
+    const keys = m.columns.map((c) => c.key)
+    const want = new Map<string, number>()
+    const reason: Record<string, string> = { 'CO-16': 'doc', 'CO-119': 'freq', 'CO-22': 'cob', 'CO-29': 'tf', 'CO-50': 'med_nec' }
+    for (const r of rows) {
+      if (r.carc.startsWith('PR-')) continue
+      const k = `${r.claim.payer.key}:${reason[r.carc] ?? 'other'}`
+      want.set(k, (want.get(k) ?? 0) + 1)
+    }
+    const got = new Map<string, number>()
+    for (const p of m.payers) {
+      expect(p.cells.map((c) => c.reason)).toEqual(keys)
+      expect(p.total).toBe(p.cells.reduce((a, c) => a + c.count, 0))
+      for (const c of p.cells) if (c.count) got.set(`${p.payer.key}:${c.reason}`, c.count)
+    }
+    expect(got).toEqual(want)
+    expect(m.totals.map((c) => c.reason)).toEqual(keys)
+    expect(m.total + m.excluded).toBe(d.total)
+    expect(m.excluded).toBe(1) // #4611 PR-119 is a plan limit
+    const delta = m.payers.find((p) => p.payer.key === 'delta_ny')
+    expect(Object.fromEntries(delta?.cells.filter((c) => c.count).map((c) => [c.reason, c.count]) ?? [])).toEqual({ doc: 3, freq: 1 })
+    expect(m.totals.find((c) => c.reason === 'tf')?.count).toBe(1)
   })
 })
 
-describe('today’s claims selectors', () => {
-  it('reads a fixed A7 as “A7:164 → A1” and groups leaving claims by file time', () => {
-    const db = new MockDb({ stepDelayMs: 0, schedule: () => undefined })
-    const l = db.ledger()
-    const iqbal = l.sent.find((r) => r.claim.number === 4860)
-    expect(iqbal && ackChips(iqbal.acks, true).vyne.text).toBe('A7:164 9:49 AM → A1 10:19 AM')
-    expect(iqbal && ackChips(iqbal.acks, true).payer).toEqual({ tone: 'pending', text: 'pending' })
-    expect(fileGroups(l.leaving_next_file).map((g) => [g.file_time, g.rows.length])).toEqual([['2026-10-28T10:45:00-04:00', 4]])
+describe('worklist order and deadlines', () => {
+  it('sorts rows by deadline inside the server groups, undated last', async () => {
+    const { MockDb: Db } = await import('@/mocks/db')
+    const d = new Db({ stepDelayMs: 0, schedule: () => undefined }).denials('usr_dana')
+    const order = worklistOrder(d)
+    expect(order).toHaveLength(d.total)
+    for (const g of d.groups) {
+      const due = sortedRows(g.rows).map((r) => r.deadline.due_on ?? '9999-12-31')
+      expect(due).toEqual([...due].sort())
+    }
+  })
+
+  it('counts days at noon UTC on both dates, so no timezone moves a day', () => {
+    expect(daysUntil('2027-04-20', '2026-10-28')).toBe(174)
+    expect(daysUntil('2026-10-28', '2026-10-28')).toBe(0)
+    expect(deadlineVerb('timely_filing')).toBe('File by')
+    expect(deadlineVerb('appeal')).toBe('Appeal by')
   })
 })

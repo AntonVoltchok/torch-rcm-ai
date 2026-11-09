@@ -14,7 +14,7 @@ export const liveStore = {
       l()
     })
   },
-  subscribe(l: () => void) {
+  subscribe: (l: () => void) => {
     listeners.add(l)
     return () => listeners.delete(l)
   },

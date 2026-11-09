@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from torch_rcm.agents.catalog.recipes import dollars
 from torch_rcm.domain.entities import (
+    ROOT_CAUSE_RECORDED,
     Appointment,
     AuditEvent,
     Claim,
@@ -50,7 +52,7 @@ from torch_rcm.domain.enums import (
     VerifiedVia,
     tier_of,
 )
-from torch_rcm.domain.values import BaseRate, Confidence, ProposalEvidence, ProposedAction, RuleScope
+from torch_rcm.domain.values import BaseRate, Confidence, ProposalEvidence, ProposedAction, RuleScope, track_record
 from torch_rcm.seed import targets as T
 from torch_rcm.seed.builder import Builder, dt
 from torch_rcm.seed.canonical.people import PRV_LEE, PRV_MORGAN, USR_DANA, USR_LEE, USR_MORGAN, USR_TASHA
@@ -60,6 +62,12 @@ A = RuleAction
 AG = AgentKind
 TODAY = T.TODAY
 DELTA_PA_SLICE = "denied:CO-16:N29:pa_missing"
+# What each eligibility flag found, as structured facts the headline reads (never parsed from the title).
+ELIG_ISSUES: dict[str, dict[str, Any]] = {
+    "chen": {"issue": "over_max"},
+    "kim": {"issue": "frequency", "cdt": "D0274"},
+    "park": {"issue": "unverified"},
+}
 
 ACTION_LABEL: dict[RuleAction, str] = {
     A.STATUS_CHECK: "Status check",
@@ -248,6 +256,7 @@ class AgentSeed:
                 {
                     "outcome_metric": OutcomeMetric.NONE,
                     "base_rate": BaseRate(n=142, k=139),
+                    "situation_rates": {"pending:status_due": BaseRate(n=142, k=139)},
                     "description": "Portal → IVR → 276 status inquiry on accepted claims.",
                 },
             ),
@@ -263,6 +272,8 @@ class AgentSeed:
                     "confidence_floor": 0.9,
                     "outcome_metric": OutcomeMetric.PAID_30D,
                     "base_rate": BaseRate(n=97, k=91),
+                    # Guardian CO-16 · M127, every root cause: 6 of 7 paid once the right chart went (red team)
+                    "situation_rates": {"denied:CO-16:M127:records_request": BaseRate(n=7, k=6)},
                     "changed_at": dt(date(2026, 5, 22), "10:00"),
                 },
             ),
@@ -277,6 +288,7 @@ class AgentSeed:
                     "scope": RuleScope(payer_key=delta, item_type=DELTA_PA_SLICE),
                     "outcome_metric": OutcomeMetric.PAID_30D,
                     "base_rate": BaseRate(n=25, k=23),
+                    "situation_rates": {DELTA_PA_SLICE: BaseRate(n=25, k=23)},
                     "changed_at": dt(date(2026, 10, 26), "10:02"),
                 },
             ),
@@ -290,6 +302,7 @@ class AgentSeed:
                 {
                     "outcome_metric": OutcomeMetric.PAID_30D,
                     "base_rate": BaseRate(n=25, k=22),
+                    "situation_rates": {"pending:prompt_pay_eligible": BaseRate(n=25, k=22)},
                     "changed_at": dt(date(2026, 7, 1), "09:00"),
                 },
             ),
@@ -300,7 +313,11 @@ class AgentSeed:
                 AG.POSTING,
                 A.REQUEST_835,
                 RuleMode.AUTO,
-                {"outcome_metric": OutcomeMetric.NONE, "base_rate": BaseRate(n=14, k=14)},
+                {
+                    "outcome_metric": OutcomeMetric.NONE,
+                    "base_rate": BaseRate(n=14, k=14),
+                    "situation_rates": {"pending:adjudicated_no_835": BaseRate(n=14, k=14)},
+                },
             ),
             (
                 "rule_t1_send_claim",
@@ -313,6 +330,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.ACCEPTED,
                     "reverses_in": ReversesIn.UNTIL_FILE_LEAVES,
                     "base_rate": BaseRate(n=388, k=376),
+                    "situation_rates": {"checkout:clean": BaseRate(n=388, k=376)},
                     "version": 3,
                     "changed_at": dt(date(2026, 10, 26), "10:02"),
                 },
@@ -330,6 +348,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.ACCEPTED,
                     "reverses_in": ReversesIn.UNTIL_FILE_LEAVES,
                     "base_rate": BaseRate(n=19, k=16),
+                    "situation_rates": {"rejected:A7:164": BaseRate(n=19, k=16)},
                     "changed_at": dt(date(2026, 5, 14), "11:00"),
                 },
             ),
@@ -369,6 +388,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.BALANCED,
                     "reverses_in": ReversesIn.UNTIL_DAY_CLOSE,
                     "base_rate": BaseRate(n=92, k=90),
+                    "situation_rates": {"variance:deductible_misapplied": BaseRate(n=3, k=3)},
                     "changed_at": dt(date(2026, 6, 11), "16:00"),
                 },
             ),
@@ -386,6 +406,7 @@ class AgentSeed:
                     "outcome_metric": OutcomeMetric.NONE,
                     "reverses_in": ReversesIn.UNTIL_DAY_CLOSE,
                     "base_rate": BaseRate(n=212, k=211),
+                    "situation_rates": {"eligibility:verify": BaseRate(n=212, k=211)},
                 },
             ),
             (
@@ -427,7 +448,11 @@ class AgentSeed:
                 AG.POSTING,
                 A.PATIENT_TRANSFER,
                 RuleMode.ASK,
-                {"outcome_metric": OutcomeMetric.NONE},
+                {
+                    "outcome_metric": OutcomeMetric.NONE,
+                    "base_rate": BaseRate(n=4, k=4),
+                    "situation_rates": {"variance:alternate_benefit": BaseRate(n=4, k=4)},
+                },
             ),
             (
                 "rule_t2_send_statement",
@@ -910,9 +935,8 @@ class AgentSeed:
                     "Send in the next Delta file via Vyne",
                     "Keep the day-30 status check",
                 ],
-                confidence=Confidence(
-                    pct=92,
-                    basis="23 of 25 Delta CO-16 · N29 denials paid within 30 d after a PA resubmit (12 mo)",
+                confidence=track_record(
+                    23, 25, "Delta CO-16 · N29 denials paid within 30 days after a PA resubmit (12 mo)"
                 ),
                 evidence=ev,
                 proposed_action=ProposedAction(
@@ -995,7 +1019,7 @@ class AgentSeed:
             cents=webb.billed_cents,
             created=dt(TODAY, "06:40"),
             summary="Frequency denial (CO-119): payer tooth-number error. Real prior #30 crown seated 2019-08-14, replaced for fracture.",
-            confidence=Confidence(pct=82, basis="9 of 11 tooth-history reconsiderations paid (12 mo)"),
+            confidence=track_record(9, 11, "tooth-history reconsiderations paid (12 mo)"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.REPROCESSING_REQUEST,
@@ -1007,6 +1031,7 @@ class AgentSeed:
             payload={
                 "draft": {
                     "kind": "reconsideration_note",
+                    "audience": "payer",
                     "segments": [
                         {
                             "text": "Claim 26265-030412 (DOS 09/21/2026, D2740 #30) was denied CO-119.",
@@ -1082,7 +1107,7 @@ class AgentSeed:
             tier=Tier.ONE,
             cents=brooks.billed_cents,
             created=dt(TODAY, "06:30"),
-            confidence=Confidence(pct=88, basis="22 of 25 prompt-pay requests paid within 30 d"),
+            confidence=track_record(22, 25, "prompt-pay requests paid within 30 days"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.REPROCESSING_REQUEST,
@@ -1159,7 +1184,7 @@ class AgentSeed:
             tier=Tier.ONE,
             cents=moreau.billed_cents,
             created=dt(TODAY, "07:03"),
-            confidence=Confidence(pct=84, basis="16 of 19 demographic resends accepted"),
+            confidence=track_record(16, 19, "demographic resends accepted"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.FIX_DEMOGRAPHICS_RESEND,
@@ -1178,12 +1203,23 @@ class AgentSeed:
 
     def posting_items(self) -> None:
         foster = self.claims[4772]
+        # Every figure below comes from the held 835 line and the same line adjudicated at the tracked benefits.
+        remit = self.pinned.remits["cigna_1028"]
+        line = next(rl for rl in remit.lines if rl.claim_id == foster.id)
+        want = self.pinned.expected[4772].lines[0]
+        cov = self.b.w.index(Coverage)[foster.coverage_id]
+        met = cov.plan.deductible_met_on
+        assert met is not None and line.variance_cents == want.paid - line.paid
+        pr = {a.code: a.cents for a in line.patient_adj}
+        pct = cov.plan.pct_basic
         ev = [
             self.evidence(
                 "ev_4772_era",
                 EvidenceKind.ERA_LINE,
                 "Cigna 835 · 10/28 · line held",
-                "D2392 #19 · billed $255.00 · allowed $168.00 · CO-45 $87.00 · PR-1 $32.00 · PR-2 $27.20 · paid $108.80",
+                f"{line.cdt} #{foster.lines[0].tooth} · billed {cents2(line.billed)} · allowed {cents2(line.allowed)}"
+                f" · CO-45 {cents2(sum(a.cents for a in line.adj if a.code == '45'))} · PR-1 {cents2(pr['1'])}"
+                f" · PR-2 {cents2(pr['2'])} · paid {cents2(line.paid)}",
                 dt(TODAY, "06:20"),
                 claim=foster,
                 reference="rem_cigna_1028",
@@ -1227,13 +1263,15 @@ class AgentSeed:
             InboxItemKind.VARIANCE,
             AG.POSTING,
             "Cigna ERA hold · #4772 · PR-1 applied though met",
-            "PR-1 $32 applied though the deductible was met 05/12 → hold for reprocessing, not write-off. Patient owes $27.20 now; $32 disputed; refund $6.40 owed.",
+            f"Cigna applied PR-1 {dollars(pr['1'])} though the deductible was met {met:%m/%d}. Post {dollars(line.paid)},"
+            f" bill the patient {dollars(want.patient_cents)} ({100 - pct}% of {dollars(line.allowed)}), hold"
+            f" {dollars(line.variance_cents)} and ask Cigna to reprocess at {pct}%. Not a write-off.",
             claim=foster,
             tier=Tier.TWO,
             cents=foster.billed_cents,
             created=dt(TODAY, "06:20"),
             remittance_id="rem_cigna_1028",
-            confidence=Confidence(pct=None, basis="no base rate (n = 3)"),
+            confidence=track_record(3, 3, "deductible corrections balanced"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.POST_ERA_LINE,
@@ -1241,11 +1279,11 @@ class AgentSeed:
                     "remittance_id": "rem_cigna_1028",
                     "claim_id": foster.id,
                     "post": "patient_share_only",
-                    "patient_cents": 2_720,
-                    "disputed_cents": 3_200,
+                    "patient_cents": want.patient_cents,
+                    "disputed_cents": line.variance_cents,
                     "then": "reprocessing_request:deductible_misapplied",
                 },
-                cents=10_880,
+                cents=line.paid,
             ),
             rule_id="rule_t2_post_era",
             run_id=run.id,
@@ -1289,7 +1327,7 @@ class AgentSeed:
             tier=Tier.TWO,
             cents=osei.billed_cents,
             created=dt(date(2026, 10, 27), "08:10"),
-            confidence=Confidence(pct=None, basis="no base rate (n = 4)"),
+            confidence=track_record(4, 4, "alternate-benefit transfers balanced"),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.PATIENT_TRANSFER, params={"claim_id": osei.id, "cents": 3_800}, cents=3_800
@@ -1344,7 +1382,13 @@ class AgentSeed:
             tier=Tier.THREE,
             cents=diaz.billed_cents,
             created=dt(date(2026, 10, 27), "09:12"),
-            confidence=Confidence(pct=None, basis="tier 3 · human decision · max confirmed on portal 10/27"),
+            confidence=Confidence(
+                pct=None,
+                k=0,
+                n=0,
+                outcome="",
+                basis="A person decides this one. Annual max confirmed on the Delta portal 10/27.",
+            ),
             evidence=ev,
             proposed_action=ProposedAction(
                 action=A.WRITE_OFF,
@@ -1568,13 +1612,17 @@ class AgentSeed:
                     recommendation=rec,
                     confidence=Confidence(
                         pct=None,
-                        basis="as of 10/28 06:12 · portal" if flag != "park" else "unverified · portal down",
+                        k=0,
+                        n=0,
+                        outcome="",
+                        basis="As of 10/28 6:12 AM · portal" if flag != "park" else "Unverified · portal down",
                     ),
                     evidence=ev,
                     tier=None,
                     cents=cents,
                     created_at=dt(TODAY, "06:12"),
                     run_id=run.id,
+                    payload=dict(ELIG_ISSUES[flag]),
                 )
             )
         return out
@@ -1953,6 +2001,19 @@ class AgentSeed:
                     detail=detail,
                 )
             )
+        for number in (4821, 4836, 4840):
+            self.b.w.add(
+                AuditEvent(
+                    id=f"aud_root_cause_{number}",
+                    at=dt(date(2026, 10, 28), "06:15"),
+                    actor="followup",
+                    action=ROOT_CAUSE_RECORDED,
+                    subject_type="claim",
+                    subject_id=f"clm_{number}",
+                    detail="Root cause: ours — we sent BWX; Delta's rule asks for PA",
+                    data={"before": "payer", "after": "ours", "run_id": f"run_followup_{number}_1028"},
+                )
+            )
 
 
 _ELIG_NOTES = {
@@ -1960,6 +2021,12 @@ _ELIG_NOTES = {
     "kim": "D0274 frequency: next eligible 11/03.",
     "park": "Portal down; unverified.",
 }
+
+
+def cents2(cents: int) -> str:
+    """An 835 figure as the evidence excerpt quotes it: always two decimals ("$255.00")."""
+    whole, part = divmod(cents, 100)
+    return f"${whole:,}.{part:02d}"
 
 
 def _estimate(cov: Coverage, planned_cents: int, flag: str | None) -> tuple[int, int]:

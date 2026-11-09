@@ -26,12 +26,12 @@ function AgentsSwitch() {
   const s = agents.data
   if (!s) return null
   if (user.role !== 'owner') {
-    return s.paused ? <span className="rounded border border-warn-line bg-warn-bg px-1.5 text-xs font-semibold text-warn">Agents paused by {s.paused_by ?? 'the owner'}</span> : null
+    return s.paused ? <span className="rounded-md border border-line-strong bg-hover px-2 py-0.5 text-sm font-medium text-ink">Agents paused by {s.paused_by ?? 'the owner'}</span> : null
   }
   return (
     <span className="inline-flex items-center gap-2">
       {s.paused && (
-        <span className="text-xs font-semibold text-warn">
+        <span className="text-sm font-medium text-ink">
           Paused {s.paused_at ? time(s.paused_at) : ''} · {count(s.paused_runs)} runs parked
         </span>
       )}
@@ -48,17 +48,18 @@ export function SettingsAgentsPage() {
   const rules = useRules()
   const proposals = useProposals()
   const changes = useRuleChanges()
+  // The tab counts are GET /rules fields; nothing is counted here, and nothing shows until /rules answers.
   const counts: Record<SettingsTab, number | undefined> = {
-    rules: rules.data?.tiers.reduce((a, t) => a + t.rows.length, 0),
-    proposals: rules.data?.proposals_open ?? proposals.data?.items.filter((p) => p.state === 'open').length,
-    changes: rules.data?.changes_count ?? changes.data?.total,
+    rules: rules.data?.rules_count,
+    proposals: rules.data?.proposals_open,
+    changes: rules.data?.changes_count,
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title="Settings › Agents" sub="rules grouped by what the action touches">
         <AgentsSwitch />
       </PageHeader>
-      <div role="tablist" aria-label="Settings sections" className="flex flex-none items-center gap-1 border-b border-line px-3.5 py-2 text-sm">
+      <div role="tablist" aria-label="Settings sections" data-tour="settings-tabs" className="flex flex-none items-center gap-1 border-b border-line px-4 py-2 text-sm">
         {SETTINGS_TABS.map((t) => (
           <Link
             key={t}
@@ -66,13 +67,13 @@ export function SettingsAgentsPage() {
             aria-selected={tab === t}
             to="/settings/agents"
             search={(s) => ({ ...s, tab: t })}
-            className={cn('rounded-xl px-2.5 py-0.5 no-underline', tab === t ? 'bg-ink font-semibold text-white' : 'text-mid hover:text-ink')}
+            className={cn('rounded-md px-2 py-0.5 no-underline hover:bg-hover', tab === t ? 'bg-hover font-medium text-ink' : 'text-mid')}
           >
             {TAB_LABEL[t]}
-            {counts[t] !== undefined ? ` ${count(counts[t])}` : ''}
+            {counts[t] !== undefined && <span className="ml-1 text-soft">{count(counts[t])}</span>}
           </Link>
         ))}
-        <span className="ml-auto text-xs text-soft">Modes: Observe · Ask Dana · Runs without review · Human only</span>
+        <span className="ml-auto text-sm text-soft">Modes: Observe · Ask Dana · Runs without review · Human only</span>
       </div>
       <Scroll>
         {tab === 'rules' && (
@@ -87,7 +88,7 @@ export function SettingsAgentsPage() {
         )}
         {tab === 'changes' && (
           <Load q={changes} what="rule changes" rows={5}>
-            {(d) => <ChangesTab changes={d.items} rules={rules.data} />}
+            {(d) => <ChangesTab changes={d.items} digest={d.digest} rules={rules.data} />}
           </Load>
         )}
       </Scroll>

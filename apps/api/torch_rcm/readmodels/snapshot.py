@@ -7,6 +7,7 @@ number the same way: one implementation, no stored counts.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cached_property
@@ -79,6 +80,9 @@ SNAPSHOT_TYPES: tuple[type[Entity], ...] = (
 class Snapshot:
     now: datetime
     rows: dict[type[Entity], list[Entity]] = field(default_factory=dict)
+    #: The root cause the agents would compute now for a claim (`agents.case.claim_root_cause`), which reads the
+    #: world as well as these rows. Set by the API context; None in pure snapshots, which read stored causes only.
+    root_cause_now: Callable[[str], str | None] | None = None
 
     @classmethod
     def from_store(cls, store: Store, now: datetime, kinds: tuple[type[Entity], ...] = SNAPSHOT_TYPES) -> Snapshot:

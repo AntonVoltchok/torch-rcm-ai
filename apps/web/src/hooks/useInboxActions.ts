@@ -4,14 +4,16 @@
  * approve / approveGroup: optimistic removal from every cached ['inbox','list',…] (snapshot first),
  * rollback on error; on 202 the run snapshots are seeded into ['run', id] and a Launch is recorded so
  * the ProgressPanel can subscribe; onSettled invalidates inbox, claim(s), claims, activity, preview.
- * ['strip'] is never touched here: the API client writes it from `meta.counts`.
+ * ['strip'] is never touched here: `meta.counts` moves it (router.tsx).
  * The run itself is not optimistic — its steps stream in.
+ * `onRefused`: the caller shows the server's reason itself (the Inbox, inline on the item it returns to); without it,
+ * a toast says it.
  */
 import { useMutation, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { api } from '@/api/endpoints'
 import { isApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
-import type { InboxItem, InboxList, Run, RunView } from '@/api/schema'
+import type { InboxItem, InboxList, Run, RunView, StripChange } from '@/api/schema'
 import { mergeSnapshot, runViewOf } from '@/lib/runEvents'
 import { launchStore, type Launch } from '@/state/launches'
 import { toast } from '@/state/toast'
@@ -30,16 +32,25 @@ function rollback(qc: QueryClient, snapshot: Snapshot | undefined) {
   snapshot?.forEach(([key, data]) => qc.setQueryData(key, data))
 }
 
-function settle(qc: QueryClient, claimIds: (string | null | undefined)[]) {
+/** After any Inbox decision: every server view the decision can move. */
+export function settle(qc: QueryClient, claimIds: (string | null | undefined)[]) {
   void qc.invalidateQueries({ queryKey: qk.inbox.all })
   void qc.invalidateQueries({ queryKey: qk.claims.all })
   void qc.invalidateQueries({ queryKey: qk.activityAll })
   void qc.invalidateQueries({ queryKey: qk.preview })
   void qc.invalidateQueries({ queryKey: qk.agents })
+  // A decision moves a rule's `waiting` count and the Denials rows (item, whose move); both are server numbers.
+  void qc.invalidateQueries({ queryKey: qk.rules })
+  void qc.invalidateQueries({ queryKey: qk.denials })
   for (const id of claimIds) if (id) void qc.invalidateQueries({ queryKey: qk.claim(id) })
 }
 
-function recordLaunch(qc: QueryClient, kind: Launch['kind'], title: string, runs: Run[], items: InboxItem[]): Launch {
+export interface Wording {
+  action_label: string | null
+  touches: string[]
+}
+
+function recordLaunch(qc: QueryClient, kind: Launch['kind'], title: string, runs: Run[], items: InboxItem[], changes: StripChange[], wording: Wording): Launch {
   for (const run of runs) qc.setQueryData<RunView>(qk.run(run.id), (old) => mergeSnapshot(old, runViewOf(run)))
   const launch: Launch = {
     id: runs[0]?.id ?? `launch_${items[0]?.id ?? 'x'}`,
@@ -56,6 +67,9 @@ function recordLaunch(qc: QueryClient, kind: Launch['kind'], title: string, runs
       }
     }),
     started_at: qc.getQueryData<{ now: string }>(qk.clock)?.now ?? runs[0]?.started_at ?? '',
+    changes,
+    action_label: wording.action_label,
+    touches: wording.touches,
   }
   launchStore.add(launch)
   return launch
@@ -66,21 +80,52 @@ export interface FileDeparted {
   message: string
 }
 
+/** The server said no (or never answered): nothing ran, and the items are back in the list. */
+export interface Refusal {
+  message: string
+  tone: 'bad' | 'warn'
+  /** 409 file_departed: the caller also has `onFileDeparted`, which swaps the action. */
+  departed: boolean
+}
+
+type RefusalOpts<V> = { onRefused?: (r: Refusal, v: V) => void }
+
+function refuse<V>(opts: RefusalOpts<V>, r: Refusal, v: V) {
+  if (opts.onRefused) opts.onRefused(r, v)
+  else toast(r.message, { tone: r.tone })
+}
+
+export interface ApproveVars {
+  item: InboxItem
+  edits?: Record<string, unknown>
+}
+
+export interface ApproveGroupVars {
+  groupKey: string
+  title: string
+  items: InboxItem[]
+  wording?: Wording
+  /** The member the pane showed when ⇧A was pressed: where a refusal returns. */
+  from?: InboxItem
+}
+
 function explain(err: unknown): string {
   if (isApiError(err, 'already_resolved')) return `Already handled: ${err.message}`
-  if (isApiError(err, 'tier_requires_owner')) return err.message
+  // The server's own words. A `claim_busy` 409 means this tab's list was stale: `settle` refetches it, and the
+  // claim's fresh `move` (agents) locks Approve until the run ends.
+  if (isApiError(err, 'tier_requires_owner') || isApiError(err, 'signoff_stale') || isApiError(err, 'claim_busy')) return err.message
   if (isApiError(err, 'network')) return 'The API is unreachable; nothing was sent.'
   return 'Approval failed; nothing was sent. The item is back in your Inbox.'
 }
 
-export function useApprove(opts: { onLaunched?: (l: Launch) => void; onFileDeparted?: (d: FileDeparted) => void } = {}) {
+export function useApprove(opts: { onLaunched?: (l: Launch) => void; onFileDeparted?: (d: FileDeparted) => void } & RefusalOpts<ApproveVars> = {}) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { item: InboxItem; edits?: Record<string, unknown> }) => api.approve(v.item.id, v.edits),
+    mutationFn: (v: ApproveVars) => api.approve(v.item.id, v.edits),
     onMutate: async (v) => ({ snapshot: await removeOptimistically(qc, [v.item.id]) }),
     onSuccess: (res, v) => {
       if (res.run) {
-        opts.onLaunched?.(recordLaunch(qc, 'approve', v.item.title, [res.run], [res.item]))
+        opts.onLaunched?.(recordLaunch(qc, 'approve', v.item.title, [res.run], [res.item], res.changes, v.item))
         return
       }
       // No run: an owner sign-off (the rule change applies, signed) or a flag handed to the front desk.
@@ -91,11 +136,11 @@ export function useApprove(opts: { onLaunched?: (l: Launch) => void; onFileDepar
     onError: (err, v, ctx) => {
       rollback(qc, ctx?.snapshot)
       if (isApiError(err, 'file_departed')) {
-        toast(err.message, { tone: 'warn' })
         opts.onFileDeparted?.({ itemId: v.item.id, message: err.message })
+        refuse(opts, { message: err.message, tone: 'warn', departed: true }, v)
         return
       }
-      toast(explain(err), { tone: 'bad' })
+      refuse(opts, { message: explain(err), tone: 'bad', departed: false }, v)
     },
     onSettled: (_d, _e, v) => {
       settle(qc, [v.item.claim?.id])
@@ -103,17 +148,17 @@ export function useApprove(opts: { onLaunched?: (l: Launch) => void; onFileDepar
   })
 }
 
-export function useApproveGroup(opts: { onLaunched?: (l: Launch) => void } = {}) {
+export function useApproveGroup(opts: { onLaunched?: (l: Launch) => void } & RefusalOpts<ApproveGroupVars> = {}) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { groupKey: string; title: string; items: InboxItem[] }) => api.approveGroup(v.groupKey),
+    mutationFn: (v: ApproveGroupVars) => api.approveGroup(v.groupKey),
     onMutate: async (v) => ({ snapshot: await removeOptimistically(qc, v.items.map((i) => i.id)) }),
     onSuccess: (res, v) => {
-      opts.onLaunched?.(recordLaunch(qc, 'approve_group', `Approve ${res.items.length} · ${v.title}`, res.runs, res.items))
+      opts.onLaunched?.(recordLaunch(qc, 'approve_group', `Approve ${res.items.length} · ${v.title}`, res.runs, res.items, res.changes, v.wording ?? { action_label: null, touches: [] }))
     },
-    onError: (err, _v, ctx) => {
+    onError: (err, v, ctx) => {
       rollback(qc, ctx?.snapshot)
-      toast(explain(err), { tone: 'bad' })
+      refuse(opts, { message: explain(err), tone: 'bad', departed: false }, v)
     },
     onSettled: (_d, _e, v) => {
       settle(qc, v.items.map((i) => i.claim?.id))

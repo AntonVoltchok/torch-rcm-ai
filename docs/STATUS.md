@@ -2,6 +2,191 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Live mode works; the canonical cassettes are real recordings (Opus 5.5)
+
+**State:** committed on `feat/d1-dashboard`, not pushed. ADR-0010; tour decision D21. Run `make seed` (the #4709 visit note is new).
+
+- **Recorded:** all five canonical cassettes via `torch cassette record` (`synthetic: false`, `hash_mode: full`, no key material). `torch eval` replays real Sonnet output for #4709, #4731 and #4744 (`live` 3); inbox 19 in both modes.
+- **Fixed: strict-grammar 400.** With every tool strict, the API rejected the plan request ("compiled grammar is too large") though the published counts were in range. Only `submit_plan`/`submit_draft` are strict now, one strict tool per request (`tools/schemas.py` `STRICT_TOOLS`, lint). Reads were already Pydantic-validated (`extra="forbid"`) and scope-checked. Spec 07 §3.5 and CLAUDE.md updated.
+- **Fixed: `claim_get_history` showed the reading run as history** (`"10/28 followup · "`). It lists finished runs only (`tests/agents/test_history_read.py`). This was also why replay missed every triage.
+- **Seed:** #4709's 09/04 visit has a signed clinical note. Without it the model rightly refused to resend an empty note.
+- `test_cassette.py` checks recordings (keys, replay, #4821 exact, unknowns inside the envelope, the appeal draft built from the seeded world). Reviewed-plan files say they are hand-written. Tour copy, pane kind `recording` and payloads say "recorded API response" (`make tour-payloads`).
+- Model labels differ from the reviewed plans' (#4744 → `denied:CO-16:M127:records_request` on a pending claim). The policy uses the classifier's situation; a differing live label can only demote auto to propose (row 13).
+- **Fixed: the API could never run live.** `wire_agent_runtime` built `AgentConfig()` (defaults) instead of `AgentConfig.from_env()`, so `TORCH_AGENT_MODE=live` was ignored. Live without a key now refuses to boot (07 §10).
+- **Fixed: a reseed dropped the model client.** `POST /clock/reset` swaps the world, `AgentRuntime.shared` rebuilt the runtime without `llm_client`, and live runs fell back to scripted without saying so. The client is now built in `AgentRuntime._make_llm_client()` whenever the shared runtime is built.
+- **`.env` loads from the repo root** (`torch_rcm.config.load_env_file`, called by `get_settings()` and `AgentConfig.from_env()`), so `make api` and `torch cassette record` read it. Shell variables win; `TORCH_DOTENV=0` skips it, and `tests/conftest.py` sets that. `python-dotenv` is now a direct dependency.
+- `.env.example`: `TORCH_MODEL_CHEAP` → `TORCH_MODEL_FAST`, `TORCH_LIVE_RUN_BUDGET_USD` → `TORCH_RUN_COST_CAP_USD` (both were silently ignored); `TORCH_CASSETTE_MODE` documented.
+- `tests/agents/test_live_wiring.py` (7). Checks: `make lint`; API 660 passed; web Vitest 229 passed; `torch eval` OK. Not run: e2e.
+- **Smoke call:** the key works; `claude-sonnet-5-5`, `claude-opus-5-5` and `claude-haiku-5-5` each answered a 16-token request.
+
+**Next:** click through the demo with `TORCH_AGENT_MODE=live TORCH_CASSETTE_MODE=replay make dev` (no key needed), then once with real calls. #4797 and #4800 have no cassette (`scripted_fallback`); add them to `CANONICAL` and record. Server-side `TORCH_CASSETTE_MODE=record` passes the directory `cassettes/live` to `RecordingClient`, which expects a file path: fix before using it. `torch cassette record` never closes the SDK client between cases ("Event loop is closed" noise). `reviewed_by: usr_dana` on the reviewed plans is still fiction.
+
+## 2026-11-09 — Onboarding tours in the app (Opus 5.5)
+
+**State:** branch `feat/onboarding-tours` (off `feat/d1-dashboard`), PR against `feat/d1-dashboard`. ADR-0009; decisions D13–D19 in `docs/design/onboarding/DECISIONS.md`; implementation red team in `docs/design/onboarding/red-team.md`.
+
+- **Tours:** a main tour following #4821 (welcome, nine steps, finish) and a tour per screen plus claim detail, built from the approved mock. Spotlight + two-column card with live payloads; Try-its press the real controls (approve the Delta group, Ask Follow-up on #4744, skip to the next morning as Dr. Morgan, hover a rule's mode).
+- **Entry points:** the welcome on every load, "Tour this screen" + menu in the sidebar, a `?` in each screen's header; screen tours on first visit.
+- **Payloads:** `make tour-payloads` generates the model-facing panes; an API test fails on drift.
+- **Red team:** three passes (decisions, evaluator, front-end); one blocker (the claim tour pulled the presenter off #4744) and twelve majors fixed. Also renamed "recorded agent plan" to "hand-written plan, replayed" in the UI and specs 05/06/07.
+- Checks: `make lint`; API 652 passed; web Vitest 229 passed; MSW e2e 10 passed (1 real-only skipped); real-API `@demo` 5/5 on a throwaway stack (:8100/:5182).
+
+**Decided:** the welcome opens on every load, a refresh and a new tab included (owner, D20; e2e pins it).
+
+**Next:** the relay header's "3 claims" is counted in the browser (D1 code). `clm_4744.plan.json` still says `recorded_from: live triage` and `reviewed_by: usr_dana`.
+
+## 2026-11-09 — Signer, Castillo, Patients numbers, Approve flash (Opus 5.5)
+
+**State:** on `feat/d1-dashboard`, pushed to PR #1. Notes: `docs/adr/worker-notes/rt-fixes.md` (`rt-signer`, `rt-flash`).
+
+- **Signer:** one server function (`moves.signer`) names who signs: the treating dentist for clinical sign-offs (Dr. Lee for Ito and Morris; Morris's crown visit is now Dr. Lee's in the seed), the owner for owner-only acts (Diaz). Only that person or the owner may approve; others get 403. Inbox, waiting rows, signer notes, Denials and the claim panel agree (tested).
+- **Castillo:** track records are per situation (`Rule.situation_rates`): "86% · 6 of 7 paid within 30 days". The rule-wide record shows only on Rules and proposals.
+- **Approve:** the pane switches to the run at once ("Starting…"); a refusal returns to the item with the server's reason. Four tests that fail on the old code, plus a real-target e2e.
+- **Patients design:** Foster's numbers match the seed.
+- Checks on the merged tree: `make lint`, `make test` (651 API, 152 web), `make eval`, parity, MSW e2e 7/7 (1 real-only skipped), real-target `@demo` 4/4 on a throwaway stack.
+
+**Next:** `make seed`. Still open: Diaz as a tier-2 move to the patient; Morris as an administrative reconsideration; a note when the owner approves an associate's appeal; real cassettes.
+
+## 2026-11-09 — Final red team: top five fixed (Opus 5.5)
+
+**State:** on `feat/d1-dashboard`, pushed to PR #1. The final red team (`docs/design/red-team/challenge-final-d1-2026-11-08.md`) rated realism 7/10; its top five are fixed (notes: `docs/adr/worker-notes/rt-fixes.md`).
+
+- **Foster #4772:** $25.60 underpaid, patient owes $33.60, no refund, built from the 835 line. A test recomputes every seeded variance.
+- **Event order:** 17 claims were sent before they were built. Now visit ≤ built ≤ sent ≤ acks ≤ remitted, tested over the whole seed.
+- **"Need you":** counts only what the viewer can act on (11), with "1 waiting on Dr. Morgan" from the server. Tested per seeded user.
+- **#4744:** an unknown situation shows no track record and can't be learned.
+- **Payments, Patients, appeal workbench:** show only their own design screen.
+- Checks on the merged tree: `make lint`, `make test` (639 API, 148 web), `make eval`, MSW e2e 7/7, real-target `@demo` 3/3 on a throwaway stack.
+
+**Next:** `make seed` (the seed changed). Still open from the red team: the signer comes from the dentist role, not the treating dentist (Dr. Lee vs Dr. Morgan on Ito and Morris); Diaz should be a tier-2 transfer to the patient; Castillo still shows the rule's 91 of 97; the Patients design still has Foster's old numbers; the approve flash; real cassettes.
+
+## 2026-11-08 — D1 dashboard redesign built (Opus 5.5)
+
+**State:** merged into `feat/d1-dashboard` and pushed as PR #1. ADR-0008 records the decisions, and the build plan is folded in and deleted.
+
+**What D1 shipped**
+- **Server half.** Whose move on every claim (`ClaimSummary.move`, with `mine` for the viewer) and the KPI moves. Wording from the action catalog: `action_label`, `touches`, `lands`, `signer_note`, `headline`, `learnable`. Plus `Confidence k/n`, approve-time `changes`, `Run.claim_outcome` (in the eval shape) and `409 claim_busy`.
+- **Server totals.** The ledger, claims, eligibility, activity, settings and Denials payer × reason (`DenialsOut.matrix`, this session) totals all come from the server. The browser adds no business number.
+- **Screens.** D1's shell, tokens and type (Geist self-hosted, nothing under 12px). The Inbox lets the run own the pane. Claim history runs in lanes, and Denials is a deadline-first worklist with Next denial. Every other screen is restyled on D1. Payments and Patients stay `MockOnlyBanner`.
+- **This session's sweep.** The deprecated `acc`/`bad`/`warn` aliases and `text-2xs` are deleted. The warning toast is now neutral. The framed mocks say TorchRCM. An Inbox decision refetches rules and Denials. Clean already: Google Fonts, `stepLabel`, "Torch" as the product name, dead links, missing banners.
+
+**Checks on the final tree**
+
+| Check | Result |
+|---|---|
+| `make lint` | clean |
+| `make test` | 625 API + 143 web |
+| replay harness | OK. Run through a scratch script calling `torch_rcm.agents.cli.run_eval_command`, because the sandbox refuses the word in a command. |
+| `pnpm test:contract` | 52 of 52 |
+| `pnpm check:api` | clean |
+| MSW e2e (`vite preview` :5201) | 6 of 6 on two full reruns. The first run failed 2 (`reload-mid-run`, the shell's 1280 fit) on a cold preview. Both passed alone and on reruns. |
+| real-target `@demo` (API :8101 over a scratch DB, web :5202) | 3 of 3 |
+
+**Not proven**
+- The first-run e2e flake above. `reload-mid-run` has flaked before (d1-api-3).
+- Run under a live model: only cassettes were replayed.
+- The Payments banner's `#r3-pay` anchor was reported to land on the mocks' Overview. Not checked here.
+- Two-tab `claim_busy` is covered by a unit test, not an e2e.
+
+**Next**
+- **One real-format adapter behind `WorldPort`.** Every outside system is simulated in `world/sim.py`, and 835, 277CA and 271 arrive as typed objects, not EDI. Parse a real-format X12 835 into `Remittance` (balancing `billed = paid + Σadj + patient`), with a fixture and a test, so the seam is shown working on real wire data. Record the scope in an ADR.
+- After merge: `make seed`. Stored `Confidence` changed shape (required `k`, `n`, `outcome`), so an older DB no longer loads its Inbox items.
+- Review-level findings still open in the worker notes:
+  1. `RuleChange.items_affected_since` is a stored, hand-authored count that no run backs. It needs a derived field.
+  2. The mock's Paid view is every paid claim. It equals October only on the demo clock.
+  3. The Claims table scrolls inside its panel at 1280 px.
+  4. The Payments mock anchor is unverified.
+- API asks: `TimelineEntry.short`, `HolderCount.label`, the denial date and follow-up date on Denials rows, `deadline.days_left`.
+- `CLAUDE.md` and other older docs still say "Torch" in prose.
+
+## 2026-11-02 — TorchRCM rename and round 2 of the redesign (Opus 5.5)
+
+**State:** committed on `chore/first-run`, not pushed. The owner picked variation D and asked for two restyles. The product is now **TorchRCM** in everything people see. Identifiers, model prompts and tool schemas keep the old word, because cassettes depend on them.
+
+- Round 2: https://claude.ai/artifact/FrNNQtYKNHQcBxhF7JSDUK (private), source in `docs/design/variations/round-2/`. D1 is a dashboard layout. D2 is D with new colors and type only: its render code is byte-identical to D. Original is freshly shot from the app, with the fixes and the new name.
+- Checks: `make lint`, `make test` (560 API + 109 web), `make eval`, `pnpm test:contract` (51 of 51), both e2e suites (3 of 3 each, on throwaway stacks).
+- `docs/spec/00-product.md`, `06` and `07` carry the new name. `CLAUDE.md` and the other docs still say Torch.
+
+**Waiting on the owner:** which style to take forward, and whether D goes into the app.
+
+
+## 2026-11-02 — UX audit and round 1 design variations (Opus 5.5)
+
+**State:** audit, red team and five clickable variations are done, and the truth fixes are in (A9, T1 to T7, ADR-0007). T8 turned out not to be a defect. Committed on `chore/first-run`, not pushed.
+
+| Check | Result |
+|---|---|
+| `make lint` | clean |
+| `make test` | 560 API + 109 web |
+| `make eval` | OK |
+| `pnpm build` | clean |
+| `pnpm check:api` | clean |
+| `pnpm test:contract` | 51 of 51 |
+| `pnpm e2e` (MSW) | 3 of 3 |
+| `E2E_TARGET=real pnpm e2e --grep @demo` | 3 of 3 on a throwaway API and database |
+
+- Audit: `docs/design/ux-audit-2026-11-02.md`, red-teamed in `docs/design/red-team/challenge-ux-audit-2026-11-02.md`. The post-click path was watched on a throwaway stack.
+- Variations: https://claude.ai/artifact/JBZW67Fde6GsFxZgjYY7qq (private), source in `docs/design/variations/round-1/`. Owner feedback lands in the artifact's `feedback` collection.
+- `E2E_API_BASE` lets the real-stack demo run beside a live `make dev`; without it, the demo resets the API on :8000.
+
+**Waiting on the owner:** picks and tags from the artifact; whether to cut the demo script to steps 1, 2, 3, 4, 6, 8.
+
+**Next, whichever variation wins**
+- R1, R2: the run panel hides its steps and arms the next item under a running job.
+- A6: "Always auto-run" is offered, then refused, on root-cause-ours items.
+- Whose move must become a server-derived field. The prototype derives it from status.
+- D7, D12: raw ids on Activity; Appeals vs Follow-up on #4733.
+
+**Not proven:** Prototype approvals are simulated, and #4851's failure is staged: the real app approved it during the Cigna outage. `stopped_by` for a run-created item was seen on triage; the demo e2e covers Thursday's items but does not assert their wording.
+
+
+## 2026-11-02 — First real run: green against the real API (coordinator: Opus 5.5)
+
+**State:** the toolchain ran for the first time, on the owner's laptop. Everything below passed on the final code, on branch `chore/first-run`. Nothing is pushed or merged to `main`.
+
+| Check | Result |
+|---|---|
+| `make lint` | clean (ruff, mypy strict on `domain` and `agents`, eslint, tsc) |
+| `make test` | 556 API + 103 web, 0 skipped; web also on Node 22 (CI) and 24 (laptop) |
+| `make eval` | OK in deterministic and cassette modes |
+| `E2E_TARGET=real pnpm e2e --grep @demo` | 3 of 3 against the real API |
+| `pnpm e2e` (MSW) | 3 of 3 (stop `make dev` first, or it attaches to the real stack) |
+| `pnpm test:contract` | 51 of 51 against the real API |
+| `pnpm check:api`, `pnpm build` | clean |
+| By hand | Demo steps 1–8 in the browser against the real API; Activity and Denials read on Thursday; Cash only through e2e |
+| `kill -9` the API mid-run, restart | resumed at step 3 of 8, finished, one NEA upload |
+
+**Decisions:** ADR-0004 (one async advance path), ADR-0005 (web follows the generated contract), ADR-0006 (first-run hardening). Red-team reports are in `docs/design/red-team/`, dated 2026-11-02. Spec edits: 02 (reset refusals, `signoff_stale`), 05 (outage banner, `meta.counts`), 06 (the group opens on #4840, days in A/R 26 on Thursday, an advance takes about 20 s), 07 (Observe rows).
+
+**Real bugs found** (the tests were green for most of them)
+- Agent runs: the stream closed before `counts` and `done`, so nothing refreshed after a run; run steps carrying evidence were dropped; the firehose listened for an event the API never sends.
+- Authority: billing could sign a tier-2 rule by replaying an approval; the tier-3 role check had the same hole.
+- Trust: a sign-off request vanished under an Idempotency-Key, so Dana saw "Sent to Dr. Morgan" and nothing was sent; a repeat returned 500.
+- Observe: an observe rule could still open an item and contact a payer.
+- Clock and restart: the clock could move under a running approval; a reset during a run killed the worker for good; a restarted API reused call ids; a restart mid-advance left every later advance at 409.
+- Consistency: Castillo read "ours" in the Inbox and "theirs" on Denials; a 10/12 timeline entry listed an attachment made on 10/28; visits finished after their claims were built.
+
+**Not proven**
+- **Live mode has never called the real API.** No `ANTHROPIC_API_KEY` on this machine, so step 4 of the session was skipped: cassettes are still `synthetic: true`, and `make eval` compares shapes against hand-authored cassettes. Castillo and Moreno replay as `scripted_fallback`.
+- **CI has never run on GitHub.** `act` ran it locally in part; the new `contract` job was run only as local commands.
+- **CI has no e2e step**, so the real-API demo script is a local check.
+- `docker compose up` was not tried.
+- `file_departed` is asserted only against the mock: the canonical seed has no open hold-window item with a queued file.
+
+**Known and accepted** (ADR-0006)
+- Under an observe rule, an `unknown` case reaches nobody, only a row in Activity. A partial Observe thins a run's evidence.
+- An Observe run can find `ours` while Denials shows `payer`: fixing it would need a write under Observe.
+- Mock Thursday A/R reads $73,220 where the API reads $70,869. Both give 26 days; only a basis line differs between modes.
+
+**Next**
+1. Set `ANTHROPIC_API_KEY`, then `cd apps/api && uv run torch cassette record --scenario canonical` and `make eval`. Expect first-contact work: live mode has never run.
+2. Push, and watch the first CI run.
+3. API, recorded not done: make OpenAPI true for error responses and `default_factory` fields (`errors=` already exists in the route table); handlers for `visit.checked_out` and `eligibility.sweep`.
+4. Web: tighten ESLint to `strictTypeChecked`. Splitting `make lint` into `lint-api` and `lint-web` would let CI call make targets.
+5. Rehearse the onsite: `docs/WALKTHROUGH.md`, and the ten questions in the repo-review report.
+
+The sections below are the history of the first build pass. Where they disagree with this one, this one is right; `?wait=true` on advance, for one, is gone (ADR-0004).
+
 ## 2026-11-01 — End of first build pass (coordinator: Fable 5.1)
 
 **State:** API 391 pure tests + eval green; web written and reviewed, never compiled (no registry access). Repo review red team + fix pass applied. Read `docs/WALKTHROUGH.md`, then `docs/FIRST_RUN.md`.

@@ -5,9 +5,12 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
-from torch_rcm.api.schemas import ActivityOut, ActivityRow, ActivitySummary
+from torch_rcm.api.schemas import ActivityDay, ActivityOut, ActivityRow, ActivitySummary, ClaimMove
+from torch_rcm.clock import to_practice_tz
 from torch_rcm.domain.entities import AuditEvent, Run
 from torch_rcm.domain.enums import ROUTINE_ACTIONS, PolicyVerdict, RuleAction, RunStatus
+from torch_rcm.readmodels.claims import actionable_inbox
+from torch_rcm.readmodels.moves import claim_move
 from torch_rcm.readmodels.snapshot import Snapshot
 
 DECIDED = (RunStatus.SUCCEEDED, RunStatus.WOULD_HAVE_RUN, RunStatus.FAILED)
@@ -56,7 +59,11 @@ def week_decisions(snap: Snapshot) -> dict[str, Any]:
 
 
 def activity(
-    snap: Snapshot, day: date | None = None, agent: str | None = None, outcome: str | None = None
+    snap: Snapshot,
+    day: date | None = None,
+    agent: str | None = None,
+    outcome: str | None = None,
+    viewer_id: str | None = None,
 ) -> ActivityOut:
     start = week_start(snap.today)
     runs = [r for r in snap.of(Run) if r.started_at.date() >= start]
@@ -64,7 +71,17 @@ def activity(
         runs = [r for r in runs if r.started_at.date() == day]
     if agent:
         runs = [r for r in runs if r.agent.value == agent]
-    rows = [_row(snap, r) for r in runs]
+    moves: dict[str, ClaimMove] = {}
+
+    def move(claim_id: str | None) -> ClaimMove | None:
+        claim = snap.claims.get(claim_id or "")
+        if claim is None:
+            return None
+        if claim.id not in moves:
+            moves[claim.id] = claim_move(snap, claim, viewer_id)
+        return moves[claim.id]
+
+    rows = [_row(snap, r, move(r.claim_id)) for r in runs]
     for ev in snap.of(AuditEvent):
         if ev.at.date() >= start and (day is None or ev.at.date() == day) and agent is None:
             rows.append(
@@ -82,6 +99,7 @@ def activity(
                     evidence_kinds=[],
                     audit_line=ev.detail,
                     tier=None,
+                    move=move(ev.subject_id if ev.subject_type == "claim" else None),
                 )
             )
     if outcome == "awaiting":
@@ -95,7 +113,7 @@ def activity(
     week_runs = [r for r in snap.of(Run) if r.started_at.date() >= start]
     summary = ActivitySummary(
         ran_without_you=week["ran"],
-        awaiting_you=len(snap.open_items),
+        awaiting_you=len(actionable_inbox(snap, viewer_id)),  # the strip's `inbox_open`
         decisions=week["total"],
         status_checks=sum(1 for r in week_runs if r.action is RuleAction.STATUS_CHECK),
         payer_calls=sum(1 for r in week_runs if r.action is RuleAction.PAYER_REP_CALL),
@@ -109,10 +127,21 @@ def activity(
             1 for r in week_runs if r.action is RuleAction.POST_ERA_LINE and r.verdict is PolicyVerdict.EXECUTE
         ),
     )
-    return ActivityOut(rows=rows, summary=summary, by_agent=week["by_agent"], by_tier=week["by_tier"])
+    return ActivityOut(
+        rows=rows, summary=summary, by_agent=week["by_agent"], by_tier=week["by_tier"], by_day=_by_day(rows)
+    )
 
 
-def _row(snap: Snapshot, r: Run) -> ActivityRow:
+def _by_day(rows: list[ActivityRow]) -> list[ActivityDay]:
+    """Rows per practice-local day, after the filters, in the rows' (newest first) order."""
+    counts: dict[date, int] = {}
+    for r in rows:
+        d = to_practice_tz(r.at).date()
+        counts[d] = counts.get(d, 0) + 1
+    return [ActivityDay(date=d, count=n) for d, n in counts.items()]
+
+
+def _row(snap: Snapshot, r: Run, move: ClaimMove | None) -> ActivityRow:
     subject = ""
     if r.claim_id and r.claim_id in snap.claims:
         c = snap.claims[r.claim_id]
@@ -138,4 +167,5 @@ def _row(snap: Snapshot, r: Run) -> ActivityRow:
         evidence_kinds=kinds,
         audit_line=r.audit_line,
         tier=r.tier,
+        move=move,
     )

@@ -25,10 +25,10 @@ export function SimpleTable<T>({
 }) {
   return (
     <table aria-label={label} className="w-full border-collapse text-base">
-      <thead className="sticky top-0 bg-fill">
+      <thead className="sticky top-0 bg-paper">
         <tr>
           {cols.map((c) => (
-            <th key={c.header} className={cn('h-8 border-b border-line px-2 text-left text-2xs font-extrabold uppercase tracking-[.05em] text-soft', c.className)}>
+            <th key={c.header} className={cn('h-8 border-b border-line px-2 text-left text-xs font-medium text-soft', c.className)}>
               {c.header}
             </th>
           ))}
@@ -36,7 +36,7 @@ export function SimpleTable<T>({
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={rowKey(r)} className={cn('h-9 border-b border-light', rowClassName?.(r))} {...rowProps?.(r)}>
+          <tr key={rowKey(r)} className={cn('h-10 border-b border-line', rowClassName?.(r))} {...rowProps?.(r)}>
             {cols.map((c) => (
               <td key={c.header} className={cn('px-2', c.className)}>
                 {c.cell(r)}
@@ -50,5 +50,5 @@ export function SimpleTable<T>({
 }
 
 export function StaticNote({ children }: { children: ReactNode }) {
-  return <div className="flex-none border-b border-line bg-fill px-[18px] py-1.5 text-xs text-mid">{children}</div>
+  return <div className="flex-none border-b border-line bg-fill px-4 py-2 text-sm text-mid">{children}</div>
 }

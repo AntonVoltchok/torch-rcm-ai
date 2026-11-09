@@ -39,6 +39,9 @@ FLAGGED = {
     "by_status": {S.DENIED: 5, S.PENDING: 1, S.REJECTED: 1, S.PARTIAL: 1, S.PAID: 1},
 }
 INBOX_OPEN = {"count": 12, "cents": usd(9_697), "claim_items": 9, "eligibility_items": 3}
+# Dana's queue above splits into what she can act on (the strip's `inbox_open`) and the one item only Dr. Morgan
+# signs (R. Diaz #4611, tier 3), which waits on him.
+INBOX_WAITING = {"count": 1, "cents": usd(1_240), "label": "Dr. Morgan"}
 
 DECISIONS_WEEK = {
     "total": 53,

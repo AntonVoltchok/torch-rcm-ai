@@ -57,6 +57,9 @@ class Scheduler:
         self.owner = owner or f"boot_{uuid.uuid4().hex[:8]}"
         self.queue = JobQueue(store, clock, self.owner)
         self.advance_lock = asyncio.Lock()
+        self.job_lock = (
+            asyncio.Lock()
+        )  # held by the worker's job and by a whole advance: the clock never moves under a run
         self._task: asyncio.Task[Advance] | None = None
         register_world_handlers(reg)
 
@@ -163,6 +166,17 @@ class Scheduler:
         if done:
             advance.state = AdvanceState.DONE
         self.store.update(advance)
+        self._publish_advance(advance, done=done)
+
+    def _fail(self, advance: Advance, error: str) -> None:
+        """Failure is terminal too: a client following the firehose stops only on `done`."""
+        advance.now = self.clock.now()
+        advance.state = AdvanceState.FAILED
+        advance.error = error
+        self.store.update(advance)
+        self._publish_advance(advance, done=True, state=advance.state.value, error=error)
+
+    def _publish_advance(self, advance: Advance, *, done: bool, **failure: str) -> None:
         publish(
             self.store,
             FIREHOSE,
@@ -170,10 +184,11 @@ class Scheduler:
             {
                 "advance_id": advance.id,
                 "now": advance.now.isoformat(),
-                "events_fired": len(result.events_fired) if not done else result.events_fired,
-                "runs_started": result.runs_started,
-                "live_runs": result.live_runs,
+                "events_fired": advance.events_fired if done else len(advance.events_fired),
+                "runs_started": advance.runs_started,
+                "live_runs": advance.live_runs,
                 "done": done,
+                **failure,
             },
             self.clock.now(),
         )
@@ -203,13 +218,15 @@ class Scheduler:
     async def execute_advance(self, advance: Advance) -> Advance:
         async with self.advance_lock:
             try:
-                result = await self.run_due(advance.to_at, advance)
-                self._progress(advance, result, done=True)
+                async with self.job_lock:
+                    result = await self.run_due(advance.to_at, advance)
+                    self._progress(advance, result, done=True)
+            except asyncio.CancelledError:
+                self._fail(advance, "interrupted by shutdown")
+                raise
             except Exception as exc:
                 log.exception("advance.failed", advance_id=advance.id)
-                advance.state = AdvanceState.FAILED
-                advance.error = f"{type(exc).__name__}: {exc}"
-                self.store.update(advance)
+                self._fail(advance, f"{type(exc).__name__}: {exc}")
         return advance
 
     def start_advance(self, to: datetime, requested_by: str | None = None) -> Advance:
@@ -222,6 +239,13 @@ class Scheduler:
         if self._task is not None:
             await self._task
 
+    def recover(self) -> None:
+        """Boot: reclaim job leases and fail advances the last process left `running`. That row is the lock
+        `begin_advance` reads, so one left behind would answer 409 to every advance until a reset."""
+        self.queue.recover()
+        for advance in self.store.find(Advance, {"state": AdvanceState.RUNNING}):
+            self._fail(advance, "interrupted by a restart")
+
     # ── background worker ──────────────────────────────────────────────────────────────────────────────────
 
     async def worker_loop(self, stop: asyncio.Event, poll_seconds: float = 0.25) -> None:
@@ -230,9 +254,13 @@ class Scheduler:
         while not stop.is_set():
             ran = False
             if not self.advance_lock.locked():
-                job = self.queue.next_due(self.clock.now(), self.handled_kinds())
-                if job is not None:
-                    ran = await self.run_one(job, None, None)
+                try:
+                    async with self.job_lock:
+                        job = self.queue.next_due(self.clock.now(), self.handled_kinds())
+                        if job is not None:
+                            ran = await self.run_one(job, None, None)
+                except Exception:  # nothing restarts this task: one bad job must not stop every job after it
+                    log.exception("worker.job_crashed")
             if not ran:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=poll_seconds)

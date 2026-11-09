@@ -154,6 +154,7 @@ def rule(action: str, tier: int, mode: str = "auto", **kw: Any) -> RuleView:
         mode=mode,  # type: ignore[arg-type]
         scope=scope,
         base_rate=base_rate,
+        situation_rates=kw.pop("situation_rates", {SITUATION: base_rate}),  # the default case's own past cases
         outcome_metric=kw.pop("outcome_metric", "paid_30d"),
         **kw,
     )

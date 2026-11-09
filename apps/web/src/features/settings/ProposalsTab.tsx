@@ -29,16 +29,16 @@ function ProposalCard({ p }: { p: RuleProposal }) {
     <article
       aria-label={`Proposal ${p.title}`}
       data-proposal-id={p.id}
-      className={cn('flex flex-col gap-1.5 rounded-lg border px-3 py-2.5', p.root_cause_guard ? 'border-bad-line bg-bad-bg/40' : p.watching ? 'border-dashed border-soft bg-white' : 'border-acc-line bg-acc-bg')}
+      className={cn('flex flex-col gap-2 rounded-lg border px-4 py-3', p.root_cause_guard ? 'border-risk-line bg-risk-bg' : p.watching ? 'border-dashed border-line-strong bg-paper' : 'border-agents-line bg-agents-bg')}
     >
       <header className="flex flex-wrap items-center gap-2">
-        <span className={cn('text-2xs font-extrabold uppercase tracking-[.06em]', p.root_cause_guard ? 'text-bad' : 'text-acc')}>
+        <span className={cn('text-sm font-semibold', p.root_cause_guard ? 'text-risk-ink' : p.watching ? 'text-mid' : 'text-agents-ink')}>
           {p.root_cause_guard ? 'Can’t be learned · root cause: ours' : p.watching ? 'Watching' : '✦ Proposed'}
         </span>
         <TierBadge tier={1} compact />
-        <span className="ml-auto text-2xs text-soft">since {shortDate(p.created_at)}</span>
+        <span className="ml-auto text-xs text-soft">since {shortDate(p.created_at)}</span>
       </header>
-      <h3 className="m-0 text-[14px] font-bold">{p.title}</h3>
+      <h3 className="m-0 text-base font-semibold">{p.title}</h3>
       <p className="m-0 text-sm" data-testid="proposal-evidence">
         <b>
           {count(p.evidence.approved)} of {count(p.evidence.total)} approved
@@ -58,7 +58,7 @@ function ProposalCard({ p }: { p: RuleProposal }) {
           Accept
         </Button>
         {ruleId ? (
-          <Link to="/settings/agents" search={{ tab: 'rules', rule: ruleId }} className="rounded-md border border-[#b7bbc2] bg-white px-2 py-0.5 text-xs font-semibold text-ink no-underline hover:bg-fill">
+          <Link to="/settings/agents" search={{ tab: 'rules', rule: ruleId }} className="inline-flex h-7 items-center rounded-md border border-line-strong bg-paper px-2.5 text-sm font-medium text-ink no-underline hover:bg-hover">
             Edit
           </Link>
         ) : null}
@@ -66,7 +66,7 @@ function ProposalCard({ p }: { p: RuleProposal }) {
           Dismiss
         </Button>
         {blocked && (
-          <span role="note" className={cn('text-xs font-semibold', p.root_cause_guard ? 'text-bad' : 'text-mid')} data-testid="proposal-blocked">
+          <span role="note" className={cn('text-sm font-medium', p.root_cause_guard ? 'text-risk-ink' : 'text-mid')} data-testid="proposal-blocked">
             {blocked}
           </span>
         )}
@@ -84,7 +84,7 @@ export function ProposalsTab({ proposals }: { proposals: RuleProposal[] }) {
       {open.length === 0 ? <EmptyState title="No open proposals">They appear when your approvals and their outcomes make a case for a rule.</EmptyState> : open.map((p) => <ProposalCard key={p.id} p={p} />)}
       {resolved.length > 0 && (
         <section aria-label="Resolved proposals" className="text-sm text-mid">
-          <h3 className="m-0 mb-1 text-xs font-bold uppercase tracking-[.05em] text-soft">Resolved</h3>
+          <h3 className="m-0 mb-1 text-sm font-semibold text-ink">Resolved</h3>
           <ul className="m-0 list-none p-0">
             {resolved.map((p) => (
               <li key={p.id}>

@@ -64,11 +64,14 @@ def advance(
     to: Annotated[str, typer.Option("--to", help="ISO-8601 with offset, e.g. 2026-10-29T07:10:00-04:00")],
 ) -> None:
     """Run the scheduler up to `--to` (the same loop as POST /clock/advance)."""
+    from torch_rcm.api.app import load_agents, wire_agent_runtime
     from torch_rcm.runtime import Runtime
 
     settings = get_settings()
     configure(settings.log_level)
     rt = Runtime.open(settings)
+    if load_agents(settings):
+        wire_agent_runtime(rt)
     target = datetime.fromisoformat(to)
     advance_row = rt.scheduler.begin_advance(target, "cli")
     result = asyncio.run(rt.scheduler.execute_advance(advance_row))
@@ -93,7 +96,7 @@ def eval_cmd() -> None:
 def _agents_commands() -> None:
     """torch_rcm.agents may add commands (e.g. `torch cassette record`) by exposing `register(cli)`."""
     try:
-        from torch_rcm.agents.cli import register  # type: ignore[import-not-found]
+        from torch_rcm.agents.cli import register
     except ImportError:
         return
     register(cli)

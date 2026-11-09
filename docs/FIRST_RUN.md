@@ -1,5 +1,7 @@
 # First run on a machine with package-registry access
 
+_Done 2026-11-02: see `docs/STATUS.md` and `docs/adr/worker-notes/first-run.md`. Lockfiles are committed. On a new machine install `uv`, then `make dev`. Kept for the history of what the first pass expected._
+
 The scaffold was written in a cloud session whose network allowed GitHub but **not** PyPI or the npm registry, so nothing was installed and the toolchain (ruff, mypy, pytest, eslint, tsc, vitest, playwright) has not run. The code was checked with what was available (parsing, stdlib-only tests, pure-module typechecks), and the authors flagged where to expect first-run fixes. Do this once, on your laptop, in Claude Code:
 
 ```bash

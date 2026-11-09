@@ -418,7 +418,7 @@ class LlmClient:
     def backoff(self, attempt: int, retry_after: float | None) -> float:
         if retry_after is not None:
             return min(retry_after, self.MAX_SLEEP_S)
-        base = 1.0 * (2**attempt)
+        base: float = 1.0 * (2**attempt)
         return min(base * self.rng.uniform(0.75, 1.25), self.MAX_SLEEP_S)
 
     async def messages_create(self, meta: CallMeta, **body: Any) -> LlmResponse:

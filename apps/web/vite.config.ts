@@ -13,7 +13,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    // `pnpm test:contract` runs the one suite that needs a dump of the real API (scripts/contract-real.mjs).
+    include: process.env.CONTRACT_DUMP ? ['src/api/real.contract.ts'] : ['src/**/*.test.{ts,tsx}'],
     env: { VITE_API_BASE: 'http://localhost:8000/api/v1' },
     restoreMocks: true,
   },

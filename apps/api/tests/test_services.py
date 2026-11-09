@@ -16,9 +16,10 @@ from torch_rcm.api.services import inbox as inbox_svc
 from torch_rcm.api.services import rules as rules_svc
 from torch_rcm.api.services import screens, system
 from torch_rcm.api.services.context import Ctx
-from torch_rcm.domain.entities import InboxItem, Job, Rule, Run
-from torch_rcm.domain.enums import ClaimStatus, InboxItemState, RuleMode
+from torch_rcm.domain.entities import Attachment, Claim, InboxItem, Job, Rule, Run
+from torch_rcm.domain.enums import AttachmentKind, AttachmentSource, ClaimStatus, InboxItemState, RuleMode
 from torch_rcm.readmodels.claims import ClaimQuery
+from torch_rcm.readmodels.inbox import _policy_sentence as stopped_sentence
 from torch_rcm.runtime import Runtime
 from torch_rcm.scheduler import kinds as K
 
@@ -38,7 +39,8 @@ def code(exc: pytest.ExceptionInfo[ApiError]) -> tuple[int, str]:
 
 def test_inbox_open_is_12_with_the_delta_group(rt: Runtime) -> None:
     out = inbox_svc.get_inbox(ctx(rt), "open", None, None, True)
-    assert (out.total, out.total_cents) == (12, 969_700)
+    assert (out.total, out.total_cents, out.actionable) == (12, 969_700, 11)
+    assert [(w.label, w.count, w.item_ids) for w in out.waiting] == [("Dr. Morgan", 1, ["itm_4611"])]
     assert (
         out.groups and out.groups[0].title == "Delta Dental · missing PA x-ray (3)" and out.groups[0].cents == 373_000
     )
@@ -51,7 +53,7 @@ def test_inbox_open_is_12_with_the_delta_group(rt: Runtime) -> None:
 def test_approve_group_creates_three_runs_and_moves_the_badges(rt: Runtime) -> None:
     out = inbox_svc.approve_group(ctx(rt), GROUP)
     assert len(out.runs) == 3 and all(r.status.value == "queued" and r.trigger.value == "approval" for r in out.runs)
-    assert out.meta.counts.inbox_open == 9
+    assert out.meta.counts.inbox_open == 8
     tiles = {t.status: t for t in out.meta.counts.tiles}
     assert tiles[ClaimStatus.DENIED].count == 5 and tiles[ClaimStatus.DENIED].flagged == 2
     jobs = rt.store.find(Job, {"kind": K.RUN_START})
@@ -101,7 +103,7 @@ def test_file_departed_offers_a_corrected_claim(rt: Runtime) -> None:
 def test_snooze_and_wake(rt: Runtime) -> None:
     until = rt.clock.now() + timedelta(hours=2)
     out = inbox_svc.snooze(ctx(rt), "itm_4748", until)
-    assert out.item.state is InboxItemState.SNOOZED and out.meta.counts.inbox_open == 11
+    assert out.item.state is InboxItemState.SNOOZED and out.meta.counts.inbox_open == 10
     asyncio.run(rt.scheduler.run_due(until + timedelta(minutes=1)))
     assert rt.store.require(InboxItem, "itm_4748").state is InboxItemState.OPEN
 
@@ -190,6 +192,20 @@ def test_claims_filters_sort_and_cursor(rt: Runtime) -> None:
     assert by_age.items[0].id == "clm_3561"
 
 
+def test_the_built_entry_lists_what_left_with_the_claim_not_what_came_later(rt: Runtime) -> None:
+    claim = rt.store.require(Claim, "clm_4821")
+    later = Attachment(
+        id="att_later",
+        kind=AttachmentKind.PA,
+        nea_number="26-4463084",
+        source=AttachmentSource.PMS_IMAGING,
+        created_at=rt.clock.now(),
+    )
+    rt.store.update(claim.model_copy(update={"attachments": [*claim.attachments, later]}))
+    d = claims_svc.claim_detail(ctx(rt), "clm_4821")
+    assert next(e for e in d.timeline if e.kind == "built").detail == "BWX NEA# 47720913"
+
+
 def test_claim_detail_tells_the_owens_story(rt: Runtime) -> None:
     d = claims_svc.claim_detail(ctx(rt), "clm_4821")
     assert d.claim.needs_action and d.money.allowed_cents == 98_600 and d.money.contractual_cents == 25_400
@@ -229,6 +245,37 @@ def test_ledger_today(rt: Runtime) -> None:
     assert {h.claim.number for h in out.held} == {4842, 4847, 4849}
     assert [n.cdt for n in out.not_billable] == ["D4341"]
     assert out.next_file_time and out.next_file_time.strftime("%H:%M") == "10:45"
+
+
+def test_ledger_last_file_is_the_latest_file_sent_today(rt: Runtime) -> None:
+    out = screens.ledger_today(ctx(rt))
+    assert out.sent and out.last_file_time == max(r.file_time for r in out.sent if r.file_time)
+    assert out.next_file_time is None or out.last_file_time < out.next_file_time
+
+
+def test_every_open_item_says_why_it_stopped(rt: Runtime) -> None:
+    items = {i.id: i for i in inbox_svc.get_inbox(ctx(rt), "open", None, None, True).items}
+    assert all(i.stopped_by.endswith(".") for i in items.values())
+    assert "human only" in items["itm_4611"].stopped_by
+    assert "goes to a person" in items["itm_4733"].stopped_by
+    assert "Missing PA x-ray" in items["itm_4821"].stopped_by and "set to Ask" in items["itm_4821"].stopped_by
+    assert "Outside the rule" in items["itm_4851"].stopped_by and "271" in items["itm_4851"].stopped_by
+
+
+def test_an_item_opened_by_a_run_quotes_the_policy(rt: Runtime) -> None:
+    item = rt.store.require(InboxItem, "itm_4821")
+    rt.store.update(item.model_copy(update={"payload": {**item.payload, "policy_reason": "rule Missing PA is ask"}}))
+    assert inbox_svc.get_item(ctx(rt), "itm_4821").stopped_by == "Rule Missing PA is set to Ask."
+    assert stopped_sentence("root cause: ours · fix the upstream rule") == "Root cause: ours. Fix the upstream rule."
+
+
+def test_routine_runs_match_activity_and_stay_out_of_the_decision_count(rt: Runtime) -> None:
+    rules = rules_svc.list_rules(ctx(rt))
+    rows = {r.rule.id: r for g in rules.tiers for r in g.rows}
+    summary = screens.activity(ctx(rt), None, None, None).summary
+    assert rows["rule_t1_status_check"].routine_runs_7d == summary.status_checks
+    assert rows["rule_t1_payer_rep_call"].routine_runs_7d == summary.payer_calls
+    assert sum(r.ran_without_review_7d for r in rows.values()) == rules.this_week.ran
 
 
 def test_eligibility_and_benefits(rt: Runtime) -> None:
@@ -272,9 +319,14 @@ def test_activity_and_patients(rt: Runtime) -> None:
 # ── system ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 
-def test_advance_inline_and_clock(rt: Runtime) -> None:
-    out = asyncio.run(system.run_advance_inline(ctx(rt, "usr_morgan"), None, THURSDAY_0710))
-    assert out.done and out.now == THURSDAY_0710 and out.meta
+def test_advance_and_clock(rt: Runtime) -> None:
+    async def advance() -> str:
+        accepted = system.start_advance(ctx(rt, "usr_morgan"), None, THURSDAY_0710)
+        await rt.scheduler.wait()
+        return accepted.advance_id
+
+    out = system.get_advance(ctx(rt, "usr_morgan"), asyncio.run(advance()))
+    assert out.done and out.state == "done" and out.error is None and out.now == THURSDAY_0710 and out.meta
     assert {t.status: t.count for t in out.meta.counts.tiles}[ClaimStatus.DENIED] == 9
     assert system.clock(ctx(rt)).now == THURSDAY_0710
     with pytest.raises(ApiError) as exc:
@@ -301,10 +353,10 @@ def test_world_inject_and_reseed(rt: Runtime) -> None:
     assert "down since 10:40" in out.detail
     assert any(p.portal_down for p in system.world_payers(ctx(rt)) if p.key.value == "delta_ny")
     inbox_svc.approve_group(ctx(rt), GROUP)
-    re = system.reseed(ctx(rt), "canonical")
-    assert re.meta.counts.inbox_open == 12 and re.now == datetime.fromisoformat("2026-10-28T10:40:00-04:00")
+    re = asyncio.run(system.reseed(ctx(rt), "canonical"))
+    assert re.meta.counts.inbox_open == 11 and re.now == datetime.fromisoformat("2026-10-28T10:40:00-04:00")
     with pytest.raises(ApiError) as exc:
-        system.reseed(ctx(rt), "nope")
+        asyncio.run(system.reseed(ctx(rt), "nope"))
     assert code(exc) == (422, "unknown_scenario")
 
 
@@ -361,3 +413,26 @@ def test_chen_frequency_rows_show_pms_history(rt: Runtime) -> None:
     assert rows["D4341"] == ("2024-03-12", None)
     assert rows["D0274"] == ("2025-11-03", "2026-11-03")
     assert rows["D1110"] == ("2026-04-14", None)
+
+
+def test_reset_refuses_while_a_job_runs(rt: Runtime) -> None:
+    async def with_a_job_running() -> None:
+        async with rt.scheduler.job_lock:
+            with pytest.raises(ApiError) as exc:
+                await system.reseed(ctx(rt, "usr_morgan"), None)
+            assert code(exc) == (409, "run_in_progress")
+
+    asyncio.run(with_a_job_running())
+
+
+def test_reset_keeps_the_worker_out_for_its_whole_length(rt: Runtime, monkeypatch: pytest.MonkeyPatch) -> None:
+    held: list[bool] = []
+
+    def persist(store: object, world: object) -> None:
+        held.append(rt.scheduler.job_lock.locked())
+
+    monkeypatch.setattr("torch_rcm.seed.persist.persist", persist)
+    asyncio.run(system.reseed(ctx(rt, "usr_morgan"), None))
+    assert held == [
+        True
+    ]  # a check before reseeding is not enough: seeding takes a second, and the worker would take a job

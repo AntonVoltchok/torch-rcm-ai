@@ -35,6 +35,8 @@ export async function startMockWorker(): Promise<void> {
     saved,
   )
   db.resumeRuns()
+  // Mock mode only: lets e2e and screenshots drive test hooks (`failStep`, `departFile`) on the tab's own db.
+  ;(window as unknown as { __torchMockDb?: MockDb }).__torchMockDb = db
   await setupWorker(...makeHandlers(db)).start({
     onUnhandledRequest: 'bypass',
     serviceWorker: { url: '/mockServiceWorker.js' },

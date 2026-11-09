@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from torch_rcm.agents.catalog.actions import ACTIONS, AGENT_ACTIONS, TIER3_ACTIONS, TIER3_ROLES
 from torch_rcm.agents.catalog.recipes import RECIPES, recipe_for
-from torch_rcm.agents.catalog.situations import SITUATIONS, situation_keys
+from torch_rcm.agents.catalog.situations import SITUATIONS, label_for, situation_keys
 from torch_rcm.agents.planner.scripted import SCRIPTS, has_script
 from torch_rcm.agents.types import AGENT_KINDS, UNKNOWN
 
@@ -70,3 +70,7 @@ def test_situation_keys_unique_per_agent() -> None:
     for agent, situations in SITUATIONS.items():
         keys = [s.key for s in situations]
         assert len(keys) == len(set(keys)), agent
+
+
+def test_an_unknown_situation_reads_as_a_sentence_after_the_gather_prefix() -> None:
+    assert label_for("followup", "no_such_situation") == "unknown to TorchRCM's classifier"

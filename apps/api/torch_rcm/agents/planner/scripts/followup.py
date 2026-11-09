@@ -107,7 +107,7 @@ def frequency(case: CaseFile) -> ScriptedPlan:
                     "the payer's tooth history conflicts with the PMS history; ask them to correct it",
                     claim_id=claim.id,
                     basis="payer_history_error",
-                    attach=ev.ids("prior_eob"),
+                    attach=[*ev.ids("prior_eob")],
                 )
             ],
             "Send a claim inquiry with the payer's own prior EOB so they correct the tooth history.",
@@ -131,7 +131,7 @@ def cob_order(case: CaseFile) -> ScriptedPlan:
                 [],
                 f"{c.payer.short if c.payer else 'The payer'} says another plan is primary; "
                 "no other coverage is on file.",
-                "Ask the patient for the other plan's card and enter it in the PMS; Torch will then change the "
+                "Ask the patient for the other plan's card and enter it in the PMS; TorchRCM will then change the "
                 "coverage order and resubmit (tier 2).",
             )
         return Decided(

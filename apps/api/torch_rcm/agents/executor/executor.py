@@ -21,9 +21,9 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from torch_rcm.agents.case import build_case
-from torch_rcm.agents.catalog.actions import spec_for
-from torch_rcm.agents.catalog.recipes import DOMAIN_OP_HOLD, RecipeCtx, RecipeStep, recipe_for
-from torch_rcm.agents.catalog.situations import is_judgment, label_for
+from torch_rcm.agents.catalog.actions import follow_up, spec_for
+from torch_rcm.agents.catalog.recipes import DOMAIN_OP_HOLD, RecipeCtx, RecipeStep, recipe_for, sends_text
+from torch_rcm.agents.catalog.situations import is_judgment, label_for, root_cause_finding
 from torch_rcm.agents.guardrails import guard_draft
 from torch_rcm.agents.planner.base import EvidenceSet, Planner, PlannerFallback, Reader, ReadResult
 from torch_rcm.agents.planner.scripted import (
@@ -41,6 +41,7 @@ from torch_rcm.agents.types import (
     CaseFile,
     Decision,
     Draft,
+    DraftKind,
     Evidence,
     EvidenceCandidate,
     JsonValue,
@@ -51,8 +52,20 @@ from torch_rcm.agents.types import (
     StepResult,
     Subject,
 )
-from torch_rcm.domain.entities import InboxItem, Run
-from torch_rcm.domain.enums import InboxItemKind, InboxItemState, RuleAction, RunStatus, RunTrigger, StepStatus, Tier
+from torch_rcm.domain.entities import ROOT_CAUSE_RECORDED, AuditEvent, Claim, InboxItem, Run
+from torch_rcm.domain.enums import (
+    ClaimStatus,
+    InboxItemKind,
+    InboxItemState,
+    MoveWho,
+    RootCause,
+    RuleAction,
+    RunStatus,
+    RunTrigger,
+    StepStatus,
+    Tier,
+)
+from torch_rcm.domain.values import ClaimOutcome
 from torch_rcm.domain.values import Confidence as DomainConfidence
 from torch_rcm.domain.values import ProposedAction as DomainProposedAction
 from torch_rcm.domain.values import Usage as DomainUsage
@@ -127,7 +140,7 @@ def to_evidence(
         source=c.source,
         untrusted=c.untrusted,
         suspicious=candidate_is_suspicious(c),
-        gathered_by=gathered_by,  # type: ignore[arg-type]
+        gathered_by=gathered_by,
         run_id=run_id,
         step_idx=step_idx,
         claim_id=claim_id,
@@ -262,6 +275,28 @@ class ApprovedPlanPlanner(ScriptedPlanner):
             planner=self.kind,
         )
 
+    def held_draft(self) -> Draft | None:
+        """The draft the approved item carries, whatever its kind. Policy decides whether it may be sent."""
+        raw = (self.item.payload if self.item else {}).get("draft")
+        try:
+            return Draft.model_validate(raw) if raw else None
+        except ValueError:
+            return None
+
+    @property
+    def reviewed_text(self) -> str | None:
+        """The body a person read and approved: only a `review_draft` item's draft counts as reviewed."""
+        if self.item is None or self.item.kind is not InboxItemKind.REVIEW_DRAFT:
+            return None
+        if self.item.state not in (InboxItemState.APPROVED, InboxItemState.EDITED):
+            return None
+        held = self.held_draft()
+        return held.text if held else None
+
+    async def draft(self, case: CaseFile, plan: Plan, kind: DraftKind, evidence: EvidenceSet) -> Draft | None:
+        """An approval sends the text the person read, never a re-render (and makes no model call)."""
+        return self.held_draft()
+
 
 def _load_live_planner(rt: AgentRuntime, run_id: str, on_progress: Any = None) -> Planner | None:
     """The live planner for a run: `live.make_planner(runtime, run_id)` when that seam is set, otherwise
@@ -389,7 +424,7 @@ class Executor:
             subject=subject,
             now=self.rt.clock.now(),
             trigger_kind=trigger,
-        )  # type: ignore[arg-type]
+        )
 
     def _planner(self, case: CaseFile, run: Run, state: dict[str, Any], advance_id: str | None) -> Planner:
         if run.trigger is RunTrigger.APPROVAL:
@@ -457,7 +492,14 @@ class Executor:
             return await fb.plan(case, self._reader(run.id, case, "code"), evidence), fb
 
     def _policy_ctx(
-        self, run: Run, case: CaseFile, plan: Plan, evidence: EvidenceSet, draft_guard: Any = None
+        self,
+        run: Run,
+        case: CaseFile,
+        plan: Plan,
+        evidence: EvidenceSet,
+        draft_guard: Any = None,
+        outbound_text: str = "",
+        reviewed_text: str | None = None,
     ) -> PolicyCtx:
         claim = case.claim
         needs_window = any((s := spec_for(a.action)) is not None and s.needs_hold_window for a in plan.actions)
@@ -480,6 +522,8 @@ class Executor:
             paper_eob=case.paper_eob,
             hold_window_open=self.rt.dom.hold_window_open(claim.id) if (claim and needs_window) else None,
             draft_guard=draft_guard,
+            outbound_text=outbound_text,
+            reviewed_text=reviewed_text,
             rules=case.rules_snapshot,
             practice_cap_cents=practice.practice_cap_cents,
         )
@@ -488,53 +532,88 @@ class Executor:
     def _open_item(
         self, run: Run, case: CaseFile, plan: Plan, action: ProposedAction, decision: Decision, draft: Draft | None
     ) -> str:
-        """Exactly one open item per (claim, action): an existing open item is reused."""
+        """Exactly one open item per (claim, action): an existing open item is reused. The item and the root cause
+        recorded with it commit together, and a reused item takes what this run found."""
         store = self.rt.store
         spec = spec_for(action.action)
         claim = case.claim
-        if claim is not None:
-            for it in store.find(InboxItem, {"claim_id": claim.id, "state": InboxItemState.OPEN}):
-                if it.proposed_action and it.proposed_action.action.value == action.action:
-                    return it.id
-        iid = "itm_" + hashlib.sha256(f"{run.id}:{action.action}".encode()).hexdigest()[:10]
-        if store.get(InboxItem, iid) is not None:
-            return iid
-        payer = case.payer.short if case.payer else ""
-        store.insert(
-            InboxItem(
-                id=iid,
-                kind=InboxItemKind.REVIEW_DRAFT if decision.as_review_draft else InboxItemKind.APPROVE_ACTION,
-                state=InboxItemState.OPEN,
-                claim_id=claim.id if claim else None,
-                patient_id=case.patient.id if case.patient else None,
-                agent=run.agent,
-                title=f"{spec.label if spec else action.action} · {payer} · #{claim.number}"
-                if claim
-                else (spec.label if spec else action.action),
-                summary=decision.reason,
-                recommendation=plan.reviewer_summary,
-                confidence=DomainConfidence(**decision.confidence.model_dump()) if decision.confidence else None,
-                evidence=list(action.evidence_ids),
-                proposed_action=DomainProposedAction(
-                    action=RuleAction(action.action),
-                    params=dict(action.params),
+        rule_mode = next((r.mode for r in case.rules_snapshot if r.id == decision.rule_id), None)
+        found = {
+            "situation_key": plan.situation_key,
+            "classifier_situation": case.classifier_situation,  # code's key; the headline reads only this one
+            "root_cause": case.root_cause,
+            "policy_row": decision.policy_row,
+            "policy_reason": decision.reason,
+            "rule_mode": rule_mode,
+        }
+        with store.tx():
+            self._record_root_cause(run, case)
+            if claim is not None:
+                for it in store.find(InboxItem, {"claim_id": claim.id, "state": InboxItemState.OPEN}):
+                    if it.proposed_action and it.proposed_action.action.value == action.action:
+                        store.update(it.model_copy(update={"payload": {**it.payload, **found}}))
+                        return it.id
+            iid = "itm_" + hashlib.sha256(f"{run.id}:{action.action}".encode()).hexdigest()[:10]
+            if store.get(InboxItem, iid) is not None:
+                return iid
+            payer = case.payer.short if case.payer else ""
+            store.insert(
+                InboxItem(
+                    id=iid,
+                    kind=InboxItemKind.REVIEW_DRAFT if decision.as_review_draft else InboxItemKind.APPROVE_ACTION,
+                    state=InboxItemState.OPEN,
+                    claim_id=claim.id if claim else None,
+                    patient_id=case.patient.id if case.patient else None,
+                    agent=run.agent,
+                    title=f"{spec.label if spec else action.action} · {payer} · #{claim.number}"
+                    if claim
+                    else (spec.label if spec else action.action),
+                    summary=decision.reason,
+                    recommendation=plan.reviewer_summary,
+                    confidence=DomainConfidence(**decision.confidence.model_dump()) if decision.confidence else None,
+                    evidence=list(action.evidence_ids),
+                    proposed_action=DomainProposedAction(
+                        action=RuleAction(action.action),
+                        params=dict(action.params),
+                        cents=case.cents,
+                        requires_hold_window=bool(spec and spec.needs_hold_window),
+                    ),
+                    tier=Tier(spec.tier) if spec and spec.tier else None,
+                    rule_id=decision.rule_id,
                     cents=case.cents,
-                    requires_hold_window=bool(spec and spec.needs_hold_window),
+                    created_at=self.rt.clock.now(),
+                    run_id=run.id,
+                    payload={**found, **({"draft": draft.model_dump(mode="json")} if draft else {})},
+                )
+            )
+        return iid
+
+    def _record_root_cause(self, run: Run, case: CaseFile) -> None:
+        """A finding on an item is on the claim too, so every screen agrees and it outlives the item. A recorded
+        `ours` is never replaced, and the audit event is what the claim's timeline shows."""
+        if case.claim is None or case.root_cause == "unknown":
+            return
+        claim = self.rt.store.require(Claim, case.claim.id)
+        if claim.denial is None or claim.denial.root_cause in (RootCause.OURS, RootCause(case.root_cause)):
+            return
+        before = claim.denial.root_cause.value
+        denial = claim.denial.model_copy(update={"root_cause": RootCause(case.root_cause)})
+        payer = case.payer.short if case.payer else claim.payer_key.value
+        self.rt.store.update(claim.model_copy(update={"denial": denial}))
+        self.rt.store.insert(
+            AuditEvent(
+                id=f"aud_{run.id}_root_cause",
+                at=self.rt.clock.now(),
+                actor=run.agent.value,
+                action=ROOT_CAUSE_RECORDED,
+                subject_type="claim",
+                subject_id=claim.id,
+                detail=root_cause_finding(
+                    case.root_cause, case.claim, case.payer_rules, self.rt.dom.provenance(claim.id), payer
                 ),
-                tier=Tier(spec.tier) if spec and spec.tier else None,
-                rule_id=decision.rule_id,
-                cents=case.cents,
-                created_at=self.rt.clock.now(),
-                run_id=run.id,
-                payload={
-                    "situation_key": plan.situation_key,
-                    "root_cause": case.root_cause,
-                    "policy_row": decision.policy_row,
-                    **({"draft": draft.model_dump(mode="json")} if draft else {}),
-                },
+                data={"before": before, "after": case.root_cause, "run_id": run.id},
             )
         )
-        return iid
 
     def _failed_item(self, run: Run, case: CaseFile, title: str, recommendation: str, explanation: str) -> str:
         """At most one `run_failed` item per run (07 §9)."""
@@ -614,6 +693,9 @@ class Executor:
         state = self._reconcile_checkpoint(run_id, ck, state, planner, case)
         evidence = EvidenceSet(case.evidence)
 
+        if "claim_before" not in state:
+            side = self._claim_side(run, before=True)
+            state["claim_before"] = [side[0].value, side[1].value] if side else None
         if "plan" not in state:
             investigated = await self._investigate(run, case, planner, evidence, state)
             if isinstance(investigated, ExecResult):
@@ -626,6 +708,7 @@ class Executor:
             paused = await self._decide(run, case, plan, planner, evidence, state, pin)
             if paused is not None:
                 return paused
+            plan = Plan.model_validate(state["plan"])  # decide may have appended a `then` follow-up
         decisions = [Decision.model_validate(d) for d in state["decisions"]]
 
         acted = await self._act_steps(run_id, case, plan, state, pin)
@@ -633,6 +716,15 @@ class Executor:
             return acted
         failure, pending_ops = acted
         return await self._report(run_id, case, plan, planner, decisions, state, failure, pending_ops)
+
+    def _claim_side(self, run: Run, *, before: bool) -> tuple[ClaimStatus, MoveWho] | None:
+        """The run's own claim (status, whose move), read with this run excluded: `Run.claim_outcome`."""
+        from torch_rcm.readmodels.moves import run_claim_side
+        from torch_rcm.readmodels.snapshot import Snapshot
+
+        if run.claim_id is None:
+            return None
+        return run_claim_side(Snapshot.from_store(self.rt.store, self.rt.clock.now()), run, before=before)
 
     def _begin(self, run_id: str) -> Run | ExecResult:
         run = self.rt.runs.require(run_id)
@@ -721,25 +813,49 @@ class Executor:
         end = self._start(run_id, DECIDE, f"{len(plan.actions)} proposed action(s)")
         drafts: dict[str, Any] = {}
         decisions: list[Decision] = []
-        for ai, action in enumerate(plan.actions):
+        approval = isinstance(planner, ApprovedPlanPlanner)
+        reviewed = planner.reviewed_text if isinstance(planner, ApprovedPlanPlanner) else None
+
+        async def decide_one(ai: int, action: ProposedAction, plan: Plan) -> Decision:
             spec = spec_for(action.action)
-            guard = None
-            if spec is not None and spec.carries_text:
-                draft = await planner.draft(case, plan, spec.carries_text, evidence)
+            guard, outbound = None, ""
+            texty = spec is not None and (spec.carries_text or (approval and sends_text(spec.name)))
+            if spec is not None and texty:
+                draft = await planner.draft(case, plan, spec.carries_text or "reconsideration_note", evidence)
                 if draft is not None:
-                    facts = [str(case.claim.number), case.claim.dos.strftime("%m/%d/%Y")] if case.claim else []
-                    guard = guard_draft(draft, evidence.by_id(), facts, case.patient.id if case.patient else None)
+                    if spec.carries_text:
+                        facts = [str(case.claim.number), case.claim.dos.strftime("%m/%d/%Y")] if case.claim else []
+                        guard = guard_draft(draft, evidence.by_id(), facts, case.patient.id if case.patient else None)
                     drafts[str(ai)] = draft.model_dump(mode="json")
-            decisions.append(decide(self._policy_ctx(run, case, plan, evidence, guard), action))
+                    outbound = draft.text if sends_text(spec.name) else ""
+            return decide(self._policy_ctx(run, case, plan, evidence, guard, outbound, reviewed), action)
+
+        for ai, action in enumerate(plan.actions):
+            decisions.append(await decide_one(ai, action, plan))
+        # An executed action's `then` queues the next action in this run (an ERA post that then asks the payer to
+        # reprocess). Policy decides it on its own; its recipe runs only if its parent's did (`_act_steps`).
+        follows: dict[int, int] = {}
+        for ai, (action, d) in enumerate(zip(plan.actions, decisions, strict=False)):
+            nxt = follow_up(action.action, action.params) if d.verdict == "execute" else None
+            if nxt is None:
+                continue
+            name, params = nxt
+            fu = ProposedAction(
+                action=name, params=params, evidence_ids=action.evidence_ids, rationale=f"then, after {action.action}"
+            )
+            plan = plan.model_copy(update={"actions": (*plan.actions, fu)})
+            follows[len(plan.actions) - 1] = ai
+            decisions.append(await decide_one(len(plan.actions) - 1, fu, plan))
         if any(d.verdict == "park" for d in decisions):
             return self._pause(run_id)
-        layout, groups = self._act_layout(case, plan, decisions, base=len(run.steps))
+        layout, groups = self._act_layout(case, plan, decisions, base=len(run.steps), follows=follows)
         item_ids: list[str] = []
         for ai, (action, d) in enumerate(zip(plan.actions, decisions, strict=True)):
             if d.verdict == "propose" and run.trigger is not RunTrigger.APPROVAL:
                 dr = Draft.model_validate(drafts[str(ai)]) if str(ai) in drafts else None
                 item_ids.append(self._open_item(run, case, plan, action, d, dr))
         state.update(
+            plan=plan.model_dump(mode="json"),
             decisions=[d.model_dump(mode="json") for d in decisions],
             act=groups,
             drafts=drafts,
@@ -754,7 +870,10 @@ class Executor:
             run_id,
             verdict=verdict,
             action=RuleAction(plan.actions[0].action) if plan.actions else None,
-            action_label=first_spec.label if first_spec else "",
+            # an approval run keeps the words its button showed (`readmodels.wording.action_label`)
+            action_label=run.action_label
+            if run.trigger is RunTrigger.APPROVAL and run.action_label
+            else (first_spec.label if first_spec else ""),
             tier=Tier(first_spec.tier) if first_spec and first_spec.tier else None,
             rule_id=first.rule_id if first else run.rule_id,
             rule_version=first.rule_version if first else None,
@@ -769,7 +888,7 @@ class Executor:
 
     @staticmethod
     def _act_layout(
-        case: CaseFile, plan: Plan, decisions: list[Decision], *, base: int
+        case: CaseFile, plan: Plan, decisions: list[Decision], *, base: int, follows: dict[int, int] | None = None
     ) -> tuple[list[tuple[str, str, str]], list[dict[str, Any]]]:
         """Step rows for every executed action's recipe (`act:<step>` or `act:<action>:<step>`), then `report`."""
         layout: list[tuple[str, str, str]] = []
@@ -788,7 +907,10 @@ class Executor:
                 name = f"act:{rs.name}" if len(executed) == 1 else f"act:{ai}:{rs.name}"
                 idxs.append(base + len(layout))
                 layout.append((name, rs.label(rctx), rs.op))
-            groups.append({"action": ai, "steps": idxs})
+            group: dict[str, Any] = {"action": ai, "steps": idxs}
+            if follows and ai in follows:
+                group["after"] = follows[ai]
+            groups.append(group)
         layout.append(("report", "Report", "code"))
         return layout, groups
 
@@ -800,6 +922,7 @@ class Executor:
         failure: str | None = state.get("failure")
         outputs: dict[str, dict[str, JsonValue]] = state.setdefault("outputs", {})
         pending_ops: list[str] = []
+        unfinished: set[int] = set()  # actions whose recipe failed or was skipped; their `then` does not run
         for group in state["act"]:
             ai = group["action"]
             action = plan.actions[ai]
@@ -808,14 +931,15 @@ class Executor:
             params = spec.params.model_validate(action.params)
             draft = Draft.model_validate(state["drafts"][str(ai)]) if str(ai) in state.get("drafts", {}) else None
             out = outputs.setdefault(str(ai), {})
-            aborted = False
+            aborted = group.get("after") in unfinished
             for rstep, idx in zip(recipe_for(action.action) or (), group["steps"], strict=True):
                 step = self.rt.runs.require(run_id).steps[idx]
                 if step.status is StepStatus.OK:
                     continue
                 if aborted or step.status in (StepStatus.FAILED, StepStatus.SKIPPED):
                     if step.status is StepStatus.PENDING:
-                        self.rt.runs.finish_step(run_id, idx, "skipped", "skipped · an earlier step failed")
+                        why = "an earlier step failed" if group.get("after") not in unfinished else "its parent failed"
+                        self.rt.runs.finish_step(run_id, idx, "skipped", f"skipped · {why}")
                         self._step_event(run_id, idx, "completed")
                     pending_ops.append(rstep.op)
                     aborted = True
@@ -829,6 +953,8 @@ class Executor:
                     failure = "world_unavailable"
                     pending_ops.append(rstep.op)
                 aborted = outcome != "ok"
+            if aborted:
+                unfinished.add(ai)
         return failure, pending_ops
 
     async def _act_step(
@@ -903,7 +1029,7 @@ class Executor:
         rt = self.rt
         run = rt.runs.require(run_id)
         results = tuple(
-            StepResult(step=s.name, status=s.status.value, summary=s.output_summary)  # type: ignore[arg-type]
+            StepResult(step=s.name, status=s.status.value, summary=s.output_summary)
             for s in run.steps
             if s.name.startswith("act:")
         )
@@ -946,7 +1072,7 @@ class Executor:
                 self._failed_item(
                     run,
                     case,
-                    "Needs a person: Torch couldn't classify this",
+                    "Needs a person: TorchRCM couldn't classify this",
                     result.recommendation,
                     plan.reviewer_summary,
                 )
@@ -975,7 +1101,20 @@ class Executor:
         if run.steps[report_idx].status is not StepStatus.OK:
             end = self._start(run_id, report_idx, result.outcome)
             self._finish(run_id, report_idx, "ok", result.recommendation, at=end)
-        run = rt.runs.finish(run_id, status, result.recommendation, " | ".join(lines), outcome_text)
+        cb = state.get("claim_before")
+        from torch_rcm.readmodels.moves import claim_outcome
+
+        outcome_of_claim: ClaimOutcome | None = claim_outcome(
+            (ClaimStatus(cb[0]), MoveWho(cb[1])) if cb else None, self._claim_side(run, before=False)
+        )
+        run = rt.runs.finish(
+            run_id,
+            status,
+            result.recommendation,
+            " | ".join(lines),
+            outcome_text,
+            claim_outcome=outcome_of_claim,
+        )
         self._status_event(run)
         self._counts_event(run)
         from torch_rcm.agents.runtime import done_event

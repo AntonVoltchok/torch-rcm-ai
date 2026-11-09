@@ -1,5 +1,5 @@
-/** Today's claims: grouping and ack-stage chips over GET /ledger/today rows. Sums add the server's billed cents. */
-import type { AckEvent, HoldReason, Ledger, LedgerRow } from '@/api/schema'
+/** Today's claims: ack-stage chips and file groups over GET /ledger/today. Totals are the server's (`totals`, `files`). */
+import type { AckEvent, HoldReason, Ledger, LedgerFile, LedgerRow } from '@/api/schema'
 import { time } from '@/lib/format'
 
 export type AckTone = 'ok' | 'bad' | 'pending' | 'none'
@@ -29,32 +29,17 @@ export function ackChips(acks: AckEvent[], sent: boolean): { file: AckChip; vyne
 }
 
 export interface FileGroup {
-  file_time: string | null
+  file: LedgerFile
   rows: LedgerRow[]
-  cents: number
 }
 
-/** "Leaving in the 10:45 file · 4 · $2,985" — one group per payer-file time, earliest first. */
-export function fileGroups(rows: LedgerRow[]): FileGroup[] {
-  const by = new Map<string, LedgerRow[]>()
-  for (const r of rows) {
-    const k = r.file_time ?? ''
-    by.set(k, [...(by.get(k) ?? []), r])
-  }
-  return [...by.entries()]
-    .sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : Date.parse(a) - Date.parse(b)))
-    .map(([k, rs]) => ({ file_time: k || null, rows: rs, cents: rs.reduce((a, r) => a + r.claim.billed_cents, 0) }))
-}
-
-export function ledgerTotals(l: Ledger) {
-  const sum = (rows: { claim: { billed_cents: number } }[]) => rows.reduce((a, r) => a + r.claim.billed_cents, 0)
-  return {
-    sent: { count: l.sent.length, cents: sum(l.sent) },
-    leaving: { count: l.leaving_next_file.length, cents: sum(l.leaving_next_file) },
-    held: { count: l.held.length, cents: sum(l.held) },
-    notBillable: l.not_billable.length,
-    total: l.sent.length + l.leaving_next_file.length + l.held.length,
-  }
+/**
+ * "Leaving in the 10:45 file · 4 · $2,985": the server's `files` (count and cents computed there), each with its rows
+ * picked from `leaving_next_file` by claim id. Nothing is added up here.
+ */
+export function fileGroups(l: Ledger): FileGroup[] {
+  const byId = new Map(l.leaving_next_file.map((r) => [r.claim.id, r]))
+  return l.files.map((file) => ({ file, rows: file.claim_ids.flatMap((id) => byId.get(id) ?? []) }))
 }
 
 export const HOLD_REASON: Record<HoldReason, string> = {

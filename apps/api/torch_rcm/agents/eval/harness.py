@@ -20,7 +20,8 @@ from __future__ import annotations
 import asyncio
 import shutil
 import tempfile
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +47,8 @@ class RunShape:
     evidence_kinds: tuple[str, ...]
     item_kind: str | None
     status: str
+    claim_outcome: tuple[str, str, str, str] | None  # status_from, status_to, move_from, move_to
+    headline: str | None  # the item's headline: from the classifier's situation, so modes must agree
     planner: str = field(compare=False)
 
 
@@ -82,22 +85,18 @@ def _config(mode: Mode) -> Any:
     return AgentConfig(**common)
 
 
-def run_scenario(mode: Mode, workdir: Path, *, cassette_dir: Path | None = None) -> ModeResult:
+@contextmanager
+def seeded_runtime(mode: Mode, db: Path, *, cassette_dir: Path | None = None) -> Iterator[tuple[Any, Any]]:
+    """(Runtime, AgentRuntime) on a freshly seeded canonical database."""
     from torch_rcm.agents.handlers import register
     from torch_rcm.agents.runtime import AgentRuntime
-    from torch_rcm.api.services.claims import triage as manual_triage
-    from torch_rcm.api.services.context import Ctx
-    from torch_rcm.api.services.inbox import approve_group
     from torch_rcm.config import Settings
     from torch_rcm.db.store import Store
-    from torch_rcm.domain.entities import Run
     from torch_rcm.runtime import Runtime
     from torch_rcm.scheduler.registry import Registry
     from torch_rcm.seed.canonical import build
     from torch_rcm.seed.persist import persist
 
-    out = ModeResult(mode=mode)
-    db = workdir / f"eval_{mode}.db"
     store = Store(db)
     persist(store, build())
     store.close()
@@ -111,6 +110,19 @@ def run_scenario(mode: Mode, workdir: Path, *, cassette_dir: Path | None = None)
             from torch_rcm.agents.llm.cassette import CANONICAL_DIR, CassetteClient
 
             art.llm_client = CassetteClient(cassette_dir or CANONICAL_DIR / "canonical")
+        yield rt, art
+    finally:
+        rt.store.close()
+
+
+def run_scenario(mode: Mode, workdir: Path, *, cassette_dir: Path | None = None) -> ModeResult:
+    from torch_rcm.api.services.claims import triage as manual_triage
+    from torch_rcm.api.services.context import Ctx
+    from torch_rcm.api.services.inbox import approve_group
+    from torch_rcm.domain.entities import Run
+
+    out = ModeResult(mode=mode)
+    with seeded_runtime(mode, workdir / f"eval_{mode}.db", cassette_dir=cassette_dir) as (rt, art):
         if rt.clock.now() != WED_1040:
             out.failures.append(f"seed clock {rt.clock.now().isoformat()} ≠ {WED_1040.isoformat()}")
         out.failures += [f"seed: {f}" for f in reconciled_failures(rt)]
@@ -130,9 +142,37 @@ def run_scenario(mode: Mode, workdir: Path, *, cassette_dir: Path | None = None)
         out.failures += unknown_property_failures(rt)
         out.failures += [f"Thu invariant: {f}" for f in invariant_failures(rt)]
         _counts(rt, out)
-    finally:
-        rt.store.close()
+    out.failures += observe_failures(mode, workdir, cassette_dir=cassette_dir)
     return out
+
+
+def observe_failures(mode: Mode, workdir: Path, *, cassette_dir: Path | None = None) -> list[str]:
+    """The hard rule on the cases row 5 would otherwise send to a person: with every rule that may be on `observe`
+    there, triage the `unknown` claims. Each records `would_have_run`, and the invariants hold."""
+    from torch_rcm.api.services.claims import triage as manual_triage
+    from torch_rcm.api.services.context import Ctx
+    from torch_rcm.domain.entities import InboxItem, Rule, Run
+    from torch_rcm.domain.enums import RuleMode, Tier
+
+    failures: list[str] = []
+    with seeded_runtime(mode, workdir / f"eval_{mode}_observe.db", cassette_dir=cassette_dir) as (rt, _):
+        for rule in rt.store.all(Rule):
+            if rule.tier is not Tier.THREE:
+                rt.store.update(
+                    rule.model_copy(update={"mode": RuleMode.OBSERVE, "signed_by": None, "signed_at": None})
+                )
+        items = rt.store.count(InboxItem)
+        for claim_id in UNKNOWN_CLAIMS:
+            manual_triage(Ctx.for_user(rt, DANA), claim_id, "followup")
+        _drain(rt, rt.clock.now())
+        for claim_id in UNKNOWN_CLAIMS:
+            status = {r.status.value for r in rt.store.find(Run, {"claim_id": claim_id}) if r.trigger.value == "manual"}
+            if status != {"would_have_run"}:
+                failures.append(f"observe: {claim_id} ended {sorted(status)}")
+        if rt.store.count(InboxItem) != items:
+            failures.append(f"observe: {rt.store.count(InboxItem) - items} inbox item(s) opened")
+        failures += [f"observe invariant: {f}" for f in invariant_failures(rt)]
+    return failures
 
 
 def _collect_shapes(rt: Any, art: Any, runs: list[Any], out: ModeResult) -> None:
@@ -156,6 +196,8 @@ def _subject(run: Any) -> str:
 
 def _shape(rt: Any, art: Any, run: Any) -> RunShape:
     from torch_rcm.domain.entities import InboxItem
+    from torch_rcm.readmodels.headline import headline
+    from torch_rcm.readmodels.snapshot import Snapshot
 
     made = [i for i in rt.store.all(InboxItem) if i.run_id == run.id and i.id != run.inbox_item_id]
     item = made[0] if made else (rt.store.get(InboxItem, run.inbox_item_id) if run.inbox_item_id else None)
@@ -168,6 +210,12 @@ def _shape(rt: Any, art: Any, run: Any) -> RunShape:
         evidence_kinds=tuple(kinds),
         item_kind=item.kind.value if item else None,
         status=run.status.value,
+        claim_outcome=(
+            (o.status_from.value, o.status_to.value, o.move_from.value, o.move_to.value)
+            if (o := run.claim_outcome)
+            else None
+        ),
+        headline=headline(Snapshot.from_store(rt.store, rt.clock.now()), item) if item else None,
         planner=run.planner.value,
     )
 
@@ -219,6 +267,9 @@ def unknown_property_failures(rt: Any) -> list[str]:
         items = rt.store.find(InboxItem, {"claim_id": claim_id, "state": InboxItemState.OPEN})
         if len(items) != 1:
             failures.append(f"{claim_id}: {len(items)} open inbox items (expected 1)")
+        for item in items:
+            if (c := item.confidence) is not None and (c.pct is not None or c.n):
+                failures.append(f"{claim_id}: an unknown situation shows a track record ({c.k} of {c.n})")
     return failures
 
 
@@ -251,7 +302,10 @@ def invariant_failures(rt: Any) -> list[str]:
         "claim lines balance": inv.claim_lines_balance(s.of(Claim)),
         "strip = group by": inv.strip_equals_group_by(s.of(Claim), tiles),
         "needs_action ⇔ open item": inv.needs_action_iff_open_item(s.of(Claim), s.of(InboxItem), flagged),
+        "item root cause = claim": inv.item_root_cause_matches_claim(s.of(Claim), s.of(InboxItem)),
         "would_have_run ⇔ observe": inv.would_have_run_iff_observe(s.of(Run), rules),
+        "observe opens no item": inv.observe_opens_no_item(s.of(InboxItem)),
+        "observe contacts no payer": inv.observe_contacts_no_payer(s.of(Run), calls),
         "rules valid": inv.rules_valid(s.of(Rule), owners),
         "guarded proposals": inv.guarded_proposals_unaccepted(s.of(RuleProposal)),
         "no agent tier 3": inv.no_agent_tier3(s.of(Run)),
@@ -275,7 +329,19 @@ def reconciled_failures(rt: Any) -> list[str]:
     for label, got, want in (
         ("A/R", (st.ar_count, st.ar_cents), T.AR_TOTAL),
         ("open", (st.open_count, st.open_cents), T.OPEN_TOTAL),
-        ("inbox", (st.inbox_open, st.inbox_open_cents), (T.INBOX_OPEN["count"], T.INBOX_OPEN["cents"])),
+        (
+            "inbox",
+            (
+                st.inbox_open + sum(w.count for w in st.inbox_waiting),
+                st.inbox_open_cents + sum(w.cents for w in st.inbox_waiting),
+            ),
+            (T.INBOX_OPEN["count"], T.INBOX_OPEN["cents"]),
+        ),
+        (
+            "waiting",
+            [(w.label, w.count, w.cents) for w in st.inbox_waiting],
+            [(T.INBOX_WAITING["label"], T.INBOX_WAITING["count"], T.INBOX_WAITING["cents"])],
+        ),
     ):
         if got != want:
             failures.append(f"{label} {got} ≠ {want}")

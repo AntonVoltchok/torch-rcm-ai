@@ -9,12 +9,13 @@ Also here, because they are policy and must be impossible to bypass:
 - `assert_invariants()` — rules-table invariants, raised as `PolicyInvariantError` at boot and in tests;
   the table's own invariants are asserted at import.
 - `guard_root_cause_ours()` — root cause `ours` can never be learned into auto-run.
+- `unreviewed_text()` — text leaving TorchRCM is the body of an approved `review_draft`, or it is tier 2 (rows 1, 9).
 - `route_rule_patch()` / `apply_rule_patch()` / `signoff_item()` — owner sign-off routing.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -38,9 +39,9 @@ from torch_rcm.agents.types import (
     RuleView,
     Verdict,
 )
+from torch_rcm.domain.values import MIN_BASE_RATE_N, metric_phrase, track_record
 
 PRACTICE_CAP_CENTS = 100_000  # tier-2 practice cap ($1,000); tier 1 is exempt
-MIN_BASE_RATE_N = 5
 RunKind = Literal["triage", "approval", "manual"]
 
 
@@ -72,6 +73,8 @@ class PolicyCtx(Frozen):
     paper_eob: bool = False
     hold_window_open: bool | None = None
     draft_guard: GuardResult | None = None
+    outbound_text: str = ""  # the draft text this action's recipe would send (`recipes.sends_text`); "" = none
+    reviewed_text: str | None = None  # the body of the `review_draft` a person approved for this run, if any
     rules: tuple[RuleView, ...] = ()
     practice_cap_cents: int = PRACTICE_CAP_CENTS
 
@@ -103,19 +106,26 @@ def match_rule(
     return max(candidates, key=_specificity, default=None)
 
 
-_METRIC_PHRASE = {"paid_30d": "paid within 30 d", "accepted": "accepted", "balanced": "balanced"}
+UNNAMED_BASIS = (
+    "No track record. TorchRCM couldn't match this to a known situation, so there are no past cases to compare."
+)
+UNNAMED_LEARN_REASON = "TorchRCM couldn't match this to a known situation, so there are no past cases to learn from."
 
 
-def confidence(rule: RuleView | None) -> Confidence | None:
-    """The rule's base rate, never a model number. Shown as 'no base rate' when n < 5."""
+def confidence(rule: RuleView | None, situation: str | None = None) -> Confidence | None:
+    """This situation's past cases under the rule, never a model number and never the rule's whole scope
+    (`domain.values.track_record`: no percent under five cases). A rule covers many situations; its `base_rate`
+    sums them for the Rules screen, and an item shows only the cases of its own situation (`situation_rates`).
+
+    A situation the classifier couldn't name has no past cases of its own. The rule it falls to (an `all` rule)
+    still gates the action, but its track record counts other situations, so it is never shown as this one's."""
     if rule is None:
         return None
-    rate = rule.base_rate
-    if rate is None or rate.n < MIN_BASE_RATE_N:
-        n = rate.n if rate else 0
-        return Confidence(pct=None, basis=f"no base rate (n={n})")
-    phrase = _METRIC_PHRASE.get(rule.outcome_metric or "", "succeeded")
-    return Confidence(pct=round(100 * rate.k / rate.n), basis=f"{rate.k} of {rate.n} {phrase}")
+    if situation == UNKNOWN:
+        return Confidence(pct=None, k=0, n=0, outcome=metric_phrase(rule.outcome_metric), basis=UNNAMED_BASIS)
+    rate = rule.situation_rates.get(situation or "")
+    record = track_record(rate.k if rate else 0, rate.n if rate else 0, metric_phrase(rule.outcome_metric))
+    return Confidence(**record.model_dump())
 
 
 # ---------------------------------------------------------------- row 1: validation backstop
@@ -129,7 +139,7 @@ def validation_errors(ctx: PolicyCtx, action: ProposedAction) -> list[str]:
     """
     spec = spec_for(action.action)
     if spec is None:
-        return [f"{action.action} is not an action Torch can run"]
+        return [f"{action.action} is not an action TorchRCM can run"]
     if ctx.run_kind == "triage" and action.action not in AGENT_ACTIONS[ctx.agent]:
         return [f"{action.action} is not available to {ctx.agent.capitalize()}"]
     try:
@@ -141,7 +151,19 @@ def validation_errors(ctx: PolicyCtx, action: ProposedAction) -> list[str]:
     errors += [f"evidence {e} was not gathered in this run" for e in action.evidence_ids if e not in ctx.evidence]
     if spec.tier == 3 and ctx.run_kind != "triage" and ctx.actor_role not in TIER3_ROLES[spec.name]:
         errors.append(f"actor lacks role for {spec.label.lower()}")
+    if ctx.run_kind != "triage" and unreviewed_text(ctx):
+        errors.append("the text to send is not the draft a person reviewed and approved")
     return errors
+
+
+def unreviewed_text(ctx: PolicyCtx) -> bool:
+    """Text would leave TorchRCM that is not, word for word, the body of a `review_draft` a person approved.
+
+    Closes the tier gap: `reprocessing_request` is tier 1 (a form with a basis) but its form step sends whatever
+    draft the run holds. Such a run is unattended only with no text or with exactly the reviewed text; anything
+    else is tier 2: a triage run proposes it as a `review_draft` (row 9) and an approval run refuses it (row 1).
+    """
+    return bool(ctx.outbound_text.strip()) and ctx.outbound_text != ctx.reviewed_text
 
 
 def _scope_errors(ctx: PolicyCtx, params: Mapping[str, object]) -> list[str]:
@@ -193,7 +215,21 @@ def _cites_only_suspicious(ctx: PolicyCtx, a: ProposedAction) -> bool:
 
 
 def _carries_text(spec: ActionSpec, ctx: PolicyCtx) -> bool:
-    return spec.carries_text is not None or ctx.draft_guard is not None
+    return spec.carries_text is not None or ctx.draft_guard is not None or unreviewed_text(ctx)
+
+
+def _observes(rule: RuleView | None) -> bool:
+    """Observe does nothing, so rows 4 and 5, which would open an item, yield to row 7 (07 §5.1)."""
+    return rule is not None and rule.mode == "observe"
+
+
+def observing_rule(
+    rules: tuple[RuleView, ...] | list[RuleView], agent: AgentKind, payer_key: PayerKey | None, item_type: str
+) -> RuleView | None:
+    """A rule on `observe` that could decide this run. Reading a payer's portal is payer contact and it comes
+    before the plan, so the deciding rule is not known yet: any rule that could be it withholds the read."""
+    matched = (match_rule(rules, action, payer_key, item_type) for action in AGENT_ACTIONS[agent])
+    return next((r for r in matched if _observes(r)), None)
 
 
 def _row0(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
@@ -218,12 +254,16 @@ def _row3(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) 
 
 
 def _row4(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
+    if _observes(r):
+        return None
     return "paper EOB is never auto-posted" if ctx.paper_eob and s.name == "post_era_line" else None
 
 
 def _row5(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
+    if _observes(r):
+        return None
     if ctx.classifier_situation == UNKNOWN:
-        return "situation unknown to Torch's classifier · a person reviews"
+        return "situation unknown to TorchRCM's classifier · a person reviews"
     if _cites_only_suspicious(ctx, a):
         return "cites only suspicious evidence · a person reviews"
     return None
@@ -234,7 +274,7 @@ def _row6(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) 
 
 
 def _row7(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
-    return f"observe mode · rule {r.label}" if r and r.mode == "observe" else None
+    return f"observe mode · rule {r.label}" if r and _observes(r) else None
 
 
 def _row8(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
@@ -244,6 +284,8 @@ def _row8(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) 
 def _row9(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
     if not _carries_text(s, ctx):
         return None
+    if s.carries_text is None and unreviewed_text(ctx):  # no text rule can cover a tier-1 action: tier 2 always
+        return "agent-written payer text on a tier-1 action · a person reviews it"
     if ctx.draft_guard is not None and not ctx.draft_guard.ok:
         return "agent text failed the fact check"
     if r is None or not (r.covers_agent_text and r.signed_by):
@@ -268,7 +310,7 @@ def _row11(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None)
 def _row12(ctx: PolicyCtx, a: ProposedAction, s: ActionSpec, r: RuleView | None) -> str | None:
     if r is None or r.confidence_floor is None:
         return None
-    conf = confidence(r)
+    conf = confidence(r, ctx.classifier_situation)
     if conf is None or conf.pct is None:
         return "no base rate for a rule with a confidence floor"
     floor = round(r.confidence_floor * 100)
@@ -354,7 +396,7 @@ def decide(ctx: PolicyCtx, action: ProposedAction) -> Decision:
             policy_row=row.number,
             rule_id=rule.id if rule else None,
             rule_version=rule.version if rule else None,
-            confidence=confidence(rule),
+            confidence=confidence(rule, ctx.classifier_situation),
             as_review_draft=row.review_draft or (row.verdict == "propose" and _carries_text(spec, ctx)),
             alternatives=("corrected_claim",) if row.number == 14 else (),
         )
@@ -374,8 +416,8 @@ class Policy:
     def decide(self, ctx: PolicyCtx, action: ProposedAction) -> Decision:
         return decide(ctx.model_copy(update={"rules": self.rules}), action)
 
-    def confidence(self, rule: RuleView | None) -> Confidence | None:
-        return confidence(rule)
+    def confidence(self, rule: RuleView | None, situation: str | None = None) -> Confidence | None:
+        return confidence(rule, situation)
 
     def assert_invariants(self, rules: list[RuleView]) -> None:
         assert_invariants(rules)
@@ -431,6 +473,71 @@ def guard_root_cause_ours(root_cause_class: str) -> None:
     """Root cause `ours` can never be learned into auto-run; accepting such a proposal is a 422."""
     if root_cause_class == "ours":
         raise RootCauseGuardError("root cause is ours: fix the upstream rule; this slice cannot auto-run")
+
+
+def guard_causes(causes: Iterable[str | None]) -> None:
+    """Every cause on record for a slice, and the one code computes now, through the one guard."""
+    for cause in causes:
+        if cause:
+            guard_root_cause_ours(cause)
+
+
+LearnCode = Literal["tier_not_learnable", "root_cause_guard", "not_enough_evidence"]
+ROOT_CAUSE_OURS_REASON = (
+    "Root cause: ours. Fix where it starts (charting, coding or front desk); this kind always gets a review."
+)
+
+
+class Learnable(Frozen):
+    """Whether this item's rule could learn to run without review, and why not. `code` is the 422 code
+    `POST /inbox/{id}:always-auto-run` answers with, so the line shown up front and the refusal agree."""
+
+    ok: bool
+    code: LearnCode | None
+    reason: str
+
+
+def learnable(
+    *,
+    tier: int | None,
+    rule_label: str | None,
+    outcome_metric: str | None,
+    n: int,
+    causes: Iterable[str | None],
+    drafted: bool = False,
+    unnamed: bool = False,
+) -> Learnable:
+    """First match wins: tier 3, agent-written text, tier 2, no rule, root cause ours, a situation the classifier
+    couldn't name, no outcome metric, too few cases. `drafted` is a `review_draft` item: the agent wrote what would
+    go out (CLAUDE.md: always tier 2). `unnamed` has no past cases of its own, whatever its rule's count says."""
+
+    def no(code: LearnCode, reason: str) -> Learnable:
+        return Learnable(ok=False, code=code, reason=reason)
+
+    if tier == 3:
+        return no("tier_not_learnable", "A person always does this one. It never runs on its own.")
+    if drafted:
+        return no("tier_not_learnable", "The agents wrote this text, so a person reads it before it goes out.")
+    if tier == 2:
+        return no("tier_not_learnable", "The owner sets this rule. It isn't learned from approvals.")
+    if tier is None or rule_label is None:
+        return no("tier_not_learnable", "No rule covers this, so a person decides each time.")
+    try:
+        guard_causes(causes)
+    except RootCauseGuardError:
+        return no("root_cause_guard", ROOT_CAUSE_OURS_REASON)
+    if unnamed:
+        return no("not_enough_evidence", UNNAMED_LEARN_REASON)
+    if outcome_metric in (None, "none"):
+        return no("tier_not_learnable", f"“{rule_label}” has no outcome to measure, so it is never learned.")
+    if n < MIN_BASE_RATE_N:
+        cases = "case" if n == 1 else "cases"
+        return no("not_enough_evidence", f"Only {n} past {cases} like this, too few to learn from yet.")
+    return Learnable(
+        ok=True,
+        code=None,
+        reason="You can propose running this without review. Nothing changes until the proposal is accepted.",
+    )
 
 
 # ---------------------------------------------------------------- owner sign-off routing (07 §5.2)

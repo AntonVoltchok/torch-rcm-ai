@@ -82,6 +82,18 @@ def needs_action_iff_open_item(claims: Sequence[Claim], items: Sequence[InboxIte
     return bad
 
 
+def item_root_cause_matches_claim(claims: Sequence[Claim], items: Sequence[InboxItem]) -> list[str]:
+    """Every screen reads the claim's denial, so a finding held only on an item would show two answers."""
+    by_id = {c.id: c for c in claims}
+    out: list[str] = []
+    for item in items:
+        claim = by_id.get(item.claim_id or "")
+        found = item.payload.get("root_cause")
+        if item.state is InboxItemState.OPEN and claim and claim.denial and found and found != claim.denial.root_cause:
+            out.append(f"{item.id}: item says {found}, claim {claim.number} says {claim.denial.root_cause}")
+    return out
+
+
 def would_have_run_iff_observe(runs: Iterable[Run], rules: dict[str, Rule]) -> list[str]:
     bad: list[str] = []
     for run in runs:
@@ -89,6 +101,21 @@ def would_have_run_iff_observe(runs: Iterable[Run], rules: dict[str, Rule]) -> l
         if run.status is RunStatus.WOULD_HAVE_RUN and (rule is None or rule.mode is not RuleMode.OBSERVE):
             bad.append(f"{run.id}: would_have_run but rule is not in observe")
     return bad
+
+
+def observe_opens_no_item(items: Iterable[InboxItem]) -> list[str]:
+    """`rule_mode` is the mode the deciding rule had when its run opened the item (seeded items carry none: an item
+    that predates a switch to `observe` is fine, and approving it records `would_have_run`)."""
+    return [f"{i.id}: opened under {i.rule_id} on observe" for i in items if i.payload.get("rule_mode") == "observe"]
+
+
+def observe_contacts_no_payer(runs: Iterable[Run], calls: Iterable[WorldCallLog]) -> list[str]:
+    observed = {r.id for r in runs if r.status is RunStatus.WOULD_HAVE_RUN}
+    return [
+        f"{c.run_id}: {c.operation} on {c.system}"
+        for c in calls
+        if c.run_id in observed and c.system.startswith("payer:")
+    ]
 
 
 def check_rule(rule: Rule) -> None:

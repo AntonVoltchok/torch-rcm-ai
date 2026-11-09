@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from torch_rcm.agents.catalog.recipes import dollars
 from torch_rcm.domain.entities import (
     AppealRecord,
     Claim,
@@ -59,6 +60,8 @@ class Pinned:
     claims: dict[int, Claim] = field(default_factory=dict)
     remits: dict[str, Remittance] = field(default_factory=dict)
     results: dict[int, ClaimResult] = field(default_factory=dict)
+    #: Held benefit variances: the same claim adjudicated at the tracked benefits (what the payer owed).
+    expected: dict[int, ClaimResult] = field(default_factory=dict)
     images: dict[str, str] = field(default_factory=dict)
     #: Claims queued for the next file at 10:40: claim id → file time.
     queued: dict[str, datetime] = field(default_factory=dict)
@@ -86,12 +89,13 @@ class PinnedBuilder:
         *,
         provider: str = PRV_MORGAN,
         at: str = "10:00",
+        visit_minutes: int = 50,
         coverage: Coverage | None = None,
         note: str = "",
         **fields: Any,
     ) -> Claim:
         patient, cov = self.pc(key)
-        visit, procs = self.b.visit(patient, dos, provider, lines, at=at, note=note)
+        visit, procs = self.b.visit(patient, dos, provider, lines, at=at, minutes=visit_minutes, note=note)
         claim = self.b.claim(number, visit, procs, coverage or cov, status, **fields)
         self.out.claims[number] = claim
         return claim
@@ -167,7 +171,7 @@ class PinnedBuilder:
                 date(2026, 10, 12),
                 [("D2740", "19"), ("D2950", "19"), ("D0220", "19")],
                 PRV_MORGAN,
-                "10:00",
+                "09:50",
                 "10:45",
                 "26299-041833",
                 "47720913",
@@ -178,7 +182,7 @@ class PinnedBuilder:
                 date(2026, 10, 14),
                 [("D2750", "3"), ("D2950", "3")],
                 PRV_LEE,
-                "11:00",
+                "10:50",
                 "11:45",
                 "26288-052207",
                 "47731154",
@@ -189,7 +193,7 @@ class PinnedBuilder:
                 date(2026, 10, 19),
                 [("D2740", "14"), ("D2950", "14"), ("D0140", None)],
                 PRV_MORGAN,
-                "13:30",
+                "13:20",
                 "14:15",
                 "26293-061947",
                 "47748802",
@@ -207,7 +211,7 @@ class PinnedBuilder:
                 S.DENIED,
                 provider=provider,
                 at=at,
-                built_at=dt(dos, at) + timedelta(minutes=43),
+                built_at=dt(dos, at) + timedelta(minutes=53),  # three minutes after the visit, as everywhere
             )
             patient, cov = self.pc(key)
             tooth = lines[0][1]
@@ -259,7 +263,7 @@ class PinnedBuilder:
             S.DENIED,
             at="14:00",
         )
-        self.sent(diaz, dt(date(2026, 8, 7), "14:45"), dt(date(2026, 8, 10), "06:31"), "26222-018840")
+        self.sent(diaz, dt(date(2026, 8, 7), "15:15"), dt(date(2026, 8, 10), "06:31"), "26222-018840")
         _, diaz_cov = self.pc("diaz_r")
         r2 = b.adjudicate(diaz, diaz_cov)
         self.adjudicated(diaz, r2, dt(date(2026, 10, 22), "05:35"))
@@ -416,6 +420,7 @@ class PinnedBuilder:
             [("D2740", "30"), ("D2950", "30"), ("D0220", "30")],
             S.READY,
             at="10:00",
+            visit_minutes=35,
             built_at=dt(TODAY, "10:38"),
         )
         b.attach(o, AttachmentKind.PA, dt(TODAY, "10:38"), nea="26-4471982", image_id=pa30.id)
@@ -628,7 +633,7 @@ class PinnedBuilder:
             at="11:00",
         )
         castillo.lines[0].surface, castillo.lines[1].surface = "LR", "LL"
-        self.sent(castillo, dt(date(2026, 10, 9), "11:45"), dt(date(2026, 10, 12), "06:49"), "GD2610120944")
+        self.sent(castillo, dt(date(2026, 10, 9), "12:15"), dt(date(2026, 10, 12), "06:49"), "GD2610120944")
         self.payer_claim(castillo, date(2026, 10, 12), date(2026, 10, 29), outcome="CO-16:M127")
         fmx = b.image(self.pc("castillo_a")[0], "fmx", None, dt(date(2026, 10, 9), "11:10"), "D0210")
         b.image(self.pc("castillo_a")[0], "perio_chart", None, dt(date(2026, 10, 9), "11:20"), None)
@@ -637,7 +642,7 @@ class PinnedBuilder:
         b.attach(
             castillo,
             AttachmentKind.FMX,
-            dt(date(2026, 10, 9), "11:40"),
+            dt(date(2026, 10, 9), "11:55"),
             nea="26-4469307",
             source=AttachmentSource.AGENT,
             image_id=fmx.id,
@@ -645,7 +650,13 @@ class PinnedBuilder:
         )
 
         morris = self.make(
-            3561, "morris_g", date(2025, 10, 30), [("D2740", "3"), ("D2950", "3")], S.PENDING, at="10:00"
+            3561,
+            "morris_g",
+            date(2025, 10, 30),
+            [("D2740", "3"), ("D2950", "3")],
+            S.PENDING,
+            provider=PRV_LEE,  # Dr. Lee treated Morris, so Dr. Lee signs the overnight appeal (rt-signer)
+            at="10:00",
         )
         self.sent(morris, dt(date(2025, 11, 3), "08:15"), dt(date(2025, 11, 4), "06:41"), "ML2511040118")
         morris.reason_text = "payer reprocessing after lost claim"
@@ -664,7 +675,7 @@ class PinnedBuilder:
             S.PENDING,
             at="14:00",
         )
-        self.sent(moreno, dt(date(2026, 10, 13), "14:45"), dt(date(2026, 10, 14), "06:55"), "AE2610140552")
+        self.sent(moreno, dt(date(2026, 10, 13), "15:15"), dt(date(2026, 10, 14), "06:55"), "AE2610140552")
         self.payer_claim(moreno, date(2026, 10, 14), date(2026, 10, 29), outcome="CO-22")
 
         hale = self.make(
@@ -704,8 +715,21 @@ class PinnedBuilder:
         kim_s, _ = self.pc("kim_s")
         b.visit(kim_s, date(2025, 11, 3), PRV_MORGAN, [("D0274", None)], at="10:00", note="4BWX.")
         b.visit(kim_s, date(2026, 5, 2), PRV_MORGAN, [("D1110", None)], at="10:00", note="Prophy.")
-        nak = self.make(4709, "nakamura_r", date(2026, 9, 4), [("D2950", "3"), ("D2740", "3")], S.PENDING, at="13:00")
-        self.sent(nak, dt(date(2026, 9, 4), "13:45"), dt(date(2026, 9, 8), "06:44"), "CG2609080381")
+        # The signed note is what a records request resends when Cigna's consultant can't read the narrative.
+        nak = self.make(
+            4709,
+            "nakamura_r",
+            date(2026, 9, 4),
+            [("D2950", "3"), ("D2740", "3")],
+            S.PENDING,
+            at="13:00",
+            note=(
+                "#3: MOD amalgam failing, fractured ML cusp, recurrent decay under the restoration. Less than half "
+                "the coronal structure remains, so it cannot retain a crown alone: core buildup placed, then "
+                "full-coverage crown prep. Pre-op PA reviewed."
+            ),
+        )
+        self.sent(nak, dt(date(2026, 9, 4), "14:15"), dt(date(2026, 9, 8), "06:44"), "CG2609080381")
         nak.reason_text = "in review with consultant"
         self.payer_claim(
             nak,
@@ -717,7 +741,7 @@ class PinnedBuilder:
         obrien = self.make(
             4731, "obrien_t", date(2026, 9, 11), [("D7210", "17")], S.PENDING, provider=PRV_LEE, at="10:00"
         )
-        self.sent(obrien, dt(date(2026, 9, 11), "10:45"), dt(date(2026, 9, 14), "06:52"), "GD2609140717")
+        self.sent(obrien, dt(date(2026, 9, 11), "11:15"), dt(date(2026, 9, 14), "06:52"), "GD2609140717")
         obrien.reason_text = "adjusted per portal · no 835"
         self.payer_claim(
             obrien,
@@ -736,7 +760,7 @@ class PinnedBuilder:
         )
         original = b.claim(4768, visit, procs, kaur_cov, S.REJECTED, closed_reason=ClosedReason.SUPERSEDED)
         original.lines[0].tooth = "2"
-        self.sent(original, dt(date(2026, 10, 5), "10:45"), None, None)
+        self.sent(original, dt(date(2026, 10, 5), "11:15"), None, None)
         original.closed_at = dt(date(2026, 10, 20), "09:10")
         corrected = b.claim(4795, visit, procs, kaur_cov, S.PARTIAL, parent_claim_id=original.id, frequency_code=7)
         self.out.claims[4768], self.out.claims[4795] = original, corrected
@@ -747,7 +771,7 @@ class PinnedBuilder:
         corrected.reason_text = "D0220 CO-119 · frequency"
 
         osei = self.make(4748, "osei_l", date(2026, 10, 20), [("D2392", "14", "DO")], S.PAID)
-        self.sent(osei, dt(date(2026, 10, 20), "10:45"), dt(date(2026, 10, 21), "06:41"), "AE2610210140")
+        self.sent(osei, dt(date(2026, 10, 20), "11:15"), dt(date(2026, 10, 21), "06:41"), "AE2610210140")
         _, osei_cov = self.pc("osei_l")
         ro = b.adjudicate(osei, osei_cov)
         assert ro.lines[0].patient_adj[0].code == "186" and ro.lines[0].patient_adj[0].cents == 3_800
@@ -758,7 +782,7 @@ class PinnedBuilder:
         )
 
         duarte = self.make(4790, "duarte_m", date(2026, 10, 7), [("D2392", "19", "MO")], S.PAID, at="11:00")
-        self.sent(duarte, dt(date(2026, 10, 7), "11:45"), dt(date(2026, 10, 8), "06:40"), "CG2610080219")
+        self.sent(duarte, dt(date(2026, 10, 7), "12:15"), dt(date(2026, 10, 8), "06:40"), "CG2610080219")
         _, duarte_cov = self.pc("duarte_m")
         rd = b.adjudicate(duarte, duarte_cov)
         self.adjudicated(duarte, rd, dt(date(2026, 10, 21), "06:05"))
@@ -790,13 +814,30 @@ class PinnedBuilder:
         self.adjudicated(secondary, rs, dt(date(2026, 10, 28), "06:20"))
 
         foster = self.make(4772, "foster_d", date(2026, 10, 16), [("D2392", "19", "MO")], S.PARTIAL, at="14:00")
-        self.sent(foster, dt(date(2026, 10, 16), "14:45"), dt(date(2026, 10, 19), "06:44"), "CG2610190302")
+        self.sent(foster, dt(date(2026, 10, 16), "15:15"), dt(date(2026, 10, 19), "06:44"), "CG2610190302")
         _, foster_cov = self.pc("foster_d")
         rf = b.adjudicate(foster, foster_cov, outcome="PR-1=3200")
         assert rf.status is S.PARTIAL and rf.paid == 10_880
         self.adjudicated(foster, rf, dt(date(2026, 10, 28), "06:20"))
-        foster.reason_text = "underpaid $32 · PR-1 though deductible met 05/12"
+        # What Cigna owed at the tracked benefits (deductible met 05/12): 80% of $168 allowed = $134.40.
+        ef = self.out.expected[4772] = b.adjudicate(foster, foster_cov)
+        assert ef.status is S.PAID and ef.paid == 13_440 and ef.patient == 3_360
+        met = foster_cov.plan.deductible_met_on
+        assert met is not None
+        foster.reason_text = f"underpaid {dollars(ef.paid - rf.paid)} · PR-1 though deductible met {met:%m/%d}"
         self.out.results[4776], self.out.results[4772] = rs, rf
+
+    def benefit_variance(self, claim: Claim) -> tuple[int, str]:
+        """The held remit line's variance (what the payer still owes at the tracked benefits) and its note."""
+        line, want = self.out.results[claim.number].lines[0], self.out.expected[claim.number].lines[0]
+        pr1 = sum(a.cents for a in line.patient_adj if a.code == "1")
+        met = self.b.w.index(Coverage)[claim.coverage_id].plan.deductible_met_on
+        assert met is not None and want.paid > line.paid
+        return (
+            want.paid - line.paid,
+            f"PR-1 {dollars(pr1)} applied though the deductible was met {met:%m/%d} → short {dollars(want.paid - line.paid)};"
+            " hold for reprocessing, not write-off",
+        )
 
     def cigna_era(self) -> None:
         """Cigna ERA Wed 10/28 06:20: 12 lines on 7 claims (Foster held, Abara secondary, five clean claims)."""
@@ -863,7 +904,7 @@ class PinnedBuilder:
             )
             claim = b.claim(number, visit, procs, cov, S.PAID)
             self.out.claims[number] = claim
-            self.sent(claim, dt(dos, "10:45"), dt(dos + timedelta(days=1), "06:42"), f"CG{dos:%y%m%d}{number}")
+            self.sent(claim, dt(dos, "11:15"), dt(dos + timedelta(days=1), "06:42"), f"CG{dos:%y%m%d}{number}")
             result = b.adjudicate(claim, cov)
             self.adjudicated(claim, result, dt(date(2026, 10, 28), "06:20"))
             items.append((claim, result))
@@ -876,12 +917,7 @@ class PinnedBuilder:
             dt(date(2026, 10, 28), "06:20"),
             items,
             status=RemitStatus.NEEDS_REVIEW,
-            held={
-                foster.lines[0].id: (
-                    3_200,
-                    "PR-1 $32 applied though the deductible was met 05/12 → hold for reprocessing, not write-off",
-                )
-            },
+            held={foster.lines[0].id: self.benefit_variance(foster)},
         )
         self.out.remits["cigna_1028"] = remit
         totals = {
@@ -932,7 +968,7 @@ class PinnedBuilder:
             visit, procs = b.visit(patient, dos, PRV_MORGAN, lines, at="10:00")
             claim = b.claim(number, visit, procs, cov, S.PAID)
             self.out.claims[number] = claim
-            self.sent(claim, dt(dos, "10:45"), dt(dos + timedelta(days=1), "06:51"), f"GD{dos:%y%m%d}{number}")
+            self.sent(claim, dt(dos, "11:15"), dt(dos + timedelta(days=1), "06:51"), f"GD{dos:%y%m%d}{number}")
             result = b.adjudicate(claim, cov)
             self.adjudicated(claim, result, dt(date(2026, 10, 27), "11:30"))
             paper.append((claim, result))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 
 from torch_rcm.api.errors import ApiError, conflict, not_found, unprocessable
@@ -58,17 +59,6 @@ def start_advance(ctx: Ctx, minutes: int | None, to: datetime | None) -> Advance
     except AdvanceInProgressError as exc:
         raise conflict("advance_in_progress", str(exc), advance_id=exc.advance_id) from exc
     return AdvanceAccepted(advance_id=advance.id, **{"from": advance.from_at}, to=advance.to_at)
-
-
-async def run_advance_inline(ctx: Ctx, minutes: int | None, to: datetime | None) -> AdvanceOut:
-    """`?wait=true`: the same advance, awaited (CLI, tests, e2e)."""
-    target = advance_target(ctx, minutes, to)
-    try:
-        advance = ctx.rt.scheduler.begin_advance(target, ctx.user.id)
-    except AdvanceInProgressError as exc:
-        raise conflict("advance_in_progress", str(exc), advance_id=exc.advance_id) from exc
-    advance = await ctx.rt.scheduler.execute_advance(advance)
-    return advance_out(ctx, advance, with_meta=True)
 
 
 def get_advance(ctx: Ctx, advance_id: str) -> AdvanceOut:
@@ -139,8 +129,10 @@ def cancel_run(ctx: Ctx, run_id: str) -> Run:
     if run.status is not RunStatus.QUEUED:
         raise conflict("not_cancellable", f"run is {run.status.value}; only queued runs can be cancelled")
     from torch_rcm.domain.entities import InboxItem
+    from torch_rcm.readmodels.moves import claim_outcome, run_claim_side
 
     with ctx.rt.store.tx():
+        before = run_claim_side(ctx.snapshot(), run, before=True)
         run.status, run.finished_at = RunStatus.CANCELLED, ctx.now
         run.audit_line = f"cancelled by {ctx.user.name} before it started"
         ctx.rt.store.update(run)
@@ -149,6 +141,8 @@ def cancel_run(ctx: Ctx, run_id: str) -> Run:
             if item and item.state in (InboxItemState.APPROVED, InboxItemState.EDITED):
                 item.state, item.resolved_by, item.resolved_at = InboxItemState.OPEN, None, None
                 ctx.rt.store.update(item)
+        run.claim_outcome = claim_outcome(before, run_claim_side(ctx.snapshot(), run, before=False))
+        ctx.rt.store.update(run)
         ctx.audit("run.cancel", "run", run.id, f"{ctx.user.name} cancelled {run.action_label or run.agent.value}")
     publish(ctx.rt.store, run.id, "status", {"status": "cancelled"}, ctx.now)
     return run
@@ -262,16 +256,24 @@ def inject(ctx: Ctx, body: InjectIn) -> InjectOut:
     return InjectOut(ok=True, detail=detail, meta=ctx.meta())
 
 
-def reseed(ctx: Ctx, scenario: str | None) -> ReseedOut:
+async def reseed(ctx: Ctx, scenario: str | None) -> ReseedOut:
     from torch_rcm.world.scenarios import SCENARIOS, build_scenario
 
     name = scenario or ctx.rt.settings.scenario
     if name not in SCENARIOS:
         raise ApiError(422, "unknown_scenario", f"scenario {name!r} not in {sorted(SCENARIOS)}")
-    if ctx.rt.scheduler.advance_lock.locked():
+    scheduler = ctx.rt.scheduler
+    if scheduler.advance_lock.locked():
         raise conflict("advance_in_progress", "wait for the advance to finish")
+    if scheduler.job_lock.locked():
+        raise conflict("run_in_progress", "An agent run is finishing. Reset when it is done.")
     from torch_rcm.seed.persist import persist
 
-    persist(ctx.rt.store, build_scenario(name))
-    ctx.rt.reload_world()
+    def replace_the_world() -> None:
+        persist(ctx.rt.store, build_scenario(name))
+        ctx.rt.reload_world()
+
+    # Held for the whole reseed: a job taken mid-way would have its rows replaced under it.
+    async with scheduler.job_lock:
+        await asyncio.to_thread(replace_the_world)
     return ReseedOut(scenario=name, now=ctx.rt.clock.now(), meta=ctx.meta())

@@ -1,5 +1,5 @@
 /**
- * GET /runs/stream, subscribed once at the app root. It never holds state of its own: `run` events
+ * GET /runs/stream, subscribed once at the app root. It never holds state of its own: `status` events
  * invalidate the agents status (and the run, if cached), `agents` patches the paused chip, `advance`
  * writes the clock-advance snapshot. When the stream is absent the app keeps working and the queries
  * that depend on it poll instead (liveStore = 'down').
@@ -10,7 +10,7 @@ import { API_BASE } from '@/env'
 import { authHeaders } from '@/api/client'
 import { sseUrl } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import { AdvanceSnapshot, FirehoseAgentsEvent, FirehoseRunEvent, type AgentsStatus, type Clock } from '@/api/schema'
+import { AdvanceSnapshot, FirehoseAgentsEvent, FirehoseStatusEvent, type AgentsStatus, type Clock } from '@/api/schema'
 import { backoffMs, connectSse, type SseMessage } from '@/lib/sse'
 import { isTerminal } from '@/lib/runEvents'
 import { liveStore } from '@/state/live'
@@ -34,15 +34,15 @@ export function useFirehose(): void {
 
     const onMessage = (msg: SseMessage) => {
       const data = parseData(msg)
-      if (msg.event === 'run') {
-        const ev = FirehoseRunEvent.safeParse(data)
+      if (msg.event === 'status') {
+        const ev = FirehoseStatusEvent.safeParse(data)
         if (!ev.success) return
         void qc.invalidateQueries({ queryKey: qk.agents })
         if (isTerminal(ev.data.status) && ev.data.claim_id) void qc.invalidateQueries({ queryKey: qk.claim(ev.data.claim_id) })
       } else if (msg.event === 'agents') {
         const ev = FirehoseAgentsEvent.safeParse(data)
         if (!ev.success) return
-        qc.setQueryData<AgentsStatus>(qk.agents, (old) => (old ? { ...old, paused: ev.data.paused, paused_by: ev.data.by, paused_at: ev.data.at } : old))
+        qc.setQueryData<AgentsStatus>(qk.agents, (old) => (old ? { ...old, paused: ev.data.paused, paused_by: ev.data.by ?? null, paused_at: ev.data.at ?? null } : old))
         void qc.invalidateQueries({ queryKey: qk.agents })
       } else if (msg.event === 'advance') {
         const ev = AdvanceSnapshot.safeParse(data)

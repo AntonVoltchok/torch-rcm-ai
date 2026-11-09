@@ -10,7 +10,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from torch_rcm.domain.values import track_record_errors
 
 type JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None
 
@@ -221,6 +223,7 @@ class RuleView(Frozen):
     signed_by: str | None = None
     signed_at: datetime | None = None
     base_rate: BaseRate | None = None
+    situation_rates: dict[str, BaseRate] = Field(default_factory=dict)  # past cases by situation (`policy.confidence`)
     covers_agent_text: bool = False
 
 
@@ -343,8 +346,19 @@ class Plan(Frozen):
 
 
 class Confidence(Frozen):
+    """The rule's track record, computed by `policy.confidence()`: same shape and checks as the domain value."""
+
     pct: int | None
+    k: int
+    n: int
+    outcome: str
     basis: str
+
+    @model_validator(mode="after")
+    def _derived(self) -> Confidence:
+        if errors := track_record_errors(self.k, self.n, self.pct):
+            raise ValueError("; ".join(errors))
+        return self
 
 
 class Decision(Frozen):

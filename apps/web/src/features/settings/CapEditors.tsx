@@ -17,10 +17,10 @@ export function PracticeCapEditor({ cents, canEdit }: { cents: number; canEdit: 
   const { register, handleSubmit, formState } = useForm<{ dollars: string }>({ values: { dollars: String(cents / 100) } })
   if (!open) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-mid">
+      <span className="inline-flex items-center gap-1.5 text-sm text-mid" data-tour="practice-cap">
         Practice cap <b className="text-ink">{money(cents)} / item</b> · tier 2 · tier 1 exempt
         {canEdit ? (
-          <button type="button" className="font-semibold text-acc hover:underline" onClick={() => setOpen(true)}>
+          <button type="button" className="font-medium text-act hover:underline" onClick={() => setOpen(true)}>
             Change
           </button>
         ) : (
@@ -32,7 +32,8 @@ export function PracticeCapEditor({ cents, canEdit }: { cents: number; canEdit: 
   return (
     <form
       aria-label="Practice cap"
-      className="inline-flex items-center gap-1.5 text-xs"
+      data-tour="practice-cap"
+      className="inline-flex items-center gap-1.5 text-sm"
       onSubmit={(e) => {
         void handleSubmit((v) => {
           const next = toCents(v.dollars)
@@ -43,7 +44,7 @@ export function PracticeCapEditor({ cents, canEdit }: { cents: number; canEdit: 
     >
       <label className="inline-flex items-center gap-1 text-mid">
         Practice cap $
-        <input {...register('dollars', { validate: (v) => toCents(v) !== null || 'Enter a dollar amount' })} inputMode="decimal" className="w-20 rounded border border-line px-1.5 py-0.5 text-ink" aria-invalid={Boolean(formState.errors.dollars)} />
+        <input {...register('dollars', { validate: (v) => toCents(v) !== null || 'Enter a dollar amount' })} inputMode="decimal" className="h-7 w-20 rounded-md border border-line-strong px-2 text-ink" aria-invalid={Boolean(formState.errors.dollars)} />
         / item
       </label>
       <Button type="submit" size="sm" variant="primary" disabled={save.isPending}>
@@ -52,7 +53,7 @@ export function PracticeCapEditor({ cents, canEdit }: { cents: number; canEdit: 
       <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
         Cancel
       </Button>
-      {formState.errors.dollars && <span className="text-bad">{formState.errors.dollars.message}</span>}
+      {formState.errors.dollars && <span className="text-risk-ink">{formState.errors.dollars.message}</span>}
     </form>
   )
 }
@@ -73,7 +74,7 @@ export function RuleCapEditor({
   return (
     <form
       aria-label="Cap per item"
-      className="flex flex-wrap items-center gap-1.5 text-xs"
+      className="flex flex-wrap items-center gap-1.5 text-sm"
       onSubmit={(e) => {
         void handleSubmit((v) => {
           const next = toCents(v.dollars)
@@ -87,7 +88,7 @@ export function RuleCapEditor({
           {...register('dollars', { validate: (v) => toCents(v) !== null || 'Enter a dollar amount' })}
           inputMode="decimal"
           placeholder="any"
-          className="w-20 rounded border border-line px-1.5 py-0.5 text-ink"
+          className="h-7 w-20 rounded-md border border-line-strong px-2 text-ink"
           aria-invalid={Boolean(formState.errors.dollars)}
         />
       </label>
@@ -97,7 +98,7 @@ export function RuleCapEditor({
       <Button type="submit" size="sm" variant="primary" disabled={busy}>
         Apply
       </Button>
-      {formState.errors.dollars && <span className="text-bad">{formState.errors.dollars.message}</span>}
+      {formState.errors.dollars && <span className="text-risk-ink">{formState.errors.dollars.message}</span>}
     </form>
   )
 }

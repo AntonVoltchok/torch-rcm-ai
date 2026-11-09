@@ -18,9 +18,12 @@
     "typecheck": "tsr generate && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "gen:api": "node scripts/gen-api.mjs"
+    "gen:api": "node scripts/gen-api.mjs",
+    "check:api": "node scripts/gen-api.mjs && git diff --exit-code -- src/api/generated.ts",
+    "test:contract": "node scripts/contract-real.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
     "@tanstack/react-query": "^5.80.0",
     "@tanstack/react-router": "^1.120.0",
     "@tanstack/react-table": "^8.21.3",
@@ -58,5 +61,6 @@
     "vite": "^6.3.5",
     "vitest": "^3.2.0"
   },
-  "msw": { "workerDirectory": ["public"] }
+  "msw": { "workerDirectory": ["public"] },
+  "pnpm": { "onlyBuiltDependencies": ["esbuild", "msw"] }
 }
