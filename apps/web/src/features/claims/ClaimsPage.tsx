@@ -8,7 +8,6 @@ import type { ClaimRow } from '@/api/schema'
 import { useClaimsList } from '@/hooks/useClaims'
 import { useListKeys } from '@/hooks/useListKeys'
 import { useStrip } from '@/hooks/useStrip'
-import { arTotals, openTotals } from '@/lib/strip'
 import { count, money } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { DataTable } from '@/components/DataTable'
@@ -54,7 +53,7 @@ export function ClaimsPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Claims"
-        sub={s ? `${count(openTotals(s).count)} open · ${money(arTotals(s).cents)} in A/R · ${count(s.paid_month_count)} paid in ${s.paid_month_label}` : undefined}
+        sub={s ? `${count(s.open_count)} open · ${money(s.ar_cents)} in A/R · ${count(s.paid_month_count)} paid in ${s.paid_month_label}` : undefined}
       />
       <SavedViews search={search} strip={s} />
       <ClaimsFilters />
@@ -63,7 +62,7 @@ export function ClaimsPage() {
       ) : list.isError ? (
         <QueryError error={list.error} what="claims" onRetry={() => void list.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState title="No claims match" action={<button type="button" className="font-semibold text-acc underline" onClick={() => void navigate({ search: {} })}>Clear filters</button>}>
+        <EmptyState title="No claims match" action={<button type="button" className="font-semibold text-act underline" onClick={() => void navigate({ search: {} })}>Clear filters</button>}>
           The filters are kept in the URL, so this link reproduces the empty result.
         </EmptyState>
       ) : (
