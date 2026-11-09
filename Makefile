@@ -38,7 +38,7 @@ tour-payloads: ## regenerate the onboarding tour's code panes (apps/web/src/feat
 
 lint:
 	cd $(API_DIR) && uv run ruff check . && uv run ruff format --check . && uv run mypy torch_rcm
-	cd $(WEB_DIR) && pnpm lint && pnpm typecheck
+	cd $(WEB_DIR) && pnpm lint && pnpm typecheck && pnpm format:check
 
 fmt:
 	cd $(API_DIR) && uv run ruff format . && uv run ruff check --fix .
