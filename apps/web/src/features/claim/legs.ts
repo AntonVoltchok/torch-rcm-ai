@@ -1,7 +1,7 @@
 /**
  * The claim's history as party legs (D1 "history as party lanes"). A view over the server's timeline: the
  * party of each entry is `TimelineEntry.who`, the holder now is `claim.move`, the ghost is the open item's
- * `lands`. Nothing here decides whose move it is. Plan: docs/plans/d1-build.md, "Phase 2 (claim/denials) notes".
+ * `lands`. Nothing here decides whose move it is. Decisions: docs/adr/0008-d1-dashboard.md, decision 8.
  */
 import type { ClaimDetail, MoveWho, TimelineEntry } from '@/api/schema'
 

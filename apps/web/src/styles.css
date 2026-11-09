@@ -4,7 +4,7 @@
 @import 'tailwindcss' source('../src');
 
 /*
- * D1 "Dashboard" tokens (docs/design/variations/round-2/variants/d1.js, docs/plans/d1-build.md decision 6).
+ * D1 "Dashboard" tokens (docs/design/variations/round-2/variants/d1.js, ADR-0008 decision 7).
  * The old names keep their roles with D1 values, so every feature restyles without edits:
  *   ink / mid / soft   text, strongest to quietest (D1 ink, ink2, ink3; all AA on white and on the canvas)
  *   line / light / fill / paper   soft border, neutral chip fill, sunk well, panel surface

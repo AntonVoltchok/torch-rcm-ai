@@ -3,7 +3,7 @@
  * soonest deadline first. Each row: the deadline, whose move (`claim.move`), the claim and its reason with the
  * root cause, what is billed and whether the patient can be billed if it is lost, and one destination: the claim.
  * J/K move the selected row (`?row=`), Enter opens it. The payer × reason panel is the prevention view.
- * Decisions: docs/plans/d1-build.md, "Phase 2 (claim/denials) notes".
+ * Decisions: docs/adr/0008-d1-dashboard.md, decision 8.
  */
 import { useEffect } from 'react'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
