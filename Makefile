@@ -1,4 +1,4 @@
-.PHONY: dev api web seed test test-api test-web e2e eval gen-api lint fmt clean
+.PHONY: dev api web seed test test-api test-web e2e eval gen-api tour-payloads lint fmt clean
 
 API_DIR=apps/api
 WEB_DIR=apps/web
@@ -32,6 +32,9 @@ eval: ## replay canonical scenario through deterministic + live(cassette) and co
 gen-api: ## regenerate the web client from the API's OpenAPI
 	cd $(API_DIR) && uv run torch openapi --out openapi.snapshot.json
 	cd $(WEB_DIR) && pnpm gen:api
+
+tour-payloads: ## regenerate the onboarding tour's code panes (apps/web/src/features/tour/payloads) from the code
+	cd $(API_DIR) && uv run python scripts/tour_payloads.py
 
 lint:
 	cd $(API_DIR) && uv run ruff check . && uv run ruff format --check . && uv run mypy torch_rcm
