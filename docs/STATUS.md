@@ -2,6 +2,18 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Signer, Castillo, Patients numbers, Approve flash (Opus 5.5)
+
+**State:** on `feat/d1-dashboard`, pushed to PR #1. Notes: `docs/adr/worker-notes/rt-fixes.md` (`rt-signer`, `rt-flash`).
+
+- **Signer:** one server function (`moves.signer`) names who signs: the treating dentist for clinical sign-offs (Dr. Lee for Ito and Morris; Morris's crown visit is now Dr. Lee's in the seed), the owner for owner-only acts (Diaz). Only that person or the owner may approve; others get 403. Inbox, waiting rows, signer notes, Denials and the claim panel agree (tested).
+- **Castillo:** track records are per situation (`Rule.situation_rates`): "86% · 6 of 7 paid within 30 days". The rule-wide record shows only on Rules and proposals.
+- **Approve:** the pane switches to the run at once ("Starting…"); a refusal returns to the item with the server's reason. Four tests that fail on the old code, plus a real-target e2e.
+- **Patients design:** Foster's numbers match the seed.
+- Checks on the merged tree: `make lint`, `make test` (651 API, 152 web), `make eval`, parity, MSW e2e 7/7 (1 real-only skipped), real-target `@demo` 4/4 on a throwaway stack.
+
+**Next:** `make seed`. Still open: Diaz as a tier-2 move to the patient; Morris as an administrative reconsideration; a note when the owner approves an associate's appeal; real cassettes.
+
 ## 2026-11-09 — Final red team: top five fixed (Opus 5.5)
 
 **State:** on `feat/d1-dashboard`, pushed to PR #1. The final red team (`docs/design/red-team/challenge-final-d1-2026-11-08.md`) rated realism 7/10; its top five are fixed (notes: `docs/adr/worker-notes/rt-fixes.md`).
