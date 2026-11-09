@@ -13,11 +13,22 @@ export async function step10b(page: Page) {
     const list = page.getByRole('table', { name: 'Denials worklist' })
     const formal = list.getByRole('rowgroup', { name: /Formal appeal/ })
     const ito = formal.locator('tr[data-claim-number="4796"]')
-    await expect(ito).toContainText('Formal appeal')
+    // D1: the path is the group's heading ("Next: formal appeal"), not a chip on each row.
+    await expect(formal.getByRole('rowheader')).toContainText('Next: formal appeal')
     await expect(ito).toContainText('Dr. Lee signs')
     await expect(ito).toContainText('patient authorization required (ERISA)')
     await expect(ito).toContainText('patient cannot be billed')
     await expect(page.getByRole('complementary', { name: 'Payer × reason' })).toBeVisible()
+    // D1 summary: the Denied tile's holders, one tick per claim.
+    await expect(page.getByTestId('denials-summary').getByRole('img')).toBeVisible()
+    // J/K select (in the URL), Enter opens the claim, Back to Denials returns to the same row.
+    await page.keyboard.press('j')
+    await expect(page).toHaveURL(/\/denials\?row=clm_/)
+    const selected = new URL(page.url()).searchParams.get('row') ?? ''
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(new RegExp(`/claims/${selected}\\?from=denials`))
+    await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: '‹ Denials' }).click()
+    await expect(page).toHaveURL(new RegExp(`/denials\\?row=${selected}`))
     await ito.getByRole('link', { name: 'Appeal workbench →' }).click()
     await expect(page).toHaveURL(/\/denials\/clm_4796/)
     await expect(page.getByText('Designed, not built in this demo.')).toBeVisible()
