@@ -20,7 +20,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { Baton, batonProps, PARTY_TEXT, partyWord } from '@/components/Baton'
 import { HolderTally } from '@/components/HolderTally'
 import { Code } from '@/features/claim/ClaimSections'
-import { daysUntil, deadlineVerb, ifWeLose, isPatientResp, payerReasonMatrix, REASONS, sortedRows, worklistOrder } from './selectors'
+import { daysUntil, deadlineVerb, ifWeLose, isPatientResp, sortedRows, worklistOrder } from './selectors'
 
 const route = getRouteApi('/denials/')
 
@@ -258,7 +258,7 @@ function PayerReason({ d }: { d: DenialsOut }) {
   const user = useCurrentUser()
   const cash = useCash({ enabled: user.role === 'owner' })
   const appeals = cash.data?.appeals_12mo
-  const m = payerReasonMatrix(d.groups.flatMap((g) => g.rows))
+  const m = d.matrix
   return (
     <aside aria-label="Payer × reason" className="panel self-start px-4 py-3.5 text-sm">
       <h2 className="m-0 text-base font-semibold">Payer × reason</h2>
@@ -267,9 +267,9 @@ function PayerReason({ d }: { d: DenialsOut }) {
         <thead>
           <tr className="text-soft">
             <th className="py-1 text-left font-medium" />
-            {REASONS.map((r) => (
-              <th key={r} className="px-1 py-1 text-right font-medium">
-                {r}
+            {m.columns.map((c) => (
+              <th key={c.key} className="px-1 py-1 text-right font-medium">
+                {c.label}
               </th>
             ))}
             <th className="px-1 py-1 text-right font-medium">All</th>
@@ -277,11 +277,11 @@ function PayerReason({ d }: { d: DenialsOut }) {
         </thead>
         <tbody>
           {m.payers.map((p) => (
-            <tr key={p.key} className="border-t border-line">
-              <th className="py-1 text-left font-medium">{p.name}</th>
-              {REASONS.map((r) => (
-                <td key={r} className="px-1 text-right">
-                  {p.cells[r] ?? ''}
+            <tr key={p.payer.key} className="border-t border-line">
+              <th className="py-1 text-left font-medium">{p.payer.short_name}</th>
+              {p.cells.map((c) => (
+                <td key={c.reason} className="px-1 text-right">
+                  {c.count || ''}
                 </td>
               ))}
               <td className="px-1 text-right font-semibold">{p.total}</td>
@@ -289,9 +289,9 @@ function PayerReason({ d }: { d: DenialsOut }) {
           ))}
           <tr className="border-t border-line-strong font-semibold">
             <th className="py-1 text-left">All</th>
-            {REASONS.map((r) => (
-              <td key={r} className="px-1 text-right">
-                {m.totals[r] ?? ''}
+            {m.totals.map((c) => (
+              <td key={c.reason} className="px-1 text-right">
+                {c.count || ''}
               </td>
             ))}
             <td className="px-1 text-right">{m.total}</td>

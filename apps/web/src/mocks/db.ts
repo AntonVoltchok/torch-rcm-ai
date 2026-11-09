@@ -96,6 +96,7 @@ import {
   buildWeek,
   CASH,
   coverageFor,
+  denialMatrix,
   ELIGIBILITY,
   NEXT_ACTION_LABEL,
   NEXT_ACTION_ORDER,
@@ -1674,7 +1675,8 @@ export class MockDb {
       const rows = (groups.get(k) ?? []).sort((a, b) => a.claim.number - b.claim.number)
       return rows.length ? [{ next_action: k, label: NEXT_ACTION_LABEL[k], count: rows.length, cents: rows.reduce((a, r) => a + r.claim.billed_cents, 0), rows }] : []
     })
-    return { groups: out, total: out.reduce((a, g) => a + g.count, 0), in_flight: inFlight }
+    const rows = out.flatMap((g) => g.rows)
+    return { groups: out, total: rows.length, in_flight: inFlight, matrix: denialMatrix(rows) }
   }
 
   // ── run engine ─────────────────────────────────────────────────────────────

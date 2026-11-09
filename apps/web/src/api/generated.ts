@@ -1067,8 +1067,31 @@ const DenialGroup = z
     rows: z.array(DenialRow),
   })
   .strict()
+const DenialReasonColumn = z
+  .object({ key: z.enum(['doc', 'freq', 'cob', 'tf', 'med_nec', 'other']), label: z.string() })
+  .strict()
+const DenialMatrixCell = z
+  .object({ reason: z.enum(['doc', 'freq', 'cob', 'tf', 'med_nec', 'other']), count: z.number().int() })
+  .strict()
+const DenialMatrixRow = z
+  .object({ payer: PayerRef, cells: z.array(DenialMatrixCell), total: z.number().int() })
+  .strict()
+const DenialMatrix = z
+  .object({
+    columns: z.array(DenialReasonColumn),
+    payers: z.array(DenialMatrixRow),
+    totals: z.array(DenialMatrixCell),
+    total: z.number().int(),
+    excluded: z.number().int(),
+  })
+  .strict()
 const DenialsOut = z
-  .object({ groups: z.array(DenialGroup), total: z.number().int(), in_flight: z.array(ClaimSummary) })
+  .object({
+    groups: z.array(DenialGroup),
+    total: z.number().int(),
+    in_flight: z.array(ClaimSummary),
+    matrix: DenialMatrix,
+  })
   .strict()
 const RemitKind = z.enum(['835', 'paper_eob'])
 const DepositStatus = z.enum(['deposited', 'expected', 'not_deposited'])
@@ -1362,6 +1385,10 @@ export const schemas = {
   NextAction,
   DenialRow,
   DenialGroup,
+  DenialReasonColumn,
+  DenialMatrixCell,
+  DenialMatrixRow,
+  DenialMatrix,
   DenialsOut,
   RemitKind,
   DepositStatus,

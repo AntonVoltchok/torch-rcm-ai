@@ -60,7 +60,7 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 - `GET /activity?day&agent&outcome` → run log rows including `would_have_run`.
 - `GET /eligibility?date` → appointments with status; `GET /eligibility/{appointment_id}` → benefits panel.
 - `GET /cash?location_id` → KPIs `{value, formula, basis}`, aging, by payer, by provider, write-offs by type, agent impact `{items_auto, hours_saved_est {value, basis}}`.
-- `GET /denials` → worklist grouped by next action (reconsideration | corrected | formal_appeal | bill_patient_link | write_off).
+- `GET /denials` → worklist grouped by next action (reconsideration | corrected | formal_appeal | bill_patient_link | write_off), plus `matrix`: the rows counted by payer × reason class (Doc, Freq, COB, TF, Med. nec., Other; one cell per column, zeros included). Plan limits (PR-*) are left out and counted in `excluded`, so `matrix.total + matrix.excluded == total`.
 - `GET /remittances` / `GET /remittances/{id}` · `GET /patients/balances` (read-only in demo).
 
 ## Mock world (demo admin, hidden behind `/api/v1/_world`)

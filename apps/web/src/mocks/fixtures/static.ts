@@ -11,6 +11,9 @@ import type {
   BenefitsPanel,
   CashSummary,
   Deadline,
+  DenialMatrix,
+  DenialReason,
+  DenialReasonColumn,
   EligibilityRow,
   NextAction,
   PayerKey,
@@ -489,6 +492,43 @@ export function routeDenial(carc: string, rarc: string | null | undefined, payer
 
 /** CO = contractual obligation: the practice cannot bill the patient if the appeal is lost; PR can be. */
 export const patientBillableIfLost = (carc: string, payer: PayerKey) => carc.startsWith('PR') && payer !== 'ny_medicaid'
+
+/** Payer × reason columns, as the API's `screens.DENIAL_REASONS`. Plan limits (PR-*) get no column. */
+const DENIAL_REASONS: readonly DenialReasonColumn[] = [
+  { key: 'doc', label: 'Doc' },
+  { key: 'freq', label: 'Freq' },
+  { key: 'cob', label: 'COB' },
+  { key: 'tf', label: 'TF' },
+  { key: 'med_nec', label: 'Med. nec.' },
+  { key: 'other', label: 'Other' },
+]
+const CARC_REASON: Record<string, DenialReason> = { 'CO-16': 'doc', 'CO-119': 'freq', 'CO-22': 'cob', 'CO-29': 'tf', 'CO-50': 'med_nec' }
+
+/** GET /denials `matrix`: the worklist rows by payer × reason, as the API's `screens.denial_matrix`. */
+export function denialMatrix(rows: readonly { carc: string; claim: { payer: PayerRef } }[]): DenialMatrix {
+  const keys = DENIAL_REASONS.map((c) => c.key)
+  const byPayer = new Map<PayerKey, { payer: PayerRef; counts: Map<DenialReason, number> }>()
+  const totals = new Map<DenialReason, number>()
+  let excluded = 0
+  for (const r of rows) {
+    if (r.carc.startsWith('PR-')) {
+      excluded++
+      continue
+    }
+    const reason = CARC_REASON[r.carc] ?? 'other'
+    const p = byPayer.get(r.claim.payer.key) ?? { payer: r.claim.payer, counts: new Map() }
+    p.counts.set(reason, (p.counts.get(reason) ?? 0) + 1)
+    byPayer.set(r.claim.payer.key, p)
+    totals.set(reason, (totals.get(reason) ?? 0) + 1)
+  }
+  const payers = [...byPayer.values()].map(({ payer, counts }) => {
+    const cells = keys.map((k) => ({ reason: k, count: counts.get(k) ?? 0 }))
+    return { payer, cells, total: cells.reduce((a, c) => a + c.count, 0) }
+  })
+  payers.sort((a, b) => b.total - a.total || (a.payer.short_name < b.payer.short_name ? -1 : a.payer.short_name > b.payer.short_name ? 1 : 0))
+  const totalCells = keys.map((k) => ({ reason: k, count: totals.get(k) ?? 0 }))
+  return { columns: [...DENIAL_REASONS], payers, totals: totalCells, total: totalCells.reduce((a, c) => a + c.count, 0), excluded }
+}
 
 /** Self-funded (ERISA) plans among the pinned claims' coverages. */
 export const SELF_FUNDED_CLAIMS = new Set(['clm_4796', 'clm_4797', 'clm_4800'])

@@ -1,5 +1,5 @@
-"""Every total the web shows on Today's claims, Claims, Eligibility, Activity and Settings equals the rows it summarises
-(d1-api-4: the browser adds nothing). One test per total, over HTTP so the snapshot is the one the screen gets."""
+"""Every total the web shows on Today's claims, Claims, Eligibility, Activity, Settings and Denials equals the rows it
+summarises (d1-api-4, d1-final: the browser adds nothing). One test per total, over HTTP so the snapshot is the one the screen gets."""
 
 from __future__ import annotations
 
@@ -217,3 +217,44 @@ def test_digest_is_this_weeks(client: TestClient) -> None:
     week = [c for c in out["items"] if day(c["at"]) >= monday]
     assert d["items_run"] == sum(c["items_affected_since"] for c in week)
     assert (d["changes"], d["items_run"], d["awaiting_signoff"]) == (2, 2, 0)
+
+
+# ── Denials ────────────────────────────────────────────────────────────────────────────────────────────────
+
+_REASON = {"CO-16": "doc", "CO-119": "freq", "CO-22": "cob", "CO-29": "tf", "CO-50": "med_nec"}
+
+
+@pytest.mark.parametrize("headers", [DANA, MORGAN])
+def test_denials_matrix_equals_the_rows(client: TestClient, headers: dict[str, str]) -> None:
+    out = get(client, "/denials", headers=headers)
+    m = out["matrix"]
+    rows = [r for g in out["groups"] for r in g["rows"]]
+    keys = [c["key"] for c in m["columns"]]
+    assert keys == ["doc", "freq", "cob", "tf", "med_nec", "other"]
+    want: Counter[tuple[str, str]] = Counter()
+    for r in rows:
+        if not r["carc"].startswith("PR-"):
+            want[(r["claim"]["payer"]["key"], _REASON.get(r["carc"], "other"))] += 1
+    got: Counter[tuple[str, str]] = Counter()
+    for p in m["payers"]:
+        assert [c["reason"] for c in p["cells"]] == keys
+        assert p["total"] == sum(c["count"] for c in p["cells"]) > 0
+        for c in p["cells"]:
+            if c["count"]:
+                got[(p["payer"]["key"], c["reason"])] += c["count"]
+    assert got == want
+    assert [c["reason"] for c in m["totals"]] == keys
+    for c in m["totals"]:
+        assert c["count"] == sum(n for (_, k), n in want.items() if k == c["reason"])
+    assert m["total"] == sum(want.values()) == sum(p["total"] for p in m["payers"])
+    assert m["excluded"] == sum(1 for r in rows if r["carc"].startswith("PR-"))
+    assert m["total"] + m["excluded"] == out["total"] == len(rows)
+    order = [(-p["total"], p["payer"]["short_name"]) for p in m["payers"]]
+    assert order == sorted(order)
+
+
+def test_denials_matrix_on_the_seed(client: TestClient) -> None:
+    m = get(client, "/denials")["matrix"]
+    delta = next(p for p in m["payers"] if p["payer"]["key"] == "delta_ny")
+    assert {c["reason"]: c["count"] for c in delta["cells"] if c["count"]} == {"doc": 3, "freq": 1}
+    assert m["excluded"] == 1  # #4611 PR-119, annual maximum met

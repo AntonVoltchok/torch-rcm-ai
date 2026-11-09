@@ -55,6 +55,10 @@ function withStandIn(db: MockDb, moves: typeof parity.seed.moves) {
 }
 
 describe('mock ↔ API parity on the canonical seed', () => {
+  it('the Denials payer × reason matrix', () => {
+    expect(setup().denials('usr_dana').matrix).toEqual(parity.seed.denials_matrix)
+  })
+
   it('whose move on every claim both sides have', () => {
     const { mock, api } = shared(setup(), parity.seed.claims)
     expect(Object.keys(mock).length).toBeGreaterThan(25)

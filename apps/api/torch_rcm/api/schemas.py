@@ -876,10 +876,43 @@ class DenialGroup(Schema):
     rows: list[DenialRow]
 
 
+DenialReason = Literal["doc", "freq", "cob", "tf", "med_nec", "other"]
+
+
+class DenialReasonColumn(Schema):
+    key: DenialReason
+    label: str
+
+
+class DenialMatrixCell(Schema):
+    reason: DenialReason
+    count: int
+
+
+class DenialMatrixRow(Schema):
+    payer: PayerRef
+    cells: list[DenialMatrixCell]
+    """One cell per column, in column order, zeros included."""
+    total: int
+
+
+class DenialMatrix(Schema):
+    """The worklist's rows counted by payer × reason class. Plan limits (PR-*: max met, alternate benefit) are not
+    denials of care, so they are left out and counted in `excluded`. `total + excluded == DenialsOut.total`."""
+
+    columns: list[DenialReasonColumn]
+    payers: list[DenialMatrixRow]
+    """Most denials first, then payer short name."""
+    totals: list[DenialMatrixCell]
+    total: int
+    excluded: int
+
+
 class DenialsOut(Schema):
     groups: list[DenialGroup]
     total: int
     in_flight: list[ClaimSummary]
+    matrix: DenialMatrix
 
 
 class RemittanceList(Schema):

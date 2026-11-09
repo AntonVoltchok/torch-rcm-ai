@@ -16,6 +16,7 @@ from typing import Any
 from torch_rcm.agents.config import AgentConfig
 from torch_rcm.agents.handlers import register
 from torch_rcm.api.services import inbox as inbox_svc
+from torch_rcm.api.services import screens
 from torch_rcm.api.services.context import Ctx
 from torch_rcm.domain.entities import Claim, Run
 from torch_rcm.readmodels.claims import is_open, strip, summarize
@@ -51,6 +52,7 @@ def _claims(s: Snapshot, numbers: set[int] | None = None) -> dict[str, dict[str,
 
 def build(rt: Runtime, registry: Registry) -> dict[str, Any]:
     seed = Snapshot.from_store(rt.store, rt.clock.now())
+    ctx = Ctx.for_user(rt, DANA)
     inbox = list_inbox(seed, DANA, group=True)
     morgan = {i.id: i for i in list_inbox(seed, "usr_morgan").items}
     words = ("action_label", "touches", "lands", "signer_note", "headline", "learnable", "confidence")
@@ -72,9 +74,9 @@ def build(rt: Runtime, registry: Registry) -> dict[str, Any]:
                 g.group_key: g.model_dump(mode="json", include={"action_label", "touches", "headline"})
                 for g in inbox.groups or []
             },
+            "denials_matrix": screens.denials(ctx).matrix.model_dump(mode="json"),
         }
     }
-    ctx = Ctx.for_user(rt, DANA)
     group = inbox_svc.approve_group(ctx, GROUP)
     after = Snapshot.from_store(rt.store, rt.clock.now())
     numbers = {int(i.claim.number) for i in group.items if i.claim}

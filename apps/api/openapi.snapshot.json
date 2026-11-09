@@ -5541,6 +5541,130 @@
         ],
         "title": "DenialGroup"
       },
+      "DenialMatrix": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/DenialReasonColumn"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "payers": {
+            "items": {
+              "$ref": "#/components/schemas/DenialMatrixRow"
+            },
+            "type": "array",
+            "title": "Payers"
+          },
+          "totals": {
+            "items": {
+              "$ref": "#/components/schemas/DenialMatrixCell"
+            },
+            "type": "array",
+            "title": "Totals"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "excluded": {
+            "type": "integer",
+            "title": "Excluded"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "columns",
+          "payers",
+          "totals",
+          "total",
+          "excluded"
+        ],
+        "title": "DenialMatrix",
+        "description": "The worklist's rows counted by payer \u00d7 reason class. Plan limits (PR-*: max met, alternate benefit) are not\ndenials of care, so they are left out and counted in `excluded`. `total + excluded == DenialsOut.total`."
+      },
+      "DenialMatrixCell": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "doc",
+              "freq",
+              "cob",
+              "tf",
+              "med_nec",
+              "other"
+            ],
+            "title": "Reason"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason",
+          "count"
+        ],
+        "title": "DenialMatrixCell"
+      },
+      "DenialMatrixRow": {
+        "properties": {
+          "payer": {
+            "$ref": "#/components/schemas/PayerRef"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/DenialMatrixCell"
+            },
+            "type": "array",
+            "title": "Cells"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "payer",
+          "cells",
+          "total"
+        ],
+        "title": "DenialMatrixRow"
+      },
+      "DenialReasonColumn": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "doc",
+              "freq",
+              "cob",
+              "tf",
+              "med_nec",
+              "other"
+            ],
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "DenialReasonColumn"
+      },
       "DenialRow": {
         "properties": {
           "claim": {
@@ -5660,6 +5784,9 @@
             },
             "type": "array",
             "title": "In Flight"
+          },
+          "matrix": {
+            "$ref": "#/components/schemas/DenialMatrix"
           }
         },
         "additionalProperties": false,
@@ -5667,7 +5794,8 @@
         "required": [
           "groups",
           "total",
-          "in_flight"
+          "in_flight",
+          "matrix"
         ],
         "title": "DenialsOut"
       },

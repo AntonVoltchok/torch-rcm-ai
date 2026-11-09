@@ -1,5 +1,5 @@
 /** Denials worklist view logic over GET /denials (rows already routed by the server's route_denial). */
-import type { DenialRow, DenialsOut, NextAction, PayerKey, Tier } from '@/api/schema'
+import type { DenialRow, DenialsOut, NextAction, Tier } from '@/api/schema'
 
 /** The path chip and its tier: reconsideration is a portal action without a signature; a formal appeal commits the practice. */
 export const PATH: Record<NextAction, { label: string; tier: Tier }> = {
@@ -32,47 +32,6 @@ export function deadlineLabel(r: DenialRow, today: string): { text: string; days
   if (d.kind === 'none' || !d.due_on) return { text: d.basis || 'no deadline', days: null }
   const days = daysUntil(d.due_on, today)
   return { text: `${d.kind === 'timely_filing' ? 'timely' : 'appeal'} · ${days} d`, days }
-}
-
-/** Reason classes for the payer × reason matrix; plan limits (max met, alternate benefit) are not denials of care. */
-export const REASONS = ['Doc', 'Freq', 'COB', 'TF', 'Med. nec.', 'Other'] as const
-export type ReasonClass = (typeof REASONS)[number] | 'plan_limit'
-export function reasonClass(carc: string): ReasonClass {
-  if (carc === 'CO-16') return 'Doc'
-  if (carc === 'CO-119') return 'Freq'
-  if (carc === 'CO-22') return 'COB'
-  if (carc === 'CO-29') return 'TF'
-  if (carc === 'CO-50') return 'Med. nec.'
-  if (carc.startsWith('PR-')) return 'plan_limit'
-  return 'Other'
-}
-
-export interface Matrix {
-  payers: { key: PayerKey; name: string; cells: Record<string, number>; total: number }[]
-  totals: Record<string, number>
-  total: number
-  excluded: number
-}
-
-/** Counts of the worklist's rows by payer × reason (a selector over server rows, never a stored count). */
-export function payerReasonMatrix(rows: DenialRow[]): Matrix {
-  const by = new Map<PayerKey, { key: PayerKey; name: string; cells: Record<string, number>; total: number }>()
-  const totals: Record<string, number> = {}
-  let excluded = 0
-  for (const r of rows) {
-    const cls = reasonClass(r.carc)
-    if (cls === 'plan_limit') {
-      excluded++
-      continue
-    }
-    const p = by.get(r.claim.payer.key) ?? { key: r.claim.payer.key, name: r.claim.payer.short_name, cells: {}, total: 0 }
-    p.cells[cls] = (p.cells[cls] ?? 0) + 1
-    p.total++
-    totals[cls] = (totals[cls] ?? 0) + 1
-    by.set(r.claim.payer.key, p)
-  }
-  const payers = [...by.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
-  return { payers, totals, total: payers.reduce((a, p) => a + p.total, 0), excluded }
 }
 
 /** Whole days from the practice's today to a due date, both read at noon UTC so no timezone moves a day. */

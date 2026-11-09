@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, timedelta
 
@@ -11,6 +12,11 @@ from torch_rcm.api.schemas import (
     BenefitsPanel,
     CashOut,
     DenialGroup,
+    DenialMatrix,
+    DenialMatrixCell,
+    DenialMatrixRow,
+    DenialReason,
+    DenialReasonColumn,
     DenialRow,
     DenialsOut,
     EligibilityDay,
@@ -26,6 +32,7 @@ from torch_rcm.api.schemas import (
     NotBillableRow,
     PatientBalanceRow,
     PatientBalances,
+    PayerRef,
     RemittanceList,
     Strip,
 )
@@ -413,7 +420,65 @@ def denials(ctx: Ctx) -> DenialsOut:
         )
         for k, rows in sorted(groups.items(), key=lambda kv: list(NextAction).index(kv[0]))
     ]
-    return DenialsOut(groups=out, total=sum(g.count for g in out), in_flight=in_flight)
+    rows = [r for g in out for r in g.rows]
+    return DenialsOut(groups=out, total=len(rows), in_flight=in_flight, matrix=denial_matrix(rows))
+
+
+#: Payer × reason columns, in screen order. Plan limits (PR-*) are not denials of care and get no column.
+DENIAL_REASONS: tuple[tuple[DenialReason, str], ...] = (
+    ("doc", "Doc"),
+    ("freq", "Freq"),
+    ("cob", "COB"),
+    ("tf", "TF"),
+    ("med_nec", "Med. nec."),
+    ("other", "Other"),
+)
+_CARC_REASON: dict[str, DenialReason] = {
+    "CO-16": "doc",
+    "CO-119": "freq",
+    "CO-22": "cob",
+    "CO-29": "tf",
+    "CO-50": "med_nec",
+}
+
+
+def denial_reason(carc: str) -> DenialReason | None:
+    """The matrix column for a CARC; None for a plan limit (PR-*), which the matrix leaves out."""
+    if carc.startswith("PR-"):
+        return None
+    return _CARC_REASON.get(carc, "other")
+
+
+def denial_matrix(rows: list[DenialRow]) -> DenialMatrix:
+    """Count the worklist rows by payer × reason (the Denials side panel; the browser adds nothing)."""
+    keys = [k for k, _ in DENIAL_REASONS]
+    by_payer: dict[str, tuple[PayerRef, Counter[DenialReason]]] = {}
+    totals: Counter[DenialReason] = Counter()
+    excluded = 0
+    for r in rows:
+        reason = denial_reason(r.carc)
+        if reason is None:
+            excluded += 1
+            continue
+        payer = r.claim.payer
+        by_payer.setdefault(payer.key, (payer, Counter()))[1][reason] += 1
+        totals[reason] += 1
+    payers = [
+        DenialMatrixRow(
+            payer=payer,
+            cells=[DenialMatrixCell(reason=k, count=counts[k]) for k in keys],
+            total=sum(counts.values()),
+        )
+        for payer, counts in by_payer.values()
+    ]
+    payers.sort(key=lambda p: (-p.total, p.payer.short_name))
+    return DenialMatrix(
+        columns=[DenialReasonColumn(key=k, label=label) for k, label in DENIAL_REASONS],
+        payers=payers,
+        totals=[DenialMatrixCell(reason=k, count=totals[k]) for k in keys],
+        total=sum(totals.values()),
+        excluded=excluded,
+    )
 
 
 # ── Remittances, patient balances ──────────────────────────────────────────────────────────────────────────

@@ -39,6 +39,10 @@ export const {
   Deadline,
   Denial,
   DenialGroup,
+  DenialMatrix,
+  DenialMatrixCell,
+  DenialMatrixRow,
+  DenialReasonColumn,
   DenialRow,
   DenialsOut,
   EligibilityOut,
@@ -160,6 +164,11 @@ export type CoverageOut = z.infer<typeof CoverageOut>
 export type Deadline = z.infer<typeof Deadline>
 export type Denial = z.infer<typeof Denial>
 export type DenialGroup = z.infer<typeof DenialGroup>
+export type DenialMatrix = z.infer<typeof DenialMatrix>
+export type DenialMatrixCell = z.infer<typeof DenialMatrixCell>
+export type DenialMatrixRow = z.infer<typeof DenialMatrixRow>
+export type DenialReasonColumn = z.infer<typeof DenialReasonColumn>
+export type DenialReason = DenialReasonColumn['key']
 export type DenialRow = z.infer<typeof DenialRow>
 export type DenialsOut = z.infer<typeof DenialsOut>
 export type EligibilityOut = z.infer<typeof EligibilityOut>

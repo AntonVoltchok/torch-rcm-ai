@@ -1013,6 +1013,98 @@
     "who": "payer"
    }
   },
+  "denials_matrix": {
+   "columns": [
+    {
+     "key": "doc",
+     "label": "Doc"
+    },
+    {
+     "key": "freq",
+     "label": "Freq"
+    },
+    {
+     "key": "cob",
+     "label": "COB"
+    },
+    {
+     "key": "tf",
+     "label": "TF"
+    },
+    {
+     "key": "med_nec",
+     "label": "Med. nec."
+    },
+    {
+     "key": "other",
+     "label": "Other"
+    }
+   ],
+   "excluded": 1,
+   "payers": [
+    {
+     "cells": [
+      {
+       "count": 3,
+       "reason": "doc"
+      },
+      {
+       "count": 1,
+       "reason": "freq"
+      },
+      {
+       "count": 0,
+       "reason": "cob"
+      },
+      {
+       "count": 0,
+       "reason": "tf"
+      },
+      {
+       "count": 0,
+       "reason": "med_nec"
+      },
+      {
+       "count": 0,
+       "reason": "other"
+      }
+     ],
+     "payer": {
+      "key": "delta_ny",
+      "name": "Delta Dental of New York",
+      "short_name": "Delta"
+     },
+     "total": 4
+    }
+   ],
+   "total": 4,
+   "totals": [
+    {
+     "count": 3,
+     "reason": "doc"
+    },
+    {
+     "count": 1,
+     "reason": "freq"
+    },
+    {
+     "count": 0,
+     "reason": "cob"
+    },
+    {
+     "count": 0,
+     "reason": "tf"
+    },
+    {
+     "count": 0,
+     "reason": "med_nec"
+    },
+    {
+     "count": 0,
+     "reason": "other"
+    }
+   ]
+  },
   "filed_since_remit": [
    4733,
    4821,
