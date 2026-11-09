@@ -334,6 +334,8 @@ class Builder:
 
     def send(self, claim: Claim, file_time: datetime, *, payer_ack: datetime | None, icn: str | None) -> None:
         """The standard ack trail: the claim leaves in a file, 999 accepted, Vyne 277CA A1, payer 277CA A1."""
+        built = claim.built_at
+        assert file_time >= built, f"#{claim.number} leaves in the {file_time:%m/%d %H:%M} file before it is built"
         claim.sent_at = file_time
         claim.file_time = file_time
         self.ack(claim, AckStage.FILE_999_OK, file_time + timedelta(minutes=2), "999 accepted (file level)")

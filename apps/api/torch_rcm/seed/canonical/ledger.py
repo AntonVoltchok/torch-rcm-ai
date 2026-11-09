@@ -244,7 +244,7 @@ class LedgerBuilder:
         for (number, cdt, tooth, dos, carc, memo, closed_on), cov in zip(rows, coverages[40:42], strict=True):
             visit, procs = b.visit(patients[cov.patient_id], dos, "prv_morgan", [(cdt, tooth)], at="10:00")
             claim = b.claim(number, visit, procs, cov, S.DENIED, closed_reason=ClosedReason.WRITE_OFF)
-            b.send(claim, dt(dos, "10:45"), payer_ack=dt(dos + timedelta(days=1), "06:40"), icn=f"WO{number}")
+            b.send(claim, dt(dos, "11:15"), payer_ack=dt(dos + timedelta(days=1), "06:40"), icn=f"WO{number}")
             claim.denial = Denial(carc=carc, rarc=None, decoded=memo, root_cause=RootCause.PAYER)
             claim.writeoff_cents = claim.billed_cents
             claim.paid_cents = 0

@@ -260,7 +260,7 @@ class PinnedBuilder:
             S.DENIED,
             at="14:00",
         )
-        self.sent(diaz, dt(date(2026, 8, 7), "14:45"), dt(date(2026, 8, 10), "06:31"), "26222-018840")
+        self.sent(diaz, dt(date(2026, 8, 7), "15:15"), dt(date(2026, 8, 10), "06:31"), "26222-018840")
         _, diaz_cov = self.pc("diaz_r")
         r2 = b.adjudicate(diaz, diaz_cov)
         self.adjudicated(diaz, r2, dt(date(2026, 10, 22), "05:35"))
@@ -630,7 +630,7 @@ class PinnedBuilder:
             at="11:00",
         )
         castillo.lines[0].surface, castillo.lines[1].surface = "LR", "LL"
-        self.sent(castillo, dt(date(2026, 10, 9), "11:45"), dt(date(2026, 10, 12), "06:49"), "GD2610120944")
+        self.sent(castillo, dt(date(2026, 10, 9), "12:15"), dt(date(2026, 10, 12), "06:49"), "GD2610120944")
         self.payer_claim(castillo, date(2026, 10, 12), date(2026, 10, 29), outcome="CO-16:M127")
         fmx = b.image(self.pc("castillo_a")[0], "fmx", None, dt(date(2026, 10, 9), "11:10"), "D0210")
         b.image(self.pc("castillo_a")[0], "perio_chart", None, dt(date(2026, 10, 9), "11:20"), None)
@@ -639,7 +639,7 @@ class PinnedBuilder:
         b.attach(
             castillo,
             AttachmentKind.FMX,
-            dt(date(2026, 10, 9), "11:40"),
+            dt(date(2026, 10, 9), "11:55"),
             nea="26-4469307",
             source=AttachmentSource.AGENT,
             image_id=fmx.id,
@@ -666,7 +666,7 @@ class PinnedBuilder:
             S.PENDING,
             at="14:00",
         )
-        self.sent(moreno, dt(date(2026, 10, 13), "14:45"), dt(date(2026, 10, 14), "06:55"), "AE2610140552")
+        self.sent(moreno, dt(date(2026, 10, 13), "15:15"), dt(date(2026, 10, 14), "06:55"), "AE2610140552")
         self.payer_claim(moreno, date(2026, 10, 14), date(2026, 10, 29), outcome="CO-22")
 
         hale = self.make(
@@ -707,7 +707,7 @@ class PinnedBuilder:
         b.visit(kim_s, date(2025, 11, 3), PRV_MORGAN, [("D0274", None)], at="10:00", note="4BWX.")
         b.visit(kim_s, date(2026, 5, 2), PRV_MORGAN, [("D1110", None)], at="10:00", note="Prophy.")
         nak = self.make(4709, "nakamura_r", date(2026, 9, 4), [("D2950", "3"), ("D2740", "3")], S.PENDING, at="13:00")
-        self.sent(nak, dt(date(2026, 9, 4), "13:45"), dt(date(2026, 9, 8), "06:44"), "CG2609080381")
+        self.sent(nak, dt(date(2026, 9, 4), "14:15"), dt(date(2026, 9, 8), "06:44"), "CG2609080381")
         nak.reason_text = "in review with consultant"
         self.payer_claim(
             nak,
@@ -719,7 +719,7 @@ class PinnedBuilder:
         obrien = self.make(
             4731, "obrien_t", date(2026, 9, 11), [("D7210", "17")], S.PENDING, provider=PRV_LEE, at="10:00"
         )
-        self.sent(obrien, dt(date(2026, 9, 11), "10:45"), dt(date(2026, 9, 14), "06:52"), "GD2609140717")
+        self.sent(obrien, dt(date(2026, 9, 11), "11:15"), dt(date(2026, 9, 14), "06:52"), "GD2609140717")
         obrien.reason_text = "adjusted per portal · no 835"
         self.payer_claim(
             obrien,
@@ -738,7 +738,7 @@ class PinnedBuilder:
         )
         original = b.claim(4768, visit, procs, kaur_cov, S.REJECTED, closed_reason=ClosedReason.SUPERSEDED)
         original.lines[0].tooth = "2"
-        self.sent(original, dt(date(2026, 10, 5), "10:45"), None, None)
+        self.sent(original, dt(date(2026, 10, 5), "11:15"), None, None)
         original.closed_at = dt(date(2026, 10, 20), "09:10")
         corrected = b.claim(4795, visit, procs, kaur_cov, S.PARTIAL, parent_claim_id=original.id, frequency_code=7)
         self.out.claims[4768], self.out.claims[4795] = original, corrected
@@ -749,7 +749,7 @@ class PinnedBuilder:
         corrected.reason_text = "D0220 CO-119 · frequency"
 
         osei = self.make(4748, "osei_l", date(2026, 10, 20), [("D2392", "14", "DO")], S.PAID)
-        self.sent(osei, dt(date(2026, 10, 20), "10:45"), dt(date(2026, 10, 21), "06:41"), "AE2610210140")
+        self.sent(osei, dt(date(2026, 10, 20), "11:15"), dt(date(2026, 10, 21), "06:41"), "AE2610210140")
         _, osei_cov = self.pc("osei_l")
         ro = b.adjudicate(osei, osei_cov)
         assert ro.lines[0].patient_adj[0].code == "186" and ro.lines[0].patient_adj[0].cents == 3_800
@@ -760,7 +760,7 @@ class PinnedBuilder:
         )
 
         duarte = self.make(4790, "duarte_m", date(2026, 10, 7), [("D2392", "19", "MO")], S.PAID, at="11:00")
-        self.sent(duarte, dt(date(2026, 10, 7), "11:45"), dt(date(2026, 10, 8), "06:40"), "CG2610080219")
+        self.sent(duarte, dt(date(2026, 10, 7), "12:15"), dt(date(2026, 10, 8), "06:40"), "CG2610080219")
         _, duarte_cov = self.pc("duarte_m")
         rd = b.adjudicate(duarte, duarte_cov)
         self.adjudicated(duarte, rd, dt(date(2026, 10, 21), "06:05"))
@@ -792,7 +792,7 @@ class PinnedBuilder:
         self.adjudicated(secondary, rs, dt(date(2026, 10, 28), "06:20"))
 
         foster = self.make(4772, "foster_d", date(2026, 10, 16), [("D2392", "19", "MO")], S.PARTIAL, at="14:00")
-        self.sent(foster, dt(date(2026, 10, 16), "14:45"), dt(date(2026, 10, 19), "06:44"), "CG2610190302")
+        self.sent(foster, dt(date(2026, 10, 16), "15:15"), dt(date(2026, 10, 19), "06:44"), "CG2610190302")
         _, foster_cov = self.pc("foster_d")
         rf = b.adjudicate(foster, foster_cov, outcome="PR-1=3200")
         assert rf.status is S.PARTIAL and rf.paid == 10_880
@@ -865,7 +865,7 @@ class PinnedBuilder:
             )
             claim = b.claim(number, visit, procs, cov, S.PAID)
             self.out.claims[number] = claim
-            self.sent(claim, dt(dos, "10:45"), dt(dos + timedelta(days=1), "06:42"), f"CG{dos:%y%m%d}{number}")
+            self.sent(claim, dt(dos, "11:15"), dt(dos + timedelta(days=1), "06:42"), f"CG{dos:%y%m%d}{number}")
             result = b.adjudicate(claim, cov)
             self.adjudicated(claim, result, dt(date(2026, 10, 28), "06:20"))
             items.append((claim, result))
@@ -934,7 +934,7 @@ class PinnedBuilder:
             visit, procs = b.visit(patient, dos, PRV_MORGAN, lines, at="10:00")
             claim = b.claim(number, visit, procs, cov, S.PAID)
             self.out.claims[number] = claim
-            self.sent(claim, dt(dos, "10:45"), dt(dos + timedelta(days=1), "06:51"), f"GD{dos:%y%m%d}{number}")
+            self.sent(claim, dt(dos, "11:15"), dt(dos + timedelta(days=1), "06:51"), f"GD{dos:%y%m%d}{number}")
             result = b.adjudicate(claim, cov)
             self.adjudicated(claim, result, dt(date(2026, 10, 27), "11:30"))
             paper.append((claim, result))

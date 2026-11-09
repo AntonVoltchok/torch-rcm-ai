@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 
 import pytest
 
@@ -19,7 +20,7 @@ from torch_rcm.domain.entities import (
     User,
     WorldCallLog,
 )
-from torch_rcm.domain.enums import ClaimStatus, MoveWho, Role
+from torch_rcm.domain.enums import AckStage, AttachmentSource, ClaimStatus, MoveWho, Role
 from torch_rcm.readmodels.claims import is_open, strip, summarize
 from torch_rcm.readmodels.snapshot import Snapshot
 from torch_rcm.runtime import Runtime
@@ -86,6 +87,36 @@ def test_every_claim_is_built_at_checkout_after_its_visit(canonical: Snapshot) -
         if (v := canonical.visits.get(c.visit_id or "")) is not None and c.built_at < v.completed_at
     ]
     assert early == []
+
+
+def test_every_claim_happens_in_order_visit_built_sent_acked_remitted(canonical: Snapshot) -> None:
+    """visit completed ≤ built ≤ sent ≤ acks ≤ remitted, for every claim in the seed. A resent claim (#4860, the
+    first file rejected at Vyne) keeps its first acks before `sent_at`, so the newest 999 is what follows the send."""
+    remitted: dict[str, list[datetime]] = {}
+    for r in canonical.of(Remittance):
+        for line in r.lines:
+            if line.claim_id:
+                remitted.setdefault(line.claim_id, []).append(r.received_at)
+    out: list[str] = []
+    for c in canonical.claims.values():
+        v = canonical.visits.get(c.visit_id or "")
+        acks = sorted(a.at for a in canonical.acks_by_claim.get(c.id, []))
+        files = sorted(a.at for a in canonical.acks_by_claim.get(c.id, []) if a.stage is AckStage.FILE_999_OK)
+        if v is not None and c.built_at < v.completed_at:
+            out.append(f"#{c.number} built before the visit completed")
+        if c.sent_at is not None and c.sent_at < c.built_at:
+            out.append(f"#{c.number} sent {c.sent_at:%m/%d %H:%M} before it was built {c.built_at:%H:%M}")
+        if acks and (c.sent_at is None or acks[0] < c.built_at):
+            out.append(f"#{c.number} acked {acks[0]:%m/%d %H:%M} before it was built or sent")
+        if files and c.sent_at is not None and files[-1] < c.sent_at:
+            out.append(f"#{c.number} last 999 at {files[-1]:%H:%M} precedes the send at {c.sent_at:%H:%M}")
+        for at in [*remitted.get(c.id, []), *([c.paid_at] if c.paid_at else [])]:
+            if c.sent_at is None or at < c.sent_at or (acks and at < acks[-1]):
+                out.append(f"#{c.number} remitted {at:%m/%d %H:%M} before it was sent or acked")
+        for att in c.attachments:
+            if att.source is AttachmentSource.AGENT and att.created_at < c.built_at:
+                out.append(f"#{c.number} agent attachment {att.id} predates the build")
+    assert out == []
 
 
 def test_no_tier3_rule_leaves_human_only(canonical: Snapshot) -> None:
