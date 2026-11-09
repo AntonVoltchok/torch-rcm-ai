@@ -188,3 +188,21 @@ Judgment calls met while building Claim and Denials. Lean first; red-teamed belo
 - 7: rows sorted by deadline inside each server group; the verb from `deadline.kind` ("Appeal by", "File by" for timely filing); "No deadline on file", and "Nothing to appeal" only on PR rows; DOS beside name + number; J/K/Enter with `?row=` in the URL, so Back to Denials returns to the row; holder text is `move.label`. Payer × reason stays visible to billing; the 12-month history stays owner-only.
 - Missing, adopted: **Next denial** on the claim when `?from=denials`, in the cached worklist's order.
 - Not adopted (scope or needs a server field; listed in the hand-over): denial date column, follow-up date, rep-call reference in the denial card, payer/root-cause URL filters, `deadline.days_left` (the client count uses noon UTC on both dates, so no timezone off-by-one), the above-the-fold test.
+
+## Phase 3 (rest) notes (`d1-rest`)
+
+Screens: Today's claims, Claims, Cash, Eligibility, Activity, Settings › Agents; Payments and Patients stay `MockOnlyBanner`. Hand-over: `docs/adr/worker-notes/d1-rest.md`.
+
+Judgment calls (options, lean, red team adopted; persona: dental billing lead + hiring Director of Engineering):
+
+1. **Claims quick-view counts.** The old "All N" was `open + paid_month` (a client sum that isn't all claims), and "Paid N" was the month while the filter lists every paid claim. Options: ask the API for an all-claims total and a month filter, or drop/realign the counts. Lean, adopted: "All" has no count (the footer shows the list's `total`); "Paid" shows the paid tile's count (118 = `GET /claims?status=paid` total on the seed), titled "Every paid claim, all time". Gap below.
+2. **Ledger sums.** `LedgerToday` has no totals, and this phase may not edit the API. Lean, adopted: keep the browser sums as one named selector (`ledger/selectors.ts ledgerTotals`) over the complete, uncapped row lists in integer cents, with a comment naming the gap. Removing them would drop numbers the demo script asserts.
+3. **Hues.** Ask (rule mode), "Awaiting you" (Activity) and the ⚑ are practice amber; "Agent checking…", agent names and agent proposals are agents teal; root cause "ours", errors and the 90+ aging bar are risk red; unverified eligibility is dashed neutral (it isn't money at risk); every other bar is neutral grey (cobalt is for actions only). Every colour keeps its text label.
+
+Server gaps (for the API session; nothing computed in the browser to cover them beyond what is listed):
+
+- `LedgerToday.totals`: sent / leaving / held count and cents, and per-file groups. Today `ledgerTotals` and `fileGroups` add rows.
+- `Strip.all_count` (or a facet on `GET /claims`) for the "All" quick view; a month filter on `GET /claims` if Paid should mean "Paid · Oct".
+- `EligibilityOut.by_day[{date, verified, issue, unverified, checking}]`: the per-day tallies are still counted from rows.
+- `RulesOut.rules_count`: the Rules tab count adds tier rows; Proposals falls back to filtering open items when `proposals_open` is missing.
+- `ActivityRow.move` (or `claim.move`): Activity rows can't show a baton.

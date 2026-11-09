@@ -42,6 +42,7 @@ export function SavedViews({ search, strip }: { search: ClaimsSearch; strip: Str
             to="/claims"
             search={q.search}
             aria-current={on ? 'page' : undefined}
+            title={q.id === 'paid' ? 'Every paid claim, all time' : undefined}
             className={cn('rounded-md px-2 py-0.5 no-underline hover:bg-hover', on ? 'bg-hover font-medium text-ink' : 'text-mid')}
           >
             {q.label}
