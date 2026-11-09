@@ -8,7 +8,10 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import type { DemoUser } from '@/state/session'
 import type { PayloadName } from './payloads'
 
-export type TourId = 'main' | 'inbox' | 'denials' | 'ledger' | 'claims' | 'claim' | 'payments' | 'patients' | 'eligibility' | 'activity' | 'cash' | 'settings'
+/** A practice state a step depends on: #4821's item open in the Inbox; #4744 free to triage. */
+export type Need = 'followed-open' | 'triage-ready'
+
+export type TourId ='main' | 'inbox' | 'denials' | 'ledger' | 'claims' | 'claim' | 'payments' | 'patients' | 'eligibility' | 'activity' | 'cash' | 'settings'
 
 /** Where a pane's text came from; drawn as a tag beside its source line. */
 export type PaneKind = 'captured' | 'cache' | 'rendered' | 'source' | 'recording'
@@ -69,7 +72,17 @@ export interface Step {
   /** Search params read from a server response (e.g. the first flagged appointment), merged into `route.search`. */
   searchFrom?: (qc: QueryClient) => Promise<Record<string, unknown>>
   anchor?: string
-  /** Shown instead of the spotlight when the anchor is not on screen (the demo has moved past this state). */
+  /**
+   * The practice state the step's element needs (needs.ts). When it is gone and no Try-it in this tour has changed the
+   * practice yet, the tour resets the demo to the seed before it draws the step, and says why.
+   */
+  needs?: Need
+  /**
+   * The element is made by this earlier step's Try it. Until that has run in this tour, the step spotlights that step's
+   * control, offers its Try it here and shows `note`; it never shows an empty spot.
+   */
+  after?: { step: string; note: string }
+  /** Shown instead of the spotlight when the anchor is not on screen: the tour's own Try it has moved past this state. */
   missing?: string
   body: ComponentType
   code?: CodeTab[]

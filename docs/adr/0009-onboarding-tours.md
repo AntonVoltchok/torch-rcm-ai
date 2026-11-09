@@ -22,6 +22,8 @@ The owner approved an interactive mock of the onboarding (`docs/design/onboardin
 
 **Auto-open.** The main tour on every load (dismissal lasts one load); a screen tour on the first navigation to its screen (localStorage, per browser). `torchrcm.tour.autoopen=false` turns both off; the existing Vitest setup and `freshDemo` set it, the tour specs clear it.
 
+**Steps set up their own state (amended 2026-11-09).** A step never shows an empty spot because the practice moved on. A step declares the state its element needs (`needs`: `followed-open` for #4821's item, `triage-ready` for #4744; `needs.ts` checks it against the server). When that state is gone and no Try-it in this tour has changed the practice yet, the tour presses the owner's Reset (as Dr. Morgan, then back to whoever was signed in) before drawing the step, under a "setting up" card that says what had changed; at most once per tour, with Try again / Continue as is if the reset fails. A step whose element an earlier Try-it creates (the run panes) declares `after`: until that Try-it has run, the step spotlights the earlier control and offers its Try-it in place. The "Not on screen" note is left only for what the tour itself did (Back after its own Approve).
+
 ## Consequences
 
 - Copy cannot drift from the data: after the tour's own Approve the run step reads the server's `changes`, not a number typed at design time.
@@ -30,5 +32,7 @@ The owner approved an interactive mock of the onboarding (`docs/design/onboardin
 - Every load of the app shows the welcome, including a refresh or a new tab (the owner confirmed this, D20); a presenter dismisses it with Esc.
 
 ## Alternatives rejected
+
+Saying "not on screen" when the demo had moved on (the first build): a tour that cannot show what it describes reads as broken. Resetting only on the owner's say-so: the evaluator would hit the empty step first. The cost of the reset: the deployed demo is one shared world (ADR-0011), so starting a tour that needs #4821 resets it for every visitor, as the Reset button already did.
 
 Tour state in the URL (D15); calling mutation hooks from the tour (D13); detecting `navigator.webdriver` to stay out of tests (D16); letting clicks through to the spotlighted element (D17); per-persona memory (D14). Reasons and the red team's verdicts are in DECISIONS.md and `docs/design/red-team/challenge-onboarding-tours-impl-2026-11-09.md`; the implementation red team's findings and fixes are in `docs/design/onboarding/red-team.md`.

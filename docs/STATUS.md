@@ -2,6 +2,17 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Tours set up their own state; a solid tour button (Opus 5.5)
+
+**State:** branch `fix/tour-state-setup`, PR to `main`. ADR-0009 amended.
+
+- **Why steps said "Not on screen right now":** #4821 had been approved in the shared database (a Try-it, or anyone pressing Approve), so every #4821 step in the main and Inbox tours had nothing to point at, and skipping a Try-it left the run steps empty.
+- **Now:** steps declare `needs` (`features/tour/needs.ts`); a tour whose step needs a state the practice has lost presses the owner's Reset first, under a "setting up" card that says why (once per tour, never after the tour's own Try-it). Run steps declare `after`: until approve/triage has run, they spotlight that button and offer its Try-it in place. RESET_DEMO now returns to whoever was signed in.
+- **Sidebar:** "Tour this screen" is solid blue (darker on hover, the menu toggle too), centred between the nav and the agents line, with a drawn "?" icon centred in its circle.
+- **Trade-off:** on the deployed demo, starting a tour that needs #4821 resets the shared world for every visitor.
+
+**Next:** e2e (`make e2e`) was not run for this change.
+
 ## 2026-11-09 — Deployed: rcm-ai.antonvolt.com (Opus 5.5)
 
 **State:** live. ADR-0011. `main` deploys both services on push.
