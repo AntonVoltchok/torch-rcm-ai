@@ -9,7 +9,10 @@ import type { TourId } from './types'
 
 const SEEN = 'torchrcm.tour.seen'
 const CODE = 'torchrcm.tour.code'
-/** `false` turns off both auto-opens (the main tour on load, a screen tour on first visit). Test suites set it. */
+/**
+ * `false` turns off both auto-opens (the main tour on load, a screen tour on first visit). The viewer's "Show tours
+ * automatically" switch writes it; test suites set it. Read from storage on every call, so a test can clear it.
+ */
 export const AUTOOPEN = 'torchrcm.tour.autoopen'
 
 const listeners = new Set<() => void>()
@@ -44,6 +47,10 @@ export const tourStore = {
     emit()
   },
   autoOpen: (): boolean => readJson(AUTOOPEN, (raw) => raw !== false, true),
+  setAutoOpen(on: boolean): void {
+    writeJson(AUTOOPEN, on)
+    emit()
+  },
   /** Tests: drop the module's copy and read storage again. */
   reload(): void {
     seen = readSeen()
@@ -54,6 +61,10 @@ export const tourStore = {
 
 export function useSeen(): Partial<Record<TourId, true>> {
   return useSyncExternalStore(subscribe, () => seen, () => seen)
+}
+
+export function useAutoOpen(): boolean {
+  return useSyncExternalStore(subscribe, tourStore.autoOpen, tourStore.autoOpen)
 }
 
 export function useCodeOpen(): boolean {

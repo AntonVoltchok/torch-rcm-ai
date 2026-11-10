@@ -3,12 +3,13 @@ import { cn } from '@/lib/cn'
 import { useCurrentUser } from '@/state/session'
 import { TOURS } from './registry'
 import { toursFor } from './screens'
-import { useSeen } from './store'
+import { tourStore, useAutoOpen, useSeen } from './store'
+import { toast } from '@/state/toast'
 import { useTour } from './TourProvider'
 import type { TourId } from './types'
 
 /**
- * The two ways back into a tour. In the sidebar, centred between the nav and the agents line and solid so it cannot be
+ * The ways back into a tour, and the switch that stops them opening on their own. In the sidebar, centred between the nav and the agents line and solid so it cannot be
  * missed: "Tour this screen" plus a menu of every tour with a check on the ones seen. In each screen's header: a round "?" that starts that screen's tour.
  */
 export function TourSidebarRow() {
@@ -35,7 +36,7 @@ export function TourSidebarRow() {
     toggle.current?.focus()
   }
   const onMenuKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem]'))
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem], [role=menuitemcheckbox]'))
     const at = items.indexOf(document.activeElement as HTMLButtonElement)
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -107,9 +108,47 @@ export function TourSidebarRow() {
               )}
             </button>
           ))}
+          <AutoOpenToggle variant="menu" />
         </div>
       )}
     </div>
+  )
+}
+
+/** Turning tours off says how to get one anyway, so the switch never feels like a trap. */
+function setAutoOpen(on: boolean) {
+  tourStore.setAutoOpen(on)
+  toast(on ? 'Tours will open on their own again: the main tour on load, each screen’s tour on its first visit.' : 'Tours won’t open on their own. “Tour this screen” in the sidebar still starts one.', { tone: 'info' })
+}
+
+/**
+ * "Show tours automatically": in every tour card's footer and the welcome (where a tour interrupts you) and in the
+ * sidebar's tour menu (where you turn it back on). One switch for the main tour on load and screen tours on first visit.
+ */
+export function AutoOpenToggle({ variant }: { variant: 'card' | 'menu' }) {
+  const on = useAutoOpen()
+  if (variant === 'menu')
+    return (
+      <button
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={on}
+        tabIndex={-1}
+        onClick={() => setAutoOpen(!on)}
+        data-testid="tour-autoopen-menu"
+        className="mt-1 flex items-center gap-1.5 border-t border-line px-2.5 pb-1.5 pt-2 text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none"
+      >
+        <span aria-hidden className={cn('grid h-3.5 w-3.5 flex-none place-items-center rounded-[3px] border text-[10px] leading-none', on ? 'border-act bg-act text-white' : 'border-line-strong bg-paper')}>
+          {on ? '✓' : ''}
+        </span>
+        <span className="flex-1">Show tours automatically</span>
+      </button>
+    )
+  return (
+    <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[12.5px] font-medium text-mid hover:text-ink" title="The main tour on each load, and each screen’s tour on its first visit">
+      <input type="checkbox" checked={on} onChange={(e) => setAutoOpen(e.target.checked)} data-testid="tour-autoopen" className="h-3.5 w-3.5 accent-[var(--color-act)]" />
+      Show tours automatically
+    </label>
   )
 }
 

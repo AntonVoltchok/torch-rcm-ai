@@ -2,6 +2,15 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — "Show tours automatically" switch (Opus 5.5)
+
+**State:** branch `feat/tour-autoopen-switch`, PR to `main`. ADR-0009 amended.
+
+- One switch, on by default, stops the main tour on load and screen tours on first visit. It is in every tour card's footer, the welcome, and the sidebar's tour menu; turning it off shows a toast saying "Tour this screen" still works. Stored per browser (`torchrcm.tour.autoopen`).
+- Tests: off from a card (no welcome on the next load, no screen tour on a first visit, a tour still starts by hand); the welcome's switch and the menu's toggle.
+
+**Next:** e2e (`make e2e`) not run for this change.
+
 ## 2026-11-09 — Tours set up their own state; a solid tour button (Opus 5.5)
 
 **State:** branch `fix/tour-state-setup`, PR to `main`. ADR-0009 amended.
