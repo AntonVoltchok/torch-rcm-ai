@@ -2,6 +2,16 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-10 — The deployed demo replays recorded Claude responses (Opus 5.5)
+
+**State:** branch `feat/replay-recorded-claude`, PR to `main`. ADR-0013.
+
+- **Production mode:** `render.yaml` sets `TORCH_AGENT_MODE=live` + `TORCH_CASSETTE_MODE=replay`: judgment calls on the recorded cases (#4709, #4731, #4744 triage) replay real Claude API responses; no key, no network. Off the recorded path (a changed case, or #4797/#4800 with no recording) runs use the hand-written plan or fall back to rules, labelled. Verified locally on a fresh seed and with `make eval`.
+- **Labels:** `GET /agents/status` has `replay`; the run pane says "Claude, recorded API response replayed" (never "live" for a replay), the sidebar "Recorded Claude", the welcome's Agent mode card and the claim tour's #4744 step read the mode from the server.
+- **Fix:** `Run.mode` now records the mode a run ran under; it was always `deterministic`.
+
+**Next:** confirm on production that `/agents/status` reads `"mode": "live", "replay": true` (if Render's Blueprint sync is off, sync it by hand), then triage #4744 there.
+
 ## 2026-11-09 — Demo controls for every persona; tour copy introduces the cast (Opus 5.5)
 
 **State:** branch `fix/tour-copy-personas`, PR #9 to `main`. ADR-0012.
@@ -45,7 +55,7 @@ _Updated by whoever ends a session. Newest first._
 **State:** live. ADR-0011. `main` deploys both services on push.
 
 - **Web:** Vercel project `torch-rcm-ai` (Hobby team), root `apps/web`, `VITE_API_BASE=https://rcm-ai-api.antonvolt.com/api/v1` (baked in at build; redeploy after changing it). `apps/web/vercel.json` rewrites deep links to `index.html`.
-- **API:** Render Blueprint `torch-rcm-ai` → web service `torch-rcm-api` (Starter, 1 GB disk at `/data`, deterministic mode, health check `/api/v1/clock`), workspace AdsUp. Seeds itself on an empty disk.
+- **API:** Render Blueprint `torch-rcm-ai` → web service `torch-rcm-api` (Starter, 1 GB disk at `/data`, live mode replaying the recorded cassettes since ADR-0013, health check `/api/v1/clock`), workspace AdsUp. Seeds itself on an empty disk.
 - **DNS:** Cloudflare CNAMEs `rcm-ai` (Vercel) and `rcm-ai-api` (Render), DNS only. CORS allows only `https://rcm-ai.antonvolt.com`, so Vercel preview URLs cannot call the API.
 - Shared state: every visitor sees one world; "Reset demo to Wed 10:40" restores the seed.
 

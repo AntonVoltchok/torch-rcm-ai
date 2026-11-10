@@ -19,8 +19,11 @@ services:
     envVars:
       - key: PORT
         value: "8000"
+      # Live planner answering from the recorded canonical cassettes: real Claude output, no key, no network (ADR-0013).
       - key: TORCH_AGENT_MODE
-        value: deterministic
+        value: live
+      - key: TORCH_CASSETTE_MODE
+        value: replay
       - key: TORCH_DB_URL
         value: sqlite:////data/torch.db
       - key: TORCH_CORS_ORIGINS
