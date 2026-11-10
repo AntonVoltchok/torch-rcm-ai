@@ -166,6 +166,11 @@ describe('mock static screens at Wed 10:40', () => {
 })
 
 describe('mock demo step 8: skip to Thu 07:10', () => {
+  it('lets any persona skip the clock: a demo control, not a role (ADR-0012)', () => {
+    const { db } = throughStep3b()
+    expect(db.advanceClock(THURSDAY_0710, 'usr_dana').advance_id).toBeTruthy()
+  })
+
   it('plays the overnight: Owens group leaves 11:15 (stays denied, in flight), four denials, six paid, Inbox 17, Denied 9', () => {
     const { db, drain } = throughStep3b()
     expect(db.strip().inbox_open).toBe(9)

@@ -96,7 +96,7 @@ export function ActivityPage() {
   const now = useNow()
   const q = useActivity({ day: search.day, agent: search.agent, outcome: search.outcome })
   const observe = search.observe === true
-  const select = 'h-7 rounded-md border border-line-strong bg-paper px-2 text-sm'
+  const select = 'h-7 rounded-md border border-line-strong bg-paper select-chevron pl-2 text-sm'
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title="Activity" sub="what agents did this week, and what you did" />

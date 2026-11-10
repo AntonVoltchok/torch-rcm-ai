@@ -2,6 +2,15 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — Demo controls for every persona; tour copy introduces the cast (Opus 5.5)
+
+**State:** branch `fix/tour-copy-personas`, PR #9 to `main`. ADR-0012.
+
+- **Clock:** "Skip to … 7:10 AM" and "Reset demo" are demo controls, shown to every persona under "Demo controls" in the sidebar (they were owner-only in the UI; the API never checked). The tour no longer switches to Dr. Morgan for the overnight skip or the reset.
+- **Tour copy:** the welcome introduces Dana (billing coordinator, whose Inbox the tour follows) and Dr. Morgan (owner: Cash, rule sign-off) and points at Demo controls; the overnight step says in plain words what the skip does and which counts to watch.
+- **Small fixes:** claim history labels sit 4px off their lines; Claims and Activity filter dropdowns draw their chevron 10px in from the right edge (`select-chevron` utility).
+- **e2e:** full Playwright run (mocks) green, 11 passed. `shell.spec.ts` "every screen fits 1280px" failed intermittently with `page.goto: net::ERR_ABORTED` on its first `/inbox` (3 of 6 full runs on this branch, then 3 green in a row; never with navigation logging on, never alone). Not pinned to a cause; watch it.
+
 ## 2026-11-09 — No sideways scroll at 1280; spotlight no longer slides in (Opus 5.5)
 
 **State:** branch `fix/spotlight-and-table-fit`, PR to `main`. ADR-0008 amended.

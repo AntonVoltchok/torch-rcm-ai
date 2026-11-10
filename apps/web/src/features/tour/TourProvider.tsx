@@ -221,7 +221,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
         clockAdvancing: () => Boolean(qc.getQueryData<Clock>(qk.clock)?.advancing),
       }
       setBusy(true)
-      // A Try-it may switch personas (the reset, the overnight); an exit mid-way stops it before it switches back, so
+      // A Try-it may switch personas (ctx.switchUser); an exit mid-way stops it before it switches back, so
       // exit must know whom to give the app back to. Restored to what it was once the Try-it ends on its own.
       const restore = restoreUser.current
       if (!restore) restoreUser.current = session.get().userId

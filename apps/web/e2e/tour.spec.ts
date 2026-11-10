@@ -2,7 +2,8 @@
  * The onboarding tours (ADR-0009). Owner: onboarding-tours. Standalone (starts from freshDemo, then lets the tours open
  * on their own again).
  *  - @demo: the main tour end to end, both Try-its included: approve the Delta group (the run streams), then skip to
- *    the next morning as Dr. Morgan and back to Dana. Runs on MSW and, with E2E_TARGET=real, on the real API.
+ *    the next morning as Dana, with the Demo controls every persona has. Runs on MSW and, with E2E_TARGET=real, on the
+ *    real API.
  *  - a screen tour opens on the first visit only; the sidebar menu checks it off; the header "?" restarts it.
  *  - the welcome opens on every load: a refresh or a new tab starts it again (owner's decision, D20).
  *  - Esc gives the app back from any step; the app's own shortcuts are quiet while the tour is up.
@@ -45,14 +46,16 @@ test('the main tour follows #4821 through the loop, Try-its included @demo', asy
   await expect(card(page).getByTestId('tour-copy')).toContainText(/your Inbox \d+ → \d+/)
   await expect(card(page).getByTestId('tour-code')).toContainText("['run', 'run_")
 
-  // The loop closes: as Dr. Morgan, Skip to the next morning, then back to Dana.
+  // The loop closes: Dana presses Skip to the next morning herself (Demo controls are every persona's); no user switch.
   await next(page).click()
   await expect(heading(page, 'The loop closes overnight')).toBeVisible()
+  await expect(card(page).getByTestId('tour-try')).toHaveText('Try it · Skip to the next morning')
   await card(page).getByTestId('tour-try').click()
-  await expect(card(page).getByTestId('tour-try')).toHaveText('Next morning · signed in as Dana again', { timeout: 90_000 })
-  await expect(page.getByTestId('clock-control')).toContainText('Clock control: Dr. Morgan')
+  await expect(card(page).getByTestId('tour-try')).toHaveText('It is the next morning', { timeout: 90_000 })
   await expect(page.getByLabel('Switch user')).toHaveValue('usr_dana')
-  await expect(page.getByTestId('clock-control')).toContainText(/Thu/)
+  const clock = page.getByTestId('clock-control')
+  await expect(clock).toContainText(/Thu/)
+  await expect(clock.getByRole('button', { name: /Skip to Fri 7:10 AM/ })).toBeEnabled()
 
   await next(page).click()
   const finish = page.getByTestId('tour-modal')
@@ -128,9 +131,10 @@ test('a step whose state the demo has left gets it back before it is drawn', asy
   await page.getByRole('button', { name: 'All tours' }).click()
   await page.getByRole('menuitem', { name: /Main tour/ }).click()
   await page.getByTestId('tour-modal').getByRole('button', { name: 'Start the tour' }).click()
-  // #4821 is approved, so the first step that follows it resets the practice to the seed first, and says why.
-  await expect(page.getByTestId('tour-preparing')).toContainText('K. Owens #4821 is approved')
-  await expect(page.getByTestId('tour-preparing')).toHaveCount(0, { timeout: 30_000 })
+  // #4821 is approved, so the first step that follows it resets the practice to the seed first. The "setting up" card
+  // can come and go faster than a poll on the mocks (tour.test.tsx checks it with a slowed reset), so check the outcome.
+  await expect(heading(page, 'Where the data comes from')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('tour-preparing')).toHaveCount(0)
   for (let i = 0; i < 3; i++) await next(page).click()
   await expect(heading(page, 'How #4821 got here')).toBeVisible()
   await expect(page.getByTestId('tour-hole')).toHaveCount(1)

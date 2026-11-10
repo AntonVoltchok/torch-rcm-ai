@@ -20,7 +20,7 @@ Visual language: the mocks in `docs/design/mocks.html` (neutral grays, one accen
 /settings/agents          tabs: rules | proposals | changes   (interactive)
 ```
 
-`beforeLoad` on `/cash` checks role (owner); on `/settings/*` it admits owner **and billing** (Dana reads rules, previews, flips tier-1 rows and accepts proposals; a tier-2 change she makes becomes Dr. Morgan's `owner_signoff` item, so the owner is needed only to sign tier 2 — demo step 7). Others are redirected with a toast. Root layout: sidebar (nav with live badges from `summary/strip`, agents-active indicator from `/runs/stream`, user switcher + clock control in the footer), top bar (search, location switcher).
+`beforeLoad` on `/cash` checks role (owner); on `/settings/*` it admits owner **and billing** (Dana reads rules, previews, flips tier-1 rows and accepts proposals; a tier-2 change she makes becomes Dr. Morgan's `owner_signoff` item, so the owner is needed only to sign tier 2 — demo step 7). Others are redirected with a toast. Root layout: sidebar (nav with live badges from `summary/strip`, agents-active indicator from `/runs/stream`, "Demo controls" in the footer: user switcher, clock skip and reset, for every persona (ADR-0012)), top bar (search, location switcher).
 
 ## State ownership (answer this in code, not in comments)
 

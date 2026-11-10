@@ -1057,8 +1057,8 @@ export class MockDb {
     return this.agentsStatus()
   }
 
-  advanceClock(to: string, user: UserId) {
-    if (!isOwner(user)) throw new MockError(403, 'owner_only', 'The demo clock is owner-only.')
+  advanceClock(to: string, _user: UserId) {
+    // A demo control for every persona (ADR-0012), as on the real API: no role check.
     if (this.s.advance && !this.s.advance.done) throw new MockError(409, 'advance_in_progress', 'The clock is already advancing.')
     if (Date.parse(to) <= Date.parse(this.s.now)) throw new MockError(422, 'invalid_target', 'The demo clock only moves forward.')
     const from = this.s.now

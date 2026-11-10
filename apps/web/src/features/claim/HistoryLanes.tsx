@@ -94,7 +94,7 @@ export function HistoryLanes({ claim }: { claim: Pick<ClaimDetail, 'claim' | 'ti
           return (
             <li key={l.key} className="contents" data-party={l.party} data-fix={l.fix || undefined} data-outcome={l.outcome || undefined} data-now={l.now || undefined}>
               {hop}
-              <div className="min-w-0 self-end pb-1 pr-3" style={{ gridColumn: col, gridRow: textRow(l.party) }} title={l.titles.join('\n')}>
+              <div className="min-w-0 self-end pb-1 pl-1 pr-3" style={{ gridColumn: col, gridRow: textRow(l.party) }} title={l.titles.join('\n')}>
                 <span className="sr-only">{laneName[l.party]}, </span>
                 <div className="text-xs text-soft">{range(l)}</div>
                 <div className={cn('text-sm leading-[17px] text-ink', l.now && 'font-semibold', (l.fix || l.outcome) && 'font-medium')}>{l.words.join(', ')}</div>

@@ -95,8 +95,13 @@ function Welcome() {
         TorchRCM is an agentic revenue-cycle demo for a dental practice. Agents work the claims pipeline. <b>Agents propose; the Policy layer decides whether anything runs</b>, and
         a person decides everything the practice’s rules hold back.
       </p>
+      <p className="m-0 max-w-[66ch] text-base leading-relaxed">
+        You see the app as <b>Dana S.</b>, the practice’s billing coordinator: the Inbox is her to-do list. <b>Dr. Morgan</b> is the dentist who owns the practice; the Cash
+        screen and signing off on rule changes are his. Under <b>Demo controls</b> at the bottom of the sidebar you can switch who you are, skip the frozen clock ahead and
+        reset the demo. Those controls are the demo’s, not the product’s.
+      </p>
       <div className="grid grid-cols-3 gap-2">
-        <Fact k="Clock" v={<Server t={now ? clockLabel(now) : undefined} />} m="frozen; only the owner’s button moves it" />
+        <Fact k="Clock" v={<Server t={now ? clockLabel(now) : undefined} />} m="frozen; the Skip button under Demo controls moves it" />
         <Fact k="Data" v="Canonical seed" m={<>
           <Num v={s?.open_count} /> open claims, generated from a fixed seed
         </>} />
@@ -143,7 +148,7 @@ const MAIN: Tour = {
               generated so the totals reconcile.
             </P>
             <P>
-              The clock is frozen at <Server t={now ? clockLabel(now) : undefined} />. No code reads wall-clock time. The owner’s “Skip to …” button runs the scheduler forward, and that
+              The clock is frozen at <Server t={now ? clockLabel(now) : undefined} />. No code reads wall-clock time. The “Skip to …” button under Demo controls runs the scheduler forward, and that
               is how the night’s payer traffic arrives (the last step).
             </P>
             <Note>Server money is integer cents. The UI formats it and never adds it up.</Note>
@@ -361,50 +366,53 @@ const MAIN: Tour = {
       id: 'overnight',
       route: { to: '/inbox' },
       anchor: 'clock',
-      ey: 'the scheduler · owner only',
+      ey: 'the scheduler',
       title: 'The loop closes overnight',
       body: function B() {
         const { s, tile } = useStripFacts()
         return (
           <>
             <P>
-              Only the owner moves the clock, so Try it switches <b>Signed in as</b> to Dr. Morgan with the app’s own switcher (Dana’s sidebar says “Clock control: Dr. Morgan”), presses
-              his <b>Skip</b> button and switches back. The advance returns 202 at once; the scheduler then fires every due event in sim time: files leave, acknowledgments come back,
-              overnight 835s arrive and <b>each denial goes to the agent its codes name</b>, and the morning status checks fire.
+              The demo’s clock is frozen, so nothing happens on its own. <b>Try it</b> presses <b>⏭ Skip to …</b> under Demo controls at the bottom of the sidebar, which jumps
+              the practice to the next morning.
             </P>
             <P>
-              Right now Dana has <Num v={s?.inbox_open} /> items and the strip shows Denied <Num v={tile('denied')} />. Watch both after the advance.
+              The skip plays out the night as it would at a real practice: today’s claim files go to the payers, the payers confirm they got them, overnight payment and denial files
+              (835s) arrive, and <b>each new denial goes to the agent that handles its reason codes</b>. In the morning, agents check on claims still waiting for an answer.
             </P>
+            <P>
+              Before you press it: Dana has <Num v={s?.inbox_open} /> items in her Inbox and <Num v={tile('denied')} /> claims are denied. Watch the Inbox count in the sidebar
+              and the Denied count at the top change.
+            </P>
+            <Note>
+              Under the hood: the skip returns 202 at once and the scheduler works through every due event in simulated time. The code pane shows the clock, the pipeline counts
+              and the denials list.
+            </Note>
           </>
         )
       },
       tryIt: {
-        label: 'Try it · Skip to the next morning as Dr. Morgan',
+        label: 'Try it · Skip to the next morning',
         mutates: true,
         busy: 'Advancing…',
         then: 'stay',
-        done: 'Next morning · signed in as Dana again',
+        done: 'It is the next morning',
         doneAnchor: 'yours',
         run: async (ctx) => {
           const before = ctx.clockNow()
           if (!before) throw new Error('The clock has not loaded yet; try again in a moment.')
-          await ctx.switchUser('usr_morgan')
-          try {
-            await ctx.until(() => findAnchor('clock-advance') !== null, 10_000, 'Dr. Morgan’s clock control did not appear.')
-            ctx.press('clock-advance')
-            // The user switch resets the cache, so an empty clock is "not loaded", never "moved".
-            await ctx.until(
-              () => {
-                const now = ctx.clockNow()
-                return now !== undefined && now !== before && !ctx.clockAdvancing()
-              },
-              90_000,
-              'The advance has not finished yet; the clock control shows its progress. You are back as Dana.',
-            )
-          } finally {
-            // Back to Dana whatever happened, unless the tour was exited (exit gives the viewer's own persona back).
-            if (!ctx.signal.aborted) await ctx.switchUser('usr_dana')
-          }
+          // The control renders once the clock has loaded (a persona switch reloads it).
+          await ctx.until(() => findAnchor('clock-advance') !== null, 10_000, 'The Skip control did not appear.')
+          ctx.press('clock-advance')
+          // The completion refetch can briefly empty the clock, so an empty clock is "not loaded", never "moved".
+          await ctx.until(
+            () => {
+              const now = ctx.clockNow()
+              return now !== undefined && now !== before && !ctx.clockAdvancing()
+            },
+            90_000,
+            'The advance has not finished yet; the clock control shows its progress.',
+          )
           await ctx.navigate('/inbox')
         },
       },
@@ -853,24 +861,18 @@ const SETTINGS: Tour = {
 }
 
 /**
- * The owner's own Reset button, pressed as Dr. Morgan, then back to whoever was signed in. The finish offers it; a step
- * whose `needs` the practice has lost runs it before it is drawn.
+ * The demo's own Reset button (under Demo controls, for every persona). The finish offers it; a step whose `needs` the
+ * practice has lost runs it before it is drawn.
  */
 export const RESET_DEMO: TryIt = {
-  label: 'Reset demo to the seed (as Dr. Morgan)',
+  label: 'Reset demo to the seed',
   busy: 'Resetting…',
   then: 'stay',
   done: 'Reset: the practice is back at the seed',
   run: async (ctx) => {
-    const back = session.get().userId
-    await ctx.switchUser('usr_morgan')
-    try {
-      await ctx.until(() => findAnchor('reset-demo') !== null, 10_000, 'Dr. Morgan’s reset control did not appear.')
-      ctx.press('reset-demo')
-      await ctx.until(() => ctx.pressSettled() && ctx.clockNow() !== undefined, 30_000, 'The reset has not finished yet; the clock control shows it.')
-    } finally {
-      if (!ctx.signal.aborted) await ctx.switchUser(back)
-    }
+    await ctx.until(() => findAnchor('reset-demo') !== null, 10_000, 'The Reset demo control did not appear.')
+    ctx.press('reset-demo')
+    await ctx.until(() => ctx.pressSettled() && ctx.clockNow() !== undefined, 30_000, 'The reset has not finished yet; the clock control shows it.')
   },
 }
 
