@@ -22,6 +22,7 @@ from torch_rcm.domain.entities import Claim, ClaimLine, Coverage, FileEntry, Rem
 from torch_rcm.domain.enums import (
     ACTIVE_RUN_STATUSES,
     AgentKind,
+    AgentMode,
     ClaimStatus,
     ClosedReason,
     FileEntryKind,
@@ -288,6 +289,7 @@ def triage(ctx: Ctx, claim_id: str, agent: str | None) -> TriageOut:
         patient_id=claim.patient_id,
         idempotency_key=f"triage:{claim.id}:{ctx.now.isoformat()}",
         status=RunStatus.QUEUED,
+        mode=AgentMode(ctx.rt.settings.agent_mode),
         started_at=ctx.now,
     )
     with ctx.rt.store.tx():

@@ -447,3 +447,12 @@ def test_agents_status_says_when_live_mode_replays_recordings(rt: Runtime) -> No
     assert out.mode == "live" and out.replay is True
     rt.settings.cassette_mode = "off"
     assert system.agents_status(ctx(rt)).replay is False
+
+
+def test_runs_started_through_the_api_record_the_agent_mode(rt: Runtime) -> None:
+    """Triage and approval runs are created by the services, not the agent runtime; both record the mode (ADR-0013)."""
+    assert claims_svc.triage(ctx(rt), "clm_4744", None).run.mode.value == "deterministic"
+    rt.settings.agent_mode = "live"
+    assert claims_svc.triage(ctx(rt), "clm_4709", None).run.mode.value == "live"
+    approved = inbox_svc.approve(ctx(rt), "itm_4705", None)
+    assert approved.run is not None and approved.run.mode.value == "live"

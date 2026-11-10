@@ -14,6 +14,7 @@ from torch_rcm.api.services.rules import apply_rule_change, guard_learning
 from torch_rcm.domain.entities import InboxItem, Rule, RuleProposal, Run
 from torch_rcm.domain.enums import (
     AgentKind,
+    AgentMode,
     InboxItemKind,
     InboxItemState,
     ProposalState,
@@ -78,6 +79,7 @@ def _approval_run(ctx: Ctx, item: InboxItem, edits: dict[str, Any] | None) -> Ru
         remittance_id=item.remittance_id,
         idempotency_key=key,
         status=RunStatus.QUEUED,
+        mode=AgentMode(ctx.rt.settings.agent_mode),
         action=action,
         action_label=action_label(ctx.snapshot(), item) or "",  # the button's words: what runs
         tier=item.tier,
