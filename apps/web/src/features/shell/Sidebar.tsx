@@ -69,6 +69,9 @@ export function Sidebar() {
         <AgentsIndicator />
         <OutageLine />
         <div className="flex flex-col gap-2.5 border-t border-line pt-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-soft" title="Not part of the product: they move the demo’s frozen clock, reset it, and switch who you are">
+            Demo controls
+          </span>
           <ClockControl />
           <UserSwitcher />
         </div>

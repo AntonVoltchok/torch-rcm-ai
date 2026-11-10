@@ -6,7 +6,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { nav, switchUser } from './shared'
 
-/** Inherits: Dr. Morgan signed in after step 7. */
+/** Inherits: Dr. Morgan signed in after step 7 (his badge check). The Skip is a demo control every persona has; he presses it because he is the one signed in. */
 export async function step8(page: Page) {
   const badge = page.getByTestId('badge-inbox')
   const strip = page.getByRole('region', { name: 'Claim pipeline' })

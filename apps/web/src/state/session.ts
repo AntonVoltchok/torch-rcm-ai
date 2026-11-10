@@ -83,5 +83,4 @@ export function useCurrentUser(): DemoUser {
 export const canSee = {
   cash: (role: Role) => role === 'owner',
   settings: (role: Role) => role === 'owner' || role === 'billing',
-  clock: (role: Role) => role === 'owner',
 }

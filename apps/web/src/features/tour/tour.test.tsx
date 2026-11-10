@@ -311,7 +311,7 @@ describe('needs and after', () => {
     expect(after.tryIt).toBeUndefined()
   })
 
-  it('resets the demo before the first step when #4821 has left the Inbox, says why, and signs Dana back in', async () => {
+  it('resets the demo before the first step when #4821 has left the Inbox, says why, and keeps Dana signed in', async () => {
     // #4821 reads as approved until the reset, which then serves the seed again (the mock reseeds on POST /clock/reset).
     let approved = true
     api.server.use(
@@ -321,7 +321,7 @@ describe('needs and after', () => {
       http.get(/\/inbox\/itm_4821$/, () => (approved ? HttpResponse.json({ ...api.db.inboxItem('itm_4821'), state: 'approved' }) : undefined)),
     )
     const resets = requests('POST', /\/clock\/reset$/)
-    // Signed in as the owner: the main tour switches to Dana, the reset presses as Dr. Morgan, then gives Dana back.
+    // Signed in as the owner: the main tour switches to Dana, and the reset (a demo control) presses as Dana.
     session.set({ userId: 'usr_morgan' })
     const user = userEvent.setup()
     renderApp('/inbox')
@@ -329,7 +329,7 @@ describe('needs and after', () => {
     const card = await screen.findByTestId('tour-preparing')
     expect(card).toHaveTextContent('K. Owens #4821 is approved in this practice’s data')
     await waitFor(() => expect(screen.queryByTestId('tour-preparing')).toBeNull(), { timeout: 15_000 })
-    expect(resets).toEqual(['usr_morgan'])
+    expect(resets).toEqual(['usr_dana'])
     expect(screen.queryByTestId('tour-preparing-error')).toBeNull()
     await screen.findByRole('heading', { name: 'Where the data comes from' })
     expect(session.get().userId).toBe('usr_dana')

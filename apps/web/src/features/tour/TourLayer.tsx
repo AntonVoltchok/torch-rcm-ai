@@ -50,8 +50,8 @@ function PrepareCard() {
         <div id="tour-body" className="flex flex-col gap-2.5">
           <p className="m-0">{preparing.why}</p>
           <p className="m-0 text-mid">
-            The tour shows each step on the data it describes, so it presses Dr. Morgan’s <b className="text-ink">Reset demo</b> (the same button the owner has) and
-            signs you back in.
+            The tour shows each step on the data it describes, so it presses <b className="text-ink">Reset demo</b> under Demo controls, the same button you can press
+            yourself.
           </p>
           {preparing.error ? (
             <p role="alert" className="m-0 text-xs font-medium text-risk-ink" data-testid="tour-preparing-error">
