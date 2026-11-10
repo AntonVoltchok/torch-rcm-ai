@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { cn } from '@/lib/cn'
 import { useCurrentUser } from '@/state/session'
 import { CodePane } from './CodePane'
+import { AutoOpenToggle } from './TourEntry'
 import { RESET_DEMO, TOURS } from './registry'
 import { toursFor } from './screens'
 import { tourStore, useCodeOpen, useSeen } from './store'
@@ -314,6 +315,7 @@ function Spotlight({ step }: { step: Step & { waiting?: string } }) {
           <button type="button" onClick={exit} className="px-0.5 py-1.5 text-[12.5px] font-medium text-mid underline underline-offset-2 hover:text-ink">
             Exit tour
           </button>
+          <AutoOpenToggle variant="card" />
           <span className="flex flex-1 flex-wrap justify-center gap-[5px]" aria-hidden>
             {anchored.map((s, i) => (
               <i key={s.id} className={cn('h-1.5 w-1.5 rounded-full', i === n ? 'bg-act' : i < n ? 'bg-soft' : 'bg-line-strong')} />
@@ -414,6 +416,7 @@ function TourModal({ step }: { step: Step }) {
           </ul>
         )}
         <footer className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+          <AutoOpenToggle variant="card" />
           <span className="min-w-[220px] flex-1 text-xs text-mid">
             {welcome
               ? 'Opens each time the app loads; exit any time and restart it from “Tour this screen” in the sidebar.'

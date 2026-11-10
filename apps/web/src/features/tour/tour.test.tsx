@@ -389,3 +389,49 @@ describe('needs and after', () => {
     expect(resets).toEqual([])
   }, 20_000)
 })
+
+describe('“Show tours automatically”', () => {
+  beforeEach(() => {
+    localStorage.removeItem(AUTOOPEN)
+    localStorage.removeItem('torchrcm.tour.seen')
+    tourStore.reload()
+  })
+
+  it('off from a tour card: no main tour on the next load, no screen tour on a first visit, and a tour still starts by hand', async () => {
+    const user = userEvent.setup()
+    const first = renderApp('/inbox')
+    await user.click(await screen.findByRole('button', { name: 'Start the tour' }))
+    const box = within(await screen.findByTestId('tour-card')).getByRole('checkbox', { name: 'Show tours automatically' })
+    expect(box).toBeChecked()
+    await user.click(box)
+    expect(box).not.toBeChecked()
+    expect(localStorage.getItem(AUTOOPEN)).toBe('false')
+    first.unmount()
+
+    const { router } = renderApp('/inbox')
+    await screen.findByRole('button', { name: 'Tour this screen: Inbox' })
+    expect(screen.queryByTestId('tour-modal')).toBeNull()
+    await act(() => router.navigate({ to: '/denials' }))
+    const start = await screen.findByRole('button', { name: 'Tour this screen: Denials' })
+    expect(screen.queryByTestId('tour-card')).toBeNull()
+
+    await user.click(start)
+    expect(await screen.findByTestId('tour-card')).toBeInTheDocument()
+  })
+
+  it('the welcome offers the switch, and the sidebar menu turns it back on', async () => {
+    const user = userEvent.setup()
+    renderApp('/inbox')
+    const modal = await screen.findByTestId('tour-modal')
+    await user.click(within(modal).getByRole('checkbox', { name: 'Show tours automatically' }))
+    expect(tourStore.autoOpen()).toBe(false)
+    await user.click(within(modal).getByRole('button', { name: 'Skip, use the app' }))
+
+    await user.click(screen.getByRole('button', { name: 'All tours' }))
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Show tours automatically' })
+    expect(item).toHaveAttribute('aria-checked', 'false')
+    await user.click(item)
+    expect(item).toHaveAttribute('aria-checked', 'true')
+    expect(tourStore.autoOpen()).toBe(true)
+  })
+})
