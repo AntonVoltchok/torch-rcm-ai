@@ -4007,6 +4007,10 @@
             ],
             "title": "Mode"
           },
+          "replay": {
+            "type": "boolean",
+            "title": "Replay"
+          },
           "live_agents": {
             "items": {
               "$ref": "#/components/schemas/AgentKind"
@@ -4038,6 +4042,7 @@
           "paused_by",
           "paused_at",
           "mode",
+          "replay",
           "live_agents",
           "agents",
           "running",

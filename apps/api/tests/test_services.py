@@ -436,3 +436,14 @@ def test_reset_keeps_the_worker_out_for_its_whole_length(rt: Runtime, monkeypatc
     assert held == [
         True
     ]  # a check before reseeding is not enough: seeding takes a second, and the worker would take a job
+
+
+def test_agents_status_says_when_live_mode_replays_recordings(rt: Runtime) -> None:
+    """The UI labels replayed runs as recordings, never as live calls (ADR-0013); it reads this flag to know."""
+    assert system.agents_status(ctx(rt)).replay is False
+    rt.settings.agent_mode = "live"
+    rt.settings.cassette_mode = "replay"
+    out = system.agents_status(ctx(rt))
+    assert out.mode == "live" and out.replay is True
+    rt.settings.cassette_mode = "off"
+    assert system.agents_status(ctx(rt)).replay is False
