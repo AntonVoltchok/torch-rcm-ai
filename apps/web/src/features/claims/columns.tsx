@@ -13,17 +13,22 @@ const col = createColumnHelper<ClaimRow>()
 const AGE_CLASS = { ok: 'bg-age-ok', warn: 'bg-age-warn', bad: 'bg-age-bad', dark: 'bg-age-dark' } as const
 const muted = (v: string | null | undefined) => <span className="text-mid">{v ?? '—'}</span>
 
+/**
+ * Widths: the minimums sum to 1018px, so the table fits the 1038px main area at the 1280px app minimum with room for a
+ * classic scrollbar. Each minimum fits its header plus the sort arrow; Whose move keeps "Waiting on MetLife" whole and
+ * takes the largest share (2fr) of wider windows. Cells stay one line and truncate (fixed 36px virtual rows).
+ */
 export const claimColumns = [
-  col.display({ id: 'number', header: 'Claim #', meta: { width: '74px', sortKey: 'number' }, cell: ({ row }) => <b>#{row.original.number}</b> }),
-  col.display({ id: 'patient', header: 'Patient', meta: { width: 'minmax(100px,1fr)', sortKey: 'patient' }, cell: ({ row }) => row.original.patient.display_name }),
-  col.display({ id: 'payer', header: 'Payer', meta: { width: '96px', sortKey: 'payer' }, cell: ({ row }) => PAYER_NAME[row.original.payer.key] }),
-  col.display({ id: 'dos', header: 'DOS', meta: { width: '62px', sortKey: 'dos' }, cell: ({ row }) => shortDate(row.original.dos) }),
-  col.display({ id: 'procedures', header: 'Procedures', meta: { width: 'minmax(100px,1.1fr)' }, cell: ({ row }) => muted(row.original.procedures) }),
-  col.display({ id: 'billed', header: 'Billed', meta: { width: '80px', sortKey: 'billed', align: 'right' }, cell: ({ row }) => <b>{money(row.original.billed_cents)}</b> }),
+  col.display({ id: 'number', header: 'Claim #', meta: { width: '68px', sortKey: 'number' }, cell: ({ row }) => <b>#{row.original.number}</b> }),
+  col.display({ id: 'patient', header: 'Patient', meta: { width: 'minmax(70px,1fr)', sortKey: 'patient' }, cell: ({ row }) => row.original.patient.display_name }),
+  col.display({ id: 'payer', header: 'Payer', meta: { width: '94px', sortKey: 'payer' }, cell: ({ row }) => PAYER_NAME[row.original.payer.key] }),
+  col.display({ id: 'dos', header: 'DOS', meta: { width: '56px', sortKey: 'dos' }, cell: ({ row }) => shortDate(row.original.dos) }),
+  col.display({ id: 'procedures', header: 'Procedures', meta: { width: 'minmax(76px,1fr)' }, cell: ({ row }) => muted(row.original.procedures) }),
+  col.display({ id: 'billed', header: 'Billed', meta: { width: '68px', sortKey: 'billed', align: 'right' }, cell: ({ row }) => <b>{money(row.original.billed_cents)}</b> }),
   col.display({
     id: 'status',
     header: 'Status',
-    meta: { width: '104px', sortKey: 'status' },
+    meta: { width: '92px', sortKey: 'status' },
     cell: ({ row }) => (
       <span className="inline-flex items-center gap-1">
         <StatusChip status={row.original.status} />
@@ -31,11 +36,11 @@ export const claimColumns = [
       </span>
     ),
   }),
-  col.display({ id: 'reason', header: 'Reason', meta: { width: 'minmax(96px,1fr)' }, cell: ({ row }) => muted(row.original.reason) }),
+  col.display({ id: 'reason', header: 'Reason', meta: { width: 'minmax(60px,1fr)' }, cell: ({ row }) => muted(row.original.reason) }),
   col.display({
     id: 'age',
     header: 'Age',
-    meta: { width: '56px', sortKey: 'age', align: 'right' },
+    meta: { width: '52px', sortKey: 'age', align: 'right' },
     cell: ({ row }) => {
       const d = row.original.age_days
       const tone = ageTone(d)
@@ -51,13 +56,13 @@ export const claimColumns = [
   col.display({
     id: 'move',
     header: 'Whose move',
-    meta: { width: '210px' },
+    meta: { width: 'minmax(206px,2fr)' },
     cell: ({ row }) => <MoveCell move={row.original.move} />,
   }),
   col.display({
     id: 'agent',
     header: 'Agent note',
-    meta: { width: 'minmax(110px,1fr)' },
+    meta: { width: 'minmax(80px,1fr)' },
     cell: ({ row }) => {
       const note = row.original.agent_note
       return note ? <AgentChip label={note} /> : <span className="text-soft">—</span>
@@ -66,7 +71,7 @@ export const claimColumns = [
   col.display({
     id: 'last_activity',
     header: 'Last activity',
-    meta: { width: 'minmax(110px,1fr)', sortKey: 'last_activity' },
+    meta: { width: 'minmax(96px,1fr)', sortKey: 'last_activity' },
     cell: ({ row }) => {
       const { last_activity_at: at, last_activity: label } = row.original
       return at ? muted(`${dateTime(at)} · ${label ?? ''}`) : <span className="text-soft">—</span>

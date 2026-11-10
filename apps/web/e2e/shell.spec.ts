@@ -1,6 +1,6 @@
 /**
  * The D1 shell at the minimum supported width. Owner: d1-shell. Standalone (starts from freshDemo).
- *  - every screen fits 1280px: no horizontal scroll on the page or the screen's panel
+ *  - every screen fits 1280px: no horizontal scroll on the page, <main> or any scroll panel inside it
  *  - the Inbox draws the whose-move cards + pipeline card; other screens draw the one-line pipeline
  *  - the pipeline keeps its "Claim pipeline" landmark and "Label N" link names on both forms
  *  - the skip link lands on the main landmark
@@ -19,11 +19,14 @@ test('every screen fits 1280px and keeps the shell landmarks', async ({ page }) 
     await page.goto(path)
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Claim pipeline' }).getByRole('link', { name: /^Denied \d+$/ })).toBeVisible()
+    // The screen's own scroll panels too (tables live inside them), not only the page and <main>.
     const overflow = await page.evaluate(() => {
       const main = document.querySelector('main')
-      return { page: document.documentElement.scrollWidth - document.documentElement.clientWidth, main: main ? main.scrollWidth - main.clientWidth : 0 }
+      const panels = main ? [main, ...main.querySelectorAll<HTMLElement>('*')].filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowX)) : []
+      const worst = Math.max(0, ...panels.map((e) => e.scrollWidth - e.clientWidth))
+      return { page: document.documentElement.scrollWidth - document.documentElement.clientWidth, main: main ? main.scrollWidth - main.clientWidth : 0, panels: worst }
     })
-    expect(overflow, path).toEqual({ page: 0, main: 0 })
+    expect(overflow, path).toEqual({ page: 0, main: 0, panels: 0 })
   }
 })
 
