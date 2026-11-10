@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import type { PlannerKind, PolicyVerdict, RunStep, RunView, RunViewStep, StripChange } from '@/api/schema'
+import { useAgentsStatus } from '@/hooks/useAgents'
 import { claimQuery } from '@/hooks/useClaims'
 import { useRun, type StreamMode } from '@/hooks/useRun'
 import { useStrip } from '@/hooks/useStrip'
@@ -25,8 +26,9 @@ import { Chip } from './Chip'
 import { HolderTally } from './HolderTally'
 import { RelayRow, RelayTable } from './RelayTable'
 
+// `live` is relabelled when the server replays recorded responses (ADR-0013): a replay is never called a live call.
 const PLANNER_LABEL: Record<PlannerKind, string> = {
-  live: 'live agent',
+  live: 'Claude, live call',
   scripted: 'scripted',
   recorded_plan: 'hand-written plan, replayed',
   scripted_fallback: 'fell back to rules',
@@ -117,10 +119,11 @@ function StepRow({ step, run, last }: { step: RunViewStep; run: RunView; last: b
 }
 
 function RunMeta({ run, mode }: { run: RunView; mode: StreamMode }) {
+  const replay = useAgentsStatus().data?.replay === true
   return (
-    <p className="m-0 mt-2 text-xs text-soft">
+    <p className="m-0 mt-2 text-xs text-soft" data-testid="run-planner">
       {[
-        run.planner ? PLANNER_LABEL[run.planner] : null,
+        run.planner === 'live' && replay ? 'Claude, recorded API response replayed' : run.planner ? PLANNER_LABEL[run.planner] : null,
         isTerminal(run.status)
           ? null
           : mode === 'desynced'

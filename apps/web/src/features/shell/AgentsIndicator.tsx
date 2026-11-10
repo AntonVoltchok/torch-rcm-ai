@@ -40,7 +40,11 @@ export function AgentsIndicator() {
           </Link>
         </p>
       )}
-      {s?.mode === 'live' && <span className="text-xs text-soft">Live model: {s.live_agents.join(', ') || '—'}</span>}
+      {s?.mode === 'live' && (
+        <span className="text-xs text-soft">
+          {s.replay ? 'Recorded Claude' : 'Live Claude'}: {s.live_agents.join(', ') || '—'}
+        </span>
+      )}
       {firehose === 'down' && <span className="text-xs text-soft">Live updates off, polling</span>}
     </div>
   )

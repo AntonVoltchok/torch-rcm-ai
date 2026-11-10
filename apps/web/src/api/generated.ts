@@ -1222,6 +1222,7 @@ const AgentsStatus = z
     paused_by: z.union([z.string(), z.null()]),
     paused_at: z.union([z.string(), z.null()]),
     mode: z.enum(['deterministic', 'live']),
+    replay: z.boolean(),
     live_agents: z.array(AgentKind),
     agents: z.number().int(),
     running: z.number().int(),

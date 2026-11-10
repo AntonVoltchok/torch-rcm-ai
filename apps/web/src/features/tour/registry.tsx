@@ -9,11 +9,10 @@ import { api } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import { session } from '@/state/session'
 import { clockLabel } from '@/lib/format'
-import { useAgentsStatus } from '@/hooks/useAgents'
 import { useDenials, useEligibility, useActivity } from '@/hooks/useStatic'
 import { useRules } from '@/hooks/useRules'
 import { findAnchor, hover } from './anchors'
-import { FOLLOWED, useFollowedGroup, useFollowedItem, useLaunchChange, useNowLabel, useStripFacts } from './facts'
+import { FOLLOWED, useAgentMode, useFollowedGroup, useFollowedItem, useLaunchChange, useNowLabel, useStripFacts } from './facts'
 import { Num, Server } from './Num'
 import type { CodeTab, Step, Tour, TourId, TryIt } from './types'
 
@@ -87,7 +86,7 @@ const APPROVED = 'Approved in this tour: the Delta group has left the Inbox. The
 
 function Welcome() {
   const now = useNowLabel()
-  const mode = useAgentsStatus().data?.mode
+  const mode = useAgentMode()
   const { s } = useStripFacts()
   return (
     <>
@@ -105,7 +104,7 @@ function Welcome() {
         <Fact k="Data" v="Canonical seed" m={<>
           <Num v={s?.open_count} /> open claims, generated from a fixed seed
         </>} />
-        <Fact k="Agent mode" v={mode === undefined ? <Server t={undefined} /> : mode === 'live' ? 'Live' : 'Deterministic (default)'} m="no model calls by default; live mode sends the same cases to Claude. Parity is checked by replaying recorded API responses" />
+        <Fact k="Agent mode" v={mode.label ?? <Server t={undefined} />} m={mode.line} />
       </div>
       <p className="m-0 max-w-[66ch] text-base leading-relaxed">
         The tour follows one claim, <b>K. Owens #4821</b>: Delta denied a crown because our own Claims agent attached a bitewing where Delta’s rule asks for a periapical. Every step
@@ -639,7 +638,7 @@ const CLAIM: Tour = {
           P. Hale #4744, MetLife. MetLife’s correspondence asks for an extraction date. There is no CARC, so the classifier returns <b>unknown</b>. <b>Ask Follow-up to look</b> starts
           a triage run (<C>POST /claims/clm_4744:triage</C>).
         </P>
-        <P>This is one of the cases live mode leaves to the model: which reads to make and which action to propose. The second tab is the CASE FACTS it would receive.</P>
+        <P>This is one of the cases TorchRCM leaves to the model: which reads to make and which action to propose. The second tab is the CASE FACTS it receives.</P>
       </>
     ), [pane.claim(FOLLOWED.triage), pane.file('CASE FACTS', 'case_4744', 'planner/live.py render_case')], {
       route: { to: `/claims/${FOLLOWED.triage}` },
@@ -656,18 +655,31 @@ const CLAIM: Tour = {
         },
       },
     }),
-    s('run', 'The triage run', 'run-pane', () => (
+    s('run', 'The triage run', 'run-pane', function B() {
+      const mode = useAgentMode().kind
+      return (
       <>
         <P>
           Gather the case, investigate (the reads it chose), decide, report. The policy verdict is <b>propose</b>: an unknown situation never runs without review, so the result is a new
           Inbox item, and its track record reads none: other situations’ history is not borrowed.
         </P>
-        <Honest>
-          Deterministic mode replays a plan written by hand (<C>recorded/clm_4744.plan.json</C>, labelled “hand-written plan, replayed”). Live mode replays a{' '}
-          <b>recorded API response</b> instead (<C>synthetic: false</C>): it lands inside the same reviewed envelope, but it is not the same plan, and the pane shows both.
-        </Honest>
+        {mode === 'replay' ? (
+          <Honest>
+            This run replays a <b>recorded Claude API response</b> (<C>synthetic: false</C>), recorded from these exact case facts: Claude chose the reads and the action, inside the
+            same reviewed envelope. Once the case has changed (after the overnight, say), the request no longer matches the recording, and the run uses the hand-written plan
+            instead, labelled “hand-written plan, replayed”.
+          </Honest>
+        ) : mode === 'live' ? (
+          <Honest>This run calls Claude now. Its answer lands inside the same reviewed envelope; the recorded plan beside it is the hand-written one, for comparison.</Honest>
+        ) : (
+          <Honest>
+            No model runs here: this run uses a plan written by hand (<C>recorded/clm_4744.plan.json</C>, labelled “hand-written plan, replayed”). The recorded Claude response
+            for this case is replayed in the test suite.
+          </Honest>
+        )}
       </>
-    ), [pane.run('triage'), pane.file('recorded plan', 'plan_4744', 'planner/recorded/clm_4744.plan.json · cassette', 'recording'), pane.file('policy', 'policy', 'agents/policy.py decide()')], {
+      )
+    }, [pane.run('triage'), pane.file('recorded plan', 'plan_4744', 'planner/recorded/clm_4744.plan.json · cassette', 'recording'), pane.file('policy', 'policy', 'agents/policy.py decide()')], {
       route: { to: `/claims/${FOLLOWED.triage}` },
       after: { step: 'triage', note: 'The run starts when someone asks Follow-up to look, and this step shows it. Press the button here, or go Back.' },
       missing: 'The run pane was closed. The claim’s History shows what the run did.',
