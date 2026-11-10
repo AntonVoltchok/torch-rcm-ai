@@ -737,6 +737,7 @@ export class MockDb {
       paused_by: this.s.paused?.by ?? null,
       paused_at: this.s.paused?.at ?? null,
       mode: 'deterministic' as const,
+      replay: false,
       live_agents: [] as AgentKind[],
       agents: 5,
       running: runs.filter((r) => r.status === 'running').length,

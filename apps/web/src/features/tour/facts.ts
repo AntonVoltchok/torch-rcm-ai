@@ -7,6 +7,7 @@ import { useInboxItem } from '@/hooks/useInbox'
 import { inboxListQuery } from '@/hooks/useInbox'
 import { useStrip } from '@/hooks/useStrip'
 import { useClock } from '@/hooks/useClock'
+import { useAgentsStatus } from '@/hooks/useAgents'
 import { useLaunches } from '@/state/launches'
 import { useSession } from '@/state/session'
 import { tileFor } from '@/lib/strip'
@@ -19,6 +20,23 @@ export function useStripFacts() {
   const s = useStrip().data
   const tile = (status: ClaimStatus) => (s ? tileFor(s, status)?.count : undefined)
   return { s, tile }
+}
+
+/**
+ * How the server's agents plan right now, in the reader's words (ADR-0013). `replay` is live mode answering from
+ * recorded API responses; it is never described as a live call.
+ */
+export function useAgentMode(): { kind: 'replay' | 'live' | 'none' | undefined; label: string | undefined; line: string } {
+  const s = useAgentsStatus().data
+  if (!s) return { kind: undefined, label: undefined, line: '' }
+  if (s.mode === 'live' && s.replay)
+    return {
+      kind: 'replay',
+      label: 'Recorded Claude',
+      line: 'Judgment calls replay real Claude API responses recorded on these cases. No live calls. Routine work follows rules; a case off the recorded path uses a hand-written plan and says so.',
+    }
+  if (s.mode === 'live') return { kind: 'live', label: 'Live Claude', line: 'Judgment calls go to Claude as you watch; routine work follows rules.' }
+  return { kind: 'none', label: 'No model', line: 'Judgment calls use hand-written plans. The recorded Claude responses for these cases are replayed in the test suite.' }
 }
 
 export function useNowLabel() {

@@ -33,6 +33,8 @@ class Settings(BaseSettings):  # type: ignore[misc,valid-type]
         model_config = SettingsConfigDict(env_prefix="TORCH_", extra="ignore")
 
     agent_mode: Literal["deterministic", "live"] = "deterministic"
+    # live + replay: the model client replays the recorded canonical cassettes (no API key, no network); ADR-0013.
+    cassette_mode: Literal["off", "record", "replay"] = "off"
     clock_start: datetime = datetime.fromisoformat("2026-10-28T10:40:00-04:00")
     db_url: str = "sqlite:///./torch.db"
     scenario: str = "canonical"

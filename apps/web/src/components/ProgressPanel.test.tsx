@@ -88,4 +88,18 @@ describe('ProgressPanel', () => {
     expect(within(panel).getByText('Open claim #4821 →')).toHaveAttribute('href', '/claims/clm_4821?from=inbox%3Aitm_4821')
     expect(lastEventIdSeen).toBe('0') // resubscribed from the snapshot's cursor
   })
+
+  // ADR-0013: a run the model planned is a recording when the server replays cassettes, and is never called a live call.
+  const status = (replay: boolean) => ({ paused: false, paused_by: null, paused_at: null, mode: 'live', replay, live_agents: ['followup'], agents: 5, running: 0, queued: 0, paused_runs: 0 })
+  for (const [replay, label] of [[true, 'Claude, recorded API response replayed'], [false, 'Claude, live call']] as const) {
+    it(`labels a model-planned run “${label}” when replay is ${String(replay)}`, async () => {
+      server.use(
+        http.get(`${API_BASE}/runs/run_t`, () => HttpResponse.json({ ...snapshot, run: { ...snapshot.run, planner: 'live' } })),
+        http.get(`${API_BASE}/agents/status`, () => HttpResponse.json(status(replay))),
+      )
+      renderWithProviders(<ProgressPanel launch={launch} />)
+      const panel = await screen.findByRole('region', { name: 'Agent progress' })
+      await waitFor(() => expect(within(panel).getByTestId('run-planner')).toHaveTextContent(label))
+    })
+  }
 })

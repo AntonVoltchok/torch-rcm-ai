@@ -635,6 +635,8 @@ class AgentsStatus(Schema):
     paused_by: str | None
     paused_at: datetime | None
     mode: Literal["deterministic", "live"]
+    # live mode answering from recorded API responses (cassettes) instead of calling the model
+    replay: bool
     live_agents: list[AgentKind]
     agents: int
     running: int

@@ -160,6 +160,7 @@ def agents_status(ctx: Ctx) -> AgentsStatus:
         paused_by=practice.agents_paused_by,
         paused_at=practice.agents_paused_at,
         mode=mode,
+        replay=mode == "live" and ctx.rt.settings.cassette_mode == "replay",
         live_agents=DEMO_LIVE_AGENTS if mode == "live" else [],
         agents=len(AgentKind),
         running=sum(1 for r in runs if r.status is RunStatus.RUNNING),

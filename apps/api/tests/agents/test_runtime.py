@@ -268,6 +268,7 @@ def test_live_planner_slot_and_advance_cap(rt: Runtime, monkeypatch: Any) -> Non
     first = go(art.triage("clm_4821", key="t:live:1", advance_id="adv_1")).run
     second = go(art.triage("clm_4836", key="t:live:2", advance_id="adv_1")).run
     assert first.planner.value == "live" and first.model_situation_label == "PA missing for #19"
+    assert first.mode.value == "live" and second.mode.value == "live"  # the run records the mode it ran under
     assert first.usage.model_calls == 1 and len(made) == 1
     ck = art.runs.load_checkpoint(first.id, pin)
     assert ck is not None and ck.pin_matches

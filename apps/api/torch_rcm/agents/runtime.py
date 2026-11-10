@@ -28,6 +28,7 @@ from torch_rcm.domain.entities import Claim, Job, Practice, Run, RunCheckpoint, 
 from torch_rcm.domain.entities import Evidence as EvidenceRow
 from torch_rcm.domain.enums import (
     ACTIVE_RUN_STATUSES,
+    AgentMode,
     ClaimStatus,
     GatheredBy,
     JobState,
@@ -78,9 +79,10 @@ class Checkpoint:
 class RunStore:
     """Runs, steps, evidence and checkpoints over `torch_rcm.db.store.Store`. Sync, one short tx per call."""
 
-    def __init__(self, store: Store, clock: Any) -> None:
+    def __init__(self, store: Store, clock: Any, mode: AgentMode = AgentMode.DETERMINISTIC) -> None:
         self.store = store
         self.clock = clock
+        self.mode = mode
 
     # ── runs ──
     def get(self, run_id: str) -> Run | None:
@@ -104,11 +106,13 @@ class RunStore:
         return rows[0] if rows else None
 
     def create(self, run: Run) -> Run:
-        """Unique on idempotency_key: a second create returns the first run unchanged."""
+        """Unique on idempotency_key: a second create returns the first run unchanged. A new run records the agent
+        mode it runs under."""
         with self.store.tx():
             existing = self.by_key(run.idempotency_key)
             if existing is not None:
                 return existing
+            run.mode = self.mode
             self.store.insert(run)
         return run
 
@@ -479,7 +483,7 @@ class AgentRuntime:
         self.port: WorldPort = world_port or self.sim
         self.dom = StoreDomain(store, self.sim)
         self.tools = ToolRegistry(self.port)
-        self.runs = RunStore(store, clock)
+        self.runs = RunStore(store, clock, AgentMode.LIVE if self.cfg.agent_mode == "live" else AgentMode.DETERMINISTIC)
         self.bus = bus or EventBus(store, clock)
         self.queue = JobQueue(store, clock, owner="agents")
         self._enqueue = enqueue or self.queue.enqueue
