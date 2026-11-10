@@ -95,8 +95,13 @@ function Welcome() {
         TorchRCM is an agentic revenue-cycle demo for a dental practice. Agents work the claims pipeline. <b>Agents propose; the Policy layer decides whether anything runs</b>, and
         a person decides everything the practice’s rules hold back.
       </p>
+      <p className="m-0 max-w-[66ch] text-base leading-relaxed">
+        You see the app as <b>Dana S.</b>, the practice’s billing coordinator: the Inbox is her to-do list. A few controls belong to <b>Dr. Morgan</b>, the dentist who owns
+        the practice, such as moving the demo clock forward. When a step needs him, the tour signs in as him and back for you; the <b>Signed in as</b> menu at the bottom of
+        the sidebar does the same by hand.
+      </p>
       <div className="grid grid-cols-3 gap-2">
-        <Fact k="Clock" v={<Server t={now ? clockLabel(now) : undefined} />} m="frozen; only the owner’s button moves it" />
+        <Fact k="Clock" v={<Server t={now ? clockLabel(now) : undefined} />} m="frozen; only Dr. Morgan’s button moves it" />
         <Fact k="Data" v="Canonical seed" m={<>
           <Num v={s?.open_count} /> open claims, generated from a fixed seed
         </>} />
@@ -368,18 +373,26 @@ const MAIN: Tour = {
         return (
           <>
             <P>
-              Only the owner moves the clock, so Try it switches <b>Signed in as</b> to Dr. Morgan with the app’s own switcher (Dana’s sidebar says “Clock control: Dr. Morgan”), presses
-              his <b>Skip</b> button and switches back. The advance returns 202 at once; the scheduler then fires every due event in sim time: files leave, acknowledgments come back,
-              overnight 835s arrive and <b>each denial goes to the agent its codes name</b>, and the morning status checks fire.
+              The demo’s clock is frozen, so nothing happens on its own. Jumping to the next morning is a control only the owner has, so <b>Try it</b> signs in as Dr. Morgan for
+              a moment, presses his <b>⏭ Skip to …</b> button at the bottom of the sidebar, and signs you back in as Dana.
             </P>
             <P>
-              Right now Dana has <Num v={s?.inbox_open} /> items and the strip shows Denied <Num v={tile('denied')} />. Watch both after the advance.
+              The skip plays out the night as it would at a real practice: today’s claim files go to the payers, the payers confirm they got them, overnight payment and denial files
+              (835s) arrive, and <b>each new denial goes to the agent that handles its reason codes</b>. In the morning, agents check on claims still waiting for an answer.
             </P>
+            <P>
+              Before you press it: Dana has <Num v={s?.inbox_open} /> items in her Inbox and <Num v={tile('denied')} /> claims are denied. Watch the Inbox count in the sidebar
+              and the Denied count at the top change.
+            </P>
+            <Note>
+              Under the hood: the skip returns 202 at once and the scheduler works through every due event in simulated time. The code pane shows the clock, the pipeline counts
+              and the denials list.
+            </Note>
           </>
         )
       },
       tryIt: {
-        label: 'Try it · Skip to the next morning as Dr. Morgan',
+        label: 'Try it · Skip to the next morning (as Dr. Morgan)',
         mutates: true,
         busy: 'Advancing…',
         then: 'stay',
