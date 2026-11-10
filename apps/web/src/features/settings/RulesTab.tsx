@@ -21,7 +21,18 @@ import { findRow, tierViews } from './selectors'
 /** The rule the preview starts on: the one the Delta proposal would change (the mocks' "41 → 44"). */
 export const DEFAULT_PREVIEW_RULE = 'rule_t1_delta_pa'
 
-const COLS = ['Action', 'Scope', 'Mode', 'Confidence floor · base rate', 'Outcome metric', 'Reverses in', 'Ran without review · 7 d', 'Changed', 'Owner sign-off'] as const
+/**
+ * Six columns, not nine: related fields stack in one cell (second line `text-sm text-mid`) so the table fits the
+ * 1280px shell without sideways scroll. `sub` names the second line in the header the way the cell stacks it.
+ */
+const COLS: readonly { label: string; sub?: string; right?: boolean }[] = [
+  { label: 'Action', sub: 'Scope · agent' },
+  { label: 'Mode' },
+  { label: 'Confidence floor · base rate', sub: 'Outcome metric' },
+  { label: 'Reverses in' },
+  { label: 'Ran without review', sub: '7 d · waiting', right: true },
+  { label: 'Owner sign-off', sub: 'Changed' },
+]
 
 export function RulesTab({ data, selected }: { data: RulesOut; selected: string | undefined }) {
   const user = useCurrentUser()
@@ -79,8 +90,9 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
         <thead className="sticky top-0 z-[1] bg-paper">
           <tr>
             {COLS.map((c) => (
-              <th key={c} className={cn('h-8 whitespace-nowrap border-b border-line px-2 text-left text-xs font-medium text-soft', c.startsWith('Ran') && 'text-right')}>
-                {c}
+              <th key={c.label} className={cn('border-b border-line px-2 py-1 text-left align-bottom text-xs font-medium text-soft', c.right && 'text-right')}>
+                {c.label}
+                {c.sub && <div className="font-normal">{c.sub}</div>}
               </th>
             ))}
           </tr>
@@ -105,15 +117,15 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                 onClick={() => select(r.id)}
                 className={cn('h-10 cursor-pointer border-b border-line align-middle', r.id === selectedId ? 'bg-act-bg' : 'hover:bg-hover', r.learned && 'shadow-[inset_3px_0_0_var(--color-ok)]')}
               >
-                <td className="min-w-60 px-2 py-1.5">
+                <td className="min-w-48 px-2 py-1.5">
                   <div className="font-medium">{r.label}</div>
-                  <div className="text-xs text-soft">
-                    ✦ {AGENT_NAME[r.agent]}
+                  <div className="text-sm text-mid">
+                    {r.scope}
+                    <span className="text-soft"> · ✦ {AGENT_NAME[r.agent]}</span>
                     {r.learned && <Chip tone="ok" className="ml-1">learned</Chip>}
                   </div>
                 </td>
-                <td className="min-w-28 px-2 text-sm text-mid">{r.scope}</td>
-                <td className="px-2" onClick={(e) => e.stopPropagation()}>
+                <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                   <ModeControl
                     row={r}
                     busy={patch.isPending || !canChange}
@@ -124,24 +136,30 @@ export function RulesTab({ data, selected }: { data: RulesOut; selected: string 
                     }}
                   />
                 </td>
-                <td className={cn('px-2 text-sm', r.floor.tone === 'warn' ? 'font-semibold text-ink' : r.floor.tone === 'muted' ? 'text-soft' : 'text-ink')}>{r.floor.text}</td>
-                <td className="px-2 text-sm text-mid">{r.outcome}</td>
-                <td className="px-2 text-sm text-mid">{r.reverses}</td>
+                <td className="whitespace-nowrap px-2 py-1.5 text-sm">
+                  <div className={r.floor.tone === 'warn' ? 'font-semibold text-ink' : r.floor.tone === 'muted' ? 'text-soft' : 'text-ink'}>{r.floor.text}</div>
+                  <div className="text-mid">{r.outcome}</div>
+                </td>
+                <td className="px-2 py-1.5 text-sm text-mid">{r.reverses}</td>
                 <td
-                  className="px-2 text-right text-sm"
+                  className="min-w-28 px-2 py-1.5 text-right text-sm"
                   title={r.routine > 0 ? `${r.routine} routine runs this week. Routine payer contact is not a decision, so it stays out of the decisions below · ${r.waiting} waiting in the Inbox` : `${r.ran} ran without review this week · ${r.waiting} waiting in the Inbox`}
                 >
-                  {r.routine > 0 ? (
-                    <>
-                      <b>{count(r.routine)}</b> routine
-                    </>
-                  ) : (
-                    <b>{count(r.ran)}</b>
-                  )}
-                  <span className="text-soft"> · {count(r.waiting)} waiting</span>
+                  <div>
+                    {r.routine > 0 ? (
+                      <>
+                        <b>{count(r.routine)}</b> routine
+                      </>
+                    ) : (
+                      <b>{count(r.ran)}</b>
+                    )}
+                  </div>
+                  <div className="text-mid">{count(r.waiting)} waiting</div>
                 </td>
-                <td className="px-2 text-sm text-mid">{r.changed}</td>
-                <td className={cn('px-2 text-sm', r.signoff.tone === 'ok' ? 'text-ok' : r.signoff.tone === 'warn' ? 'font-semibold text-ink' : 'text-soft')}>{r.signoff.text}</td>
+                <td className="min-w-36 px-2 py-1.5 text-sm">
+                  <div className={cn('text-balance', r.signoff.tone === 'ok' ? 'text-ok' : r.signoff.tone === 'warn' ? 'font-semibold text-ink' : 'text-soft')}>{r.signoff.text}</div>
+                  <div className="text-mid">{r.changed}</div>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -3,7 +3,7 @@
  * cut-off. Leaving in the next file (editable until it leaves) · Sent today with ack stages · Held with reason,
  * held-since, timely filing and owner · Not billable (listed, not counted). Read-only.
  */
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LedgerRow } from '@/api/schema'
 import { useLedger } from '@/hooks/useStatic'
@@ -21,16 +21,38 @@ const claimLink = (r: { claim: { id: string; number: number } }) => (
     #{r.claim.number}
   </Link>
 )
-const move = { header: 'Whose move', cell: (r: { claim: LedgerRow['claim'] }) => <MoveCell move={r.claim.move} />, className: 'whitespace-nowrap' }
+// Tables fit their width at the app's 1280px minimum: related fields stack in one cell and long labels wrap, so the
+// page never scrolls sideways.
+const move = { header: 'Whose move', cell: (r: { claim: LedgerRow['claim'] }) => <MoveCell move={r.claim.move} wrap />, className: 'min-w-44' }
 const NW = 'whitespace-nowrap'
 const who = (r: { claim: { patient: { display_name: string }; payer: { short_name: string } } }) => (
   <span className="whitespace-nowrap">
     <span className="font-medium">{r.claim.patient.display_name}</span> <span className="text-mid">· {r.claim.payer.short_name}</span>
   </span>
 )
+/** Patient · payer with the procedures as a second line, instead of a column of their own. */
+const whoAndWork = {
+  header: 'Patient · payer',
+  cell: (r: { claim: { patient: { display_name: string }; payer: { short_name: string }; procedures: string } }) => (
+    <span className="flex flex-col py-1">
+      {who(r)}
+      <span className="text-sm leading-snug text-mid">{r.claim.procedures}</span>
+    </span>
+  ),
+}
 
+/** An ack stage; a chain ("A7 9:49 AM → A1 10:19 AM") breaks only at its arrows, never inside a code or a time. */
 function Ack({ chip }: { chip: AckChip }) {
-  return <span className={cn('whitespace-nowrap text-sm font-medium', chip.tone === 'ok' ? 'text-ok' : chip.tone === 'bad' ? 'text-risk-ink' : chip.tone === 'pending' ? 'text-mid' : 'text-soft')}>{chip.text}</span>
+  return (
+    <span className={cn('text-sm font-medium', chip.tone === 'ok' ? 'text-ok' : chip.tone === 'bad' ? 'text-risk-ink' : chip.tone === 'pending' ? 'text-mid' : 'text-soft')}>
+      {chip.text.split(' → ').map((part, i) => (
+        <Fragment key={i}>
+          {i > 0 && ' → '}
+          <span className="whitespace-nowrap">{part}</span>
+        </Fragment>
+      ))}
+    </span>
+  )
 }
 
 function Section({ title, sub, children, testId }: { title: string; sub?: string; children: ReactNode; testId: string }) {
@@ -53,8 +75,7 @@ function LeavingTable({ rows, date }: { rows: LedgerRow[]; date: string }) {
       rowKey={(r) => r.claim.id}
       cols={[
         { header: 'Claim', cell: claimLink },
-        { header: 'Patient · payer', cell: who },
-        { header: 'Procedures', cell: (r) => <span className="text-mid">{r.claim.procedures}</span> },
+        whoAndWork,
         { header: 'Billed', cell: (r) => money(r.claim.billed_cents), className: 'text-right tabular-nums' },
         { header: 'Built', cell: (r) => (r.built_at.startsWith(date) ? time(r.built_at) : dateTime(r.built_at)), className: NW },
         { header: 'Checks', cell: (r) => <span className={r.checks_passed === r.checks_total ? 'text-ok' : 'font-medium text-ink'}>{r.checks_passed === r.checks_total ? '✓' : '!'} {r.checks_passed}/{r.checks_total}</span>, className: NW },
@@ -64,7 +85,7 @@ function LeavingTable({ rows, date }: { rows: LedgerRow[]; date: string }) {
           cell: (r) => (
             <>
               <StatusChip status={r.claim.status} />
-              {r.claim.status === 'rejected' && <span className="ml-1.5 whitespace-nowrap text-sm text-mid">fixed, resending</span>}
+              {r.claim.status === 'rejected' && <span className="block whitespace-nowrap text-sm text-mid">fixed, resending</span>}
             </>
           ),
         },
@@ -131,8 +152,7 @@ export function LedgerPage() {
                       rowKey={(r) => r.claim.id}
                       cols={[
                         { header: 'Claim', cell: claimLink },
-                        { header: 'Patient · payer', cell: who },
-                        { header: 'Procedures', cell: (r) => <span className="text-mid">{r.claim.procedures}</span> },
+                        whoAndWork,
                         { header: 'Billed', cell: (r) => money(r.claim.billed_cents), className: 'text-right tabular-nums' },
                         { header: 'File', cell: (r) => time(r.file_time), className: NW },
                         { header: '999', cell: (r) => <Ack chip={ackChips(r.acks, true).file} /> },
@@ -140,7 +160,7 @@ export function LedgerPage() {
                         { header: 'Payer 277CA', cell: (r) => <Ack chip={ackChips(r.acks, true).payer} /> },
                         { header: 'Status', cell: (r) => <StatusChip status={r.claim.status} /> },
                         move,
-                        { header: 'Note', cell: (r) => <span className="text-sm text-mid">{r.note ?? ''}</span>, className: 'min-w-64' },
+                        { header: 'Note', cell: (r) => <span className="text-sm leading-snug text-mid">{r.note ?? ''}</span>, className: 'min-w-48' },
                       ]}
                     />
                   )}

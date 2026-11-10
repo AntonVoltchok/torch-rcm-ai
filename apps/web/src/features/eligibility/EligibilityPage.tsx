@@ -144,7 +144,7 @@ export function EligibilityPage() {
                     <table aria-label="Appointments" data-tour="eligibility-table" className="w-full border-collapse text-base">
                       <thead className="sticky top-0 bg-paper">
                         <tr>
-                          {['Time', 'Patient', 'Provider', 'Payer', 'Planned · est. fee', 'Max left', 'Status'].map((h) => (
+                          {['Time · provider', 'Patient', 'Payer', 'Planned · est. fee', 'Max left', 'Status'].map((h) => (
                             <th key={h} className={cn('h-8 whitespace-nowrap border-b border-line px-2 text-left text-xs font-medium text-soft', h === 'Max left' && 'text-right')}>
                               {h}
                             </th>
@@ -155,7 +155,7 @@ export function EligibilityPage() {
                         return (
                           <tbody key={g.day} aria-label={`${weekday(g.day)} ${shortDate(g.day)}`}>
                             <tr className="bg-fill">
-                              <th colSpan={7} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left text-sm">
+                              <th colSpan={6} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left text-sm">
                                 <button type="button" className="font-semibold text-ink hover:underline" onClick={() => void navigate({ search: (s) => ({ ...s, date: g.day }) })}>
                                   {weekday(g.day)} {shortDate(g.day)}
                                 </button>{' '}
@@ -170,11 +170,13 @@ export function EligibilityPage() {
                                 onClick={() => void navigate({ search: (s) => ({ ...s, appt: r.appointment_id }) })}
                                 className={cn('h-10 cursor-pointer border-b border-line [&>td]:py-1.5', r.appointment_id === search.appt ? 'bg-act-bg' : 'hover:bg-hover')}
                               >
-                                <td className="whitespace-nowrap px-2">{time(r.start)}</td>
+                                <td className="whitespace-nowrap px-2">
+                                  <span className="block">{time(r.start)}</span>
+                                  <span className="block text-sm text-mid">{r.provider_name}</span>
+                                </td>
                                 <td className="whitespace-nowrap px-2 font-medium">{r.patient.display_name}</td>
-                                <td className="whitespace-nowrap px-2 text-mid">{r.provider_name}</td>
                                 <td className="px-2">{r.payer?.short_name ?? '—'}</td>
-                                <td className="min-w-48 px-2">
+                                <td className="px-2">
                                   <span className="block">{planned(r)}</span>
                                   <span className="block text-sm text-mid">est. fee {money(r.planned_fee_cents)}</span>
                                 </td>

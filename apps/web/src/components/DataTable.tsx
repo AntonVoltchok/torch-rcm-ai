@@ -68,7 +68,7 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
                   role="columnheader"
                   key={h.id}
                   aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : undefined}
-                  className={cn('flex px-2 text-xs font-medium text-soft', align)}
+                  className={cn('flex px-1.5 text-xs font-medium text-soft', align)}
                 >
                   {key ? (
                     <button type="button" className={cn('inline-flex items-center gap-1 hover:text-ink', active && 'text-ink')} onClick={() => onSort(key)}>
@@ -104,7 +104,7 @@ export function DataTable<T>({ columns, data, getRowId, sort, onSort, selectedId
               style={{ height: ROW_HEIGHT, transform: `translateY(${vi.start}px)`, gridTemplateColumns: grid }}
             >
               {row.getVisibleCells().map((cell) => (
-                <div role="cell" key={cell.id} className={cn('min-w-0 truncate px-2', cell.column.columnDef.meta?.align === 'right' && 'text-right')}>
+                <div role="cell" key={cell.id} className={cn('min-w-0 truncate px-1.5', cell.column.columnDef.meta?.align === 'right' && 'text-right')}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>
               ))}

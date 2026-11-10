@@ -18,6 +18,16 @@ import { MoveCell } from '@/components/MoveCell'
 import { EVIDENCE_LABEL, groupByDay, rowStyle, weekDays } from './selectors'
 
 const route = getRouteApi('/activity')
+/** Fixed widths so the log fits the main area at the 1280px app minimum; Action takes the rest. Time and agent share a
+ * cell; Outcome fits the widest chip ("would have run · Observe") on one line; Evidence fits two chips a line. */
+const COLUMNS = [
+  ['Time · agent', 'w-[104px]'],
+  ['Action', undefined],
+  ['Claim / patient', 'w-32'],
+  ['Now with', 'w-44'],
+  ['Outcome', 'w-44'],
+  ['Evidence', 'w-40'],
+] as const
 const OUTCOME_LABEL: Record<ActivityOutcome, string> = { ran: 'Ran without you', awaiting: 'Awaiting you', would_have_run: 'Would have run' }
 
 function Stat({ n, label, to }: { n: number; label: string; to?: '/inbox' }) {
@@ -41,16 +51,18 @@ function Row({ r, observe }: { r: ActivityRow; observe: boolean }) {
   const shadow = style === 'would_have_run' || style === 'observe_preview'
   return (
     <tr data-run-id={r.run_id} data-style={style} className={cn('h-10 border-b border-line', shadow && 'italic text-mid')} title={r.audit_line || undefined}>
-      <td className="whitespace-nowrap px-2 text-mid">{time(r.at)}</td>
-      <td className="whitespace-nowrap px-2">{r.agent ? <span className="font-medium text-agents-ink">✦ {AGENT_NAME[r.agent]}</span> : <span className="rounded border border-line px-1.5 text-xs font-medium text-ink">{r.actor ?? 'person'}</span>}</td>
-      <td className="px-2">
+      <td className="whitespace-nowrap px-2 py-1.5">
+        <span className="block text-mid">{time(r.at)}</span>
+        {r.agent ? <span className="block font-medium text-agents-ink">✦ {AGENT_NAME[r.agent]}</span> : <span className="inline-block rounded border border-line px-1.5 text-xs font-medium text-ink">{r.actor ?? 'person'}</span>}
+      </td>
+      <td className="px-2 py-1.5">
         <span>{r.action}</span> {r.tier ? <TierBadge tier={r.tier} compact /> : null}
       </td>
-      <td className="whitespace-nowrap px-2">{r.claim_id ? <Link to="/claims/$claimId" params={{ claimId: r.claim_id }}>{r.subject}</Link> : <span className="text-mid">{r.subject}</span>}</td>
-      <td className="w-56 max-w-56 px-2 not-italic" title="Who holds this claim today, not when this happened">
-        {r.move ? <MoveCell move={r.move} /> : <span className="text-soft">—</span>}
+      <td className="px-2 [overflow-wrap:anywhere]">{r.claim_id ? <Link to="/claims/$claimId" params={{ claimId: r.claim_id }}>{r.subject}</Link> : <span className="text-mid">{r.subject}</span>}</td>
+      <td className="px-2 not-italic" title="Who holds this claim today, not when this happened">
+        {r.move ? <MoveCell move={r.move} wrap /> : <span className="text-soft">—</span>}
       </td>
-      <td className="whitespace-nowrap px-2">
+      <td className="px-2 [overflow-wrap:anywhere]">
         {style === 'would_have_run' ? (
           <Chip tone="dashed">would have run</Chip>
         ) : style === 'observe_preview' ? (
@@ -134,10 +146,15 @@ export function ActivityPage() {
               {d.rows.length === 0 ? (
                 <EmptyState title="Nothing matches these filters">Clear a filter to see the rest of the week.</EmptyState>
               ) : (
-                <table aria-label="Activity" data-tour="activity-table" className="w-full border-collapse text-base">
+                <table aria-label="Activity" data-tour="activity-table" className="w-full table-fixed border-collapse text-base">
+                  <colgroup>
+                    {COLUMNS.map(([h, w]) => (
+                      <col key={h} className={w} />
+                    ))}
+                  </colgroup>
                   <thead className="sticky top-0 bg-paper">
                     <tr>
-                      {['Time', 'Agent', 'Action', 'Claim / patient', 'Now with', 'Outcome', 'Evidence'].map((h) => (
+                      {COLUMNS.map(([h]) => (
                         <th key={h} className="h-8 border-b border-line px-2 text-left text-xs font-medium text-soft">
                           {h}
                         </th>
@@ -147,7 +164,7 @@ export function ActivityPage() {
                   {groupByDay(d).map((g) => (
                     <tbody key={g.day} aria-label={`${weekday(g.day)} ${shortDate(g.day)}`}>
                       <tr className="bg-fill">
-                        <th colSpan={7} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left text-sm font-semibold">
+                        <th colSpan={COLUMNS.length} scope="rowgroup" className="border-b border-line px-2 py-1.5 text-left text-sm font-semibold">
                           {now && g.day === practiceDay(now) ? 'Today · ' : ''}
                           {weekday(g.day)} {shortDate(g.day)} <span className="font-normal text-mid">· {plural(g.count, 'entry', 'entries')}</span>
                         </th>

@@ -115,7 +115,7 @@ test('a screen tour opens on the first visit only, and the sidebar and header re
   await expect(page.locator('[inert]')).toHaveCount(0)
 })
 
-test('a step whose element is gone says so instead of pointing at nothing', async ({ page }) => {
+test('a step whose state the demo has left gets it back before it is drawn', async ({ page }) => {
   test.skip(real, 'UI only; the real target runs @demo')
   await freshWithTours(page)
   await page.getByTestId('tour-modal').getByRole('button', { name: 'Skip, use the app' }).click()
@@ -128,8 +128,11 @@ test('a step whose element is gone says so instead of pointing at nothing', asyn
   await page.getByRole('button', { name: 'All tours' }).click()
   await page.getByRole('menuitem', { name: /Main tour/ }).click()
   await page.getByTestId('tour-modal').getByRole('button', { name: 'Start the tour' }).click()
+  // #4821 is approved, so the first step that follows it resets the practice to the seed first, and says why.
+  await expect(page.getByTestId('tour-preparing')).toContainText('K. Owens #4821 is approved')
+  await expect(page.getByTestId('tour-preparing')).toHaveCount(0, { timeout: 30_000 })
   for (let i = 0; i < 3; i++) await next(page).click()
   await expect(heading(page, 'How #4821 got here')).toBeVisible()
-  await expect(card(page).getByTestId('tour-missing')).toContainText('Not on screen right now')
-  await expect(page.getByTestId('tour-hole')).toHaveCount(0)
+  await expect(page.getByTestId('tour-hole')).toHaveCount(1)
+  await expect(card(page).getByTestId('tour-missing')).toHaveCount(0)
 })

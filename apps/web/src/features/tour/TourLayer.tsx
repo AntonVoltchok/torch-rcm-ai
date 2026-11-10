@@ -227,15 +227,18 @@ function Spotlight({ step }: { step: Step & { waiting?: string } }) {
           setNudge(true)
         }}
       />
+      {/* Keyed apart: if React reused the plain shade's div for the hole, the transition would run from (0, 0) and the
+          spotlight would slide in from the corner on every step. */}
       {hole ? (
         <div
+          key="hole"
           aria-hidden
           data-testid="tour-hole"
           className="pointer-events-none fixed z-40 rounded-[9px] shadow-[0_0_0_200vmax_var(--color-shade)] outline-2 outline-offset-1 outline-act motion-safe:transition-[transform,width,height] motion-safe:duration-200"
           style={hole}
         />
       ) : (
-        <div aria-hidden className="pointer-events-none fixed inset-0 z-40 bg-shade" />
+        <div key="shade" aria-hidden className="pointer-events-none fixed inset-0 z-40 bg-shade" />
       )}
       <div
         ref={card}
