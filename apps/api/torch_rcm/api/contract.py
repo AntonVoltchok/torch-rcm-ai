@@ -263,6 +263,7 @@ ROUTES: tuple[Route, ...] = (
         sse=True,
     ),
     Route("POST", "/runs/{run_id}:cancel", "runs", "Cancel a queued run", Run, errors=(404, 409)),
+    Route("GET", "/system", "system", "Where this API runs: host, commit, stack", S.SystemInfo),
     Route("GET", "/agents/status", "agents", "Agents status", S.AgentsStatus),
     Route("POST", "/agents:pause", "agents", "Pause agents (owner)", S.AgentsStatus, errors=(403,)),
     Route("POST", "/agents:resume", "agents", "Resume agents (owner)", S.AgentsStatus, errors=(403,)),

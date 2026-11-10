@@ -13,6 +13,7 @@ export const qk = {
   clock: ['clock'] as const,
   advance: (id: string) => ['advance', id] as const,
   agents: ['agents'] as const,
+  system: ['system'] as const,
   world: ['world'] as const,
   inbox: {
     all: ['inbox'] as const,

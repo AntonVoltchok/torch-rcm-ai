@@ -74,6 +74,7 @@ def reads(client: TestClient) -> None:
         ("/summary/strip", "StripSummary"),
         ("/clock", "Clock"),
         ("/agents/status", "AgentsStatus"),
+        ("/system", "SystemInfo"),
         ("/views", "ViewList"),
         ("/rules", "RulesOut"),
         ("/rules/changes", "RuleChangeList"),

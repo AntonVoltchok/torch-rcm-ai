@@ -1216,6 +1216,15 @@ const RunList = z
   .object({ items: z.array(Run), total: z.number().int(), next_cursor: z.union([z.string(), z.null()]).optional() })
   .strict()
 const RunDetail = z.object({ run: Run, evidence: z.array(Evidence), last_event_id: z.number().int() }).strict()
+const SystemInfo = z
+  .object({
+    service: z.string(),
+    stack: z.string(),
+    host: z.string(),
+    commit: z.union([z.string(), z.null()]),
+    docs: z.string(),
+  })
+  .strict()
 const AgentsStatus = z
   .object({
     paused: z.boolean(),
@@ -1429,6 +1438,7 @@ export const schemas = {
   ReseedOut,
   RunList,
   RunDetail,
+  SystemInfo,
   AgentsStatus,
   ReseedIn,
   world_reseed_api_v1__world_reseed_post_Body,

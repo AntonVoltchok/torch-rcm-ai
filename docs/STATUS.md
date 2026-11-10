@@ -2,6 +2,16 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-10 — The welcome says a real server answers (Opus 5.5)
+
+**State:** branch `feat/tour-backend-visible`, PR to `main`.
+
+- **`GET /system`:** `{service, stack, host, commit?, docs}`. `host` is `Render` (Render's `RENDER` env var) or `local`; `commit` is the short `RENDER_GIT_COMMIT`. No wall-clock fields. The MSW mock answers `host: "mock"`, so the card never claims a server that is not there.
+- **Welcome card:** a fourth fact, **Backend** (host · deployed commit, API origin · stack), and a sentence that this is not a front-end simulation: every screen reads the FastAPI service over HTTP, agents and the scheduler run there, DevTools › Network shows the calls.
+- **Step 2** began "Nothing here is live", which read as "this is fake"; it now says "No real patients or payers".
+
+**Next:** confirm production's `/api/v1/system` reads `"host": "Render"` with a commit (if Render does not expose `RENDER_GIT_COMMIT` at runtime the card shows "Render" alone).
+
 ## 2026-11-10 — The deployed demo replays recorded Claude responses (Opus 5.5)
 
 **State:** branch `feat/replay-recorded-claude`, PR to `main`. ADR-0013.

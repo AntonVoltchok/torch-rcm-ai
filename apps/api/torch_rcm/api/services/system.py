@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
 from datetime import datetime, timedelta
 
 from torch_rcm.api.errors import ApiError, conflict, not_found, unprocessable
@@ -18,6 +20,7 @@ from torch_rcm.api.schemas import (
     ReseedOut,
     RunDetail,
     RunList,
+    SystemInfo,
     WorldPayer,
 )
 from torch_rcm.api.services.context import Ctx
@@ -166,6 +169,18 @@ def agents_status(ctx: Ctx) -> AgentsStatus:
         running=sum(1 for r in runs if r.status is RunStatus.RUNNING),
         queued=sum(1 for r in runs if r.status is RunStatus.QUEUED),
         paused_runs=sum(1 for r in runs if r.status is RunStatus.PAUSED),
+    )
+
+
+def system_info() -> SystemInfo:
+    """The process's own facts: environment variables Render sets on every deploy, never wall-clock time."""
+    commit = os.environ.get("RENDER_GIT_COMMIT") or None
+    return SystemInfo(
+        service="TorchRCM API",
+        stack=f"FastAPI · Python {sys.version_info.major}.{sys.version_info.minor} · SQLite",
+        host="Render" if os.environ.get("RENDER") else "local",
+        commit=commit[:7] if commit else None,
+        docs="/api/docs",
     )
 
 
