@@ -114,6 +114,6 @@ Presentation over a complete list the server sent is allowed, and these stay in 
 - After merge, run `make seed`: stored `Confidence` gained required fields.
 - `RuleChange.items_affected_since` is a stored, hand-authored count that no run backs. It needs a derived field and run history older than this week.
 - The mock's Paid view is "every paid claim". This equals October on the demo clock and would diverge only past Oct 31.
-- The Claims table scrolls inside its panel at 1280 px, because the whose-move column adds 210 px. The page itself does not overflow.
+- ~~The Claims table scrolls inside its panel at 1280 px.~~ Superseded 2026-11-09: no screen scrolls sideways at 1280 px, in the page or in any panel (`e2e/shell.spec.ts` checks every scroll panel under `<main>`). Tables stay tables. Plain tables stack related fields in one cell (procedures under patient · payer, scope under the rule, time over agent) and let long labels wrap (`MoveCell wrap`, notes, ack chains broken only at their arrows). The virtualised Claims table keeps one-line rows and fits through `minmax` column widths. Cards per row were rejected: these are scan-and-compare screens.
 - The Payments mock-only banner opens the mocks at `#r3-pay`, and an earlier session saw it land on the Overview. Unverified here.
 - Asks still open for the API: `TimelineEntry.short` (the leg word is cut from the title today), `HolderCount.label`, a denial date and follow-up date on Denials rows, and `deadline.days_left`.

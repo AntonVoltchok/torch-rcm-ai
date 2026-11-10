@@ -2,6 +2,15 @@
 
 _Updated by whoever ends a session. Newest first._
 
+## 2026-11-09 — No sideways scroll at 1280; spotlight no longer slides in (Opus 5.5)
+
+**State:** branch `fix/spotlight-and-table-fit`, PR to `main`. ADR-0008 amended.
+
+- **Tables fit:** Ledger, Settings › Agents, Claims, Activity and Eligibility no longer scroll sideways at 1280 or 1440. Related fields stack in one cell, long labels wrap, Claims columns use `minmax`. `e2e/shell.spec.ts` now checks every scroll panel under `<main>`, not just the page; before, it missed all of these.
+- **Spotlight:** keyed the hole apart from the plain shade, so it no longer animates in from the top-left corner on each step.
+- **e2e:** the tour spec's "element is gone" test still expected the old "Not on screen" note; it now checks the reset-before-drawing behaviour. Full e2e (mocks) green: 11 passed, 1 skipped.
+- `useRun.test.tsx` failed once under full-suite load and passed on every rerun: a timing flake to watch.
+
 ## 2026-11-09 — "Show tours automatically" switch (Opus 5.5)
 
 **State:** branch `feat/tour-autoopen-switch`, PR to `main`. ADR-0009 amended.
