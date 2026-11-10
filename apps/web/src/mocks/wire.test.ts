@@ -28,6 +28,7 @@ const parses = (schema: z.ZodTypeAny, value: unknown) => {
 async function reads() {
   await api.clock()
   await api.agentsStatus()
+  await api.system()
   await api.worldPayers()
   await api.strip()
   const inbox = await api.inbox({ state: 'open' })

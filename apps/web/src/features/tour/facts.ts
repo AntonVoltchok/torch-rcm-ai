@@ -3,6 +3,9 @@
  * one cache and can never disagree. Nothing here counts or adds: each value is a field of a response.
  */
 import { useQuery } from '@tanstack/react-query'
+import { api } from '@/api/endpoints'
+import { qk } from '@/api/queryKeys'
+import { API_BASE } from '@/env'
 import { useInboxItem } from '@/hooks/useInbox'
 import { inboxListQuery } from '@/hooks/useInbox'
 import { useStrip } from '@/hooks/useStrip'
@@ -37,6 +40,18 @@ export function useAgentMode(): { kind: 'replay' | 'live' | 'none' | undefined; 
     }
   if (s.mode === 'live') return { kind: 'live', label: 'Live Claude', line: 'Judgment calls go to Claude as you watch; routine work follows rules.' }
   return { kind: 'none', label: 'No model', line: 'Judgment calls use hand-written plans. The recorded Claude responses for these cases are replayed in the test suite.' }
+}
+
+/**
+ * Which server answers this page: the API's own `GET /system` (host and deployed commit from Render's env), plus the
+ * host the client calls. The MSW mock answers `host: 'mock'`, so the card never claims a server that is not there.
+ */
+export function useBackend() {
+  const info = useQuery({ queryKey: qk.system, queryFn: api.system, staleTime: Infinity }).data
+  const origin = API_BASE.startsWith('http') ? new URL(API_BASE).host : API_BASE
+  if (!info) return { info, origin, label: undefined }
+  const label = info.host === 'Render' ? 'Render' : info.host === 'local' ? 'Local API' : 'In-browser mock'
+  return { info, origin, label }
 }
 
 export function useNowLabel() {

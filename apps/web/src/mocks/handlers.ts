@@ -88,6 +88,8 @@ const routes: Route[] = [
     return { scenario: 'canonical', now: db.now, meta: { counts: db.strip() } }
   }],
   ['GET', /^\/agents\/status$/, ({ db }) => db.agentsStatus()],
+  // The mock says it is the mock: the welcome card never claims a server that is not there.
+  ['GET', /^\/system$/, () => ({ service: 'TorchRCM API (MSW mock)', stack: 'Mock Service Worker in this browser', host: 'mock', commit: null, docs: '/api/docs' })],
   ['POST', /^\/agents:pause$/, ({ db, user }) => db.pause(user)],
   ['POST', /^\/agents:resume$/, ({ db, user }) => db.resume(user)],
   ['GET', /^\/_world\/payers$/, () => []],

@@ -3090,6 +3090,27 @@
         }
       }
     },
+    "/api/v1/system": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "System Info",
+        "operationId": "system_info_api_v1_system_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agents/status": {
       "get": {
         "tags": [
@@ -10335,6 +10356,48 @@
           "by_holder"
         ],
         "title": "StripTile"
+      },
+      "SystemInfo": {
+        "properties": {
+          "service": {
+            "type": "string",
+            "title": "Service"
+          },
+          "stack": {
+            "type": "string",
+            "title": "Stack"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "docs": {
+            "type": "string",
+            "title": "Docs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "service",
+          "stack",
+          "host",
+          "commit",
+          "docs"
+        ],
+        "title": "SystemInfo",
+        "description": "Where the API serving this page runs, so the demo can show it is a real server and not an in-browser mock."
       },
       "Tier": {
         "type": "integer",

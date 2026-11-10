@@ -40,6 +40,10 @@ The demo runs on a **frozen, advanceable clock** (default Wed 2026-10-28 10:40 A
 - `GET /runs/stream` → SSE firehose of all run status changes (sidebar "5 agents active") plus `event: advance` (see Clock) and `event: agents` `{paused, by, at}`.
 - `POST /runs/{id}:cancel` (only while `queued`).
 
+## System
+
+- `GET /system` → `{service, stack, host, commit?, docs}`: where this API runs. `host` is `Render` on the deployed API (from Render's `RENDER` env var) and `local` otherwise; `commit` is the short `RENDER_GIT_COMMIT`. The welcome tour card shows it so an evaluator can see the screens read a real server. No wall-clock fields.
+
 ## Agents (runtime control)
 
 - `GET /agents/status` → `{paused, paused_by?, paused_at?, mode: deterministic|live, live_agents[], running, queued, paused_runs}`.

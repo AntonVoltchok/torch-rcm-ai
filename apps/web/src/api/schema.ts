@@ -106,6 +106,7 @@ export const {
   SavedView,
   StatusCount,
   StripChange,
+  SystemInfo,
   Tier,
   TierGroup,
   TimelineEntry,

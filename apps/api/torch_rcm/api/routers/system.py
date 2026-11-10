@@ -21,6 +21,7 @@ from torch_rcm.api.schemas import (
     ReseedOut,
     RunDetail,
     RunList,
+    SystemInfo,
     WorldPayer,
 )
 from torch_rcm.api.services import system as svc
@@ -164,6 +165,14 @@ async def run_events(
 @router.post("/runs/{run_id}:cancel", response_model=Run, tags=["runs"])
 def cancel_run(ctx: CtxDep, run_id: str) -> Run:
     return svc.cancel_run(ctx, run_id)
+
+
+# ── system ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/system", response_model=SystemInfo, tags=["system"])
+def system_info() -> SystemInfo:
+    return svc.system_info()
 
 
 # ── agents ─────────────────────────────────────────────────────────────────────────────────────────────────

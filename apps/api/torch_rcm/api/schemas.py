@@ -644,6 +644,18 @@ class AgentsStatus(Schema):
     paused_runs: int
 
 
+class SystemInfo(Schema):
+    """Where the API serving this page runs, so the demo can show it is a real server and not an in-browser mock."""
+
+    service: str
+    stack: str
+    # "Render" on the deployed API, "local" under `make dev`; the web's MSW mock answers "mock".
+    host: str
+    # The deployed git commit (Render's RENDER_GIT_COMMIT, short); null on a local run.
+    commit: str | None
+    docs: str
+
+
 # ── settings ───────────────────────────────────────────────────────────────────────────────────────────────
 
 

@@ -29,6 +29,7 @@ export const api = {
   advanceStatus: (id: string) => http.get(`/clock/advance/${enc(id)}`, S.AdvanceOut),
   resetClock: () => http.post('/clock/reset', S.ClockReset),
   agentsStatus: () => http.get('/agents/status', S.AgentsStatus),
+  system: () => http.get('/system', S.SystemInfo),
   pauseAgents: () => http.post('/agents:pause', S.AgentsStatus),
   resumeAgents: () => http.post('/agents:resume', S.AgentsStatus),
   worldPayers: () => http.get('/_world/payers', z.array(S.WorldPayer)),

@@ -12,7 +12,7 @@ import { clockLabel } from '@/lib/format'
 import { useDenials, useEligibility, useActivity } from '@/hooks/useStatic'
 import { useRules } from '@/hooks/useRules'
 import { findAnchor, hover } from './anchors'
-import { FOLLOWED, useAgentMode, useFollowedGroup, useFollowedItem, useLaunchChange, useNowLabel, useStripFacts } from './facts'
+import { FOLLOWED, useAgentMode, useBackend, useFollowedGroup, useFollowedItem, useLaunchChange, useNowLabel, useStripFacts } from './facts'
 import { Num, Server } from './Num'
 import type { CodeTab, Step, Tour, TourId, TryIt } from './types'
 
@@ -88,6 +88,7 @@ function Welcome() {
   const now = useNowLabel()
   const mode = useAgentMode()
   const { s } = useStripFacts()
+  const backend = useBackend()
   return (
     <>
       <p className="m-0 max-w-[66ch] text-base leading-relaxed">
@@ -99,7 +100,38 @@ function Welcome() {
         screen and signing off on rule changes are his. Under <b>Demo controls</b> at the bottom of the sidebar you can switch who you are, skip the frozen clock ahead and
         reset the demo. Those controls are the demo’s, not the product’s.
       </p>
-      <div className="grid grid-cols-3 gap-2">
+      <p className="m-0 max-w-[66ch] text-base leading-relaxed">
+        <b>This is not a front-end simulation.</b> Every screen reads a FastAPI service over HTTP, the agents and the scheduler run on that server, and its SQLite store
+        keeps what you change. Open DevTools › Network to watch the calls.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <Fact
+          k="Backend"
+          v={
+            backend.label ? (
+              <>
+                {backend.label}
+                {backend.info?.commit && (
+                  <>
+                    {' · '}
+                    <Server t={backend.info.commit} />
+                  </>
+                )}
+              </>
+            ) : (
+              <Server t={undefined} />
+            )
+          }
+          m={
+            backend.info ? (
+              <>
+                <Server t={backend.origin} /> · <Server t={backend.info.stack} />
+              </>
+            ) : (
+              'the API this page calls'
+            )
+          }
+        />
         <Fact k="Clock" v={<Server t={now ? clockLabel(now) : undefined} />} m="frozen; the Skip button under Demo controls moves it" />
         <Fact k="Data" v="Canonical seed" m={<>
           <Num v={s?.open_count} /> open claims, generated from a fixed seed
@@ -143,7 +175,7 @@ const MAIN: Tour = {
         return (
           <>
             <P>
-              Nothing here is live. <C>make seed</C> builds the practice from a fixed random seed and pins the named records the demo depends on, #4821 among them; everything else is
+              No real patients or payers: <C>make seed</C> builds the practice from a fixed random seed and pins the named records the demo depends on, #4821 among them; everything else is
               generated so the totals reconcile.
             </P>
             <P>
